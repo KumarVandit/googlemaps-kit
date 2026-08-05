@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2
+
+- Higher-resolution README banner (2048px PNG, fixes blurry GitHub/npm display)
+
 ## 0.1.1
 
 - README banner image (`assets/banner.png`) for GitHub and npm
