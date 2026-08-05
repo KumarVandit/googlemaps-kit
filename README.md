@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/banner.png" alt="googlemaps-kit — TypeScript SDK for Google Maps consumer surfaces" width="2048" style="max-width: 100%; height: auto;">
+  <img src="./assets/banner.png" alt="googlemaps-kit — TypeScript SDK for Google Maps consumer surfaces" width="1536" style="max-width: 100%; height: auto;">
 </p>
 
 # googlemaps-kit

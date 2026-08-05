@@ -1,6 +1,6 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TypeScript SDK for Google Maps consumer HTTP surfaces",
   "type": "module",
   "main": "./dist/index.js",

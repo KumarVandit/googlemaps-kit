@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.3
+
+- Replace README banner with native 1536×1024 PNG (fixes soft JPEG upscaling)
+
 ## 0.1.2
 
 - Higher-resolution README banner (2048px PNG, fixes blurry GitHub/npm display)
