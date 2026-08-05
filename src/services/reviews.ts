@@ -29,7 +29,7 @@ export interface GetReviewsOptions {
   sort?: ReviewSortOrder;
   /**
    * Filter parsed rows client-side. Anonymous Boq ignores server-side search/filter pb —
-   * See docs/internal/FINDINGS-endpoints.md for the reviews wire format.
+   * See `src/parsers/reviews.ts` for the reviews wire format.
    */
   filters?: ReviewClientFilters;
   /**

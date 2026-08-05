@@ -16,5 +16,5 @@ Copy `.env.example` to `.env.local` for locale overrides (`GMAPS_HL`, `GMAPS_GL`
 
 - Small, focused diffs
 - Tests for parsers and builders
-- Live verify scripts for new network surfaces when practical
-- Update `src/known-surfaces.ts` and `docs/internal/SURFACES.md` when surface status changes
+- Update `src/known-surfaces.ts` when surface status changes
+- Run `npm run verify:all` before merging network-facing changes when practical

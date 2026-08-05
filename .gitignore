@@ -24,6 +24,20 @@ tmp/
 **/capture.log
 **/cdp-*.json
 
+# Maintainer-only tooling (not part of the public repo)
+scripts/archive/
+scripts/capture-*.ts
+scripts/analyze-*.ts
+scripts/benchmark.ts
+scripts/audit-quality.ts
+scripts/registry-summary.ts
+scripts/save-fixtures.ts
+scripts/smoke-api-server.ts
+scripts/verify-*.ts
+!scripts/verify-all.ts
+docs/internal/
+examples/internal/
+
 # Generated multi-lang SDKs (regenerate via Stainless)
 sdks/*
 !sdks/.gitkeep

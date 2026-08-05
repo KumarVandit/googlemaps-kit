@@ -21,8 +21,10 @@ block without notice. Intended for research and personal tooling, not bulk scrap
 
 ## How it works
 
-1. **Session bootstrap** — On first use, the client fetches Google/Maps HTML over HTTP and
-   stores anonymous cookies (for example `NID`, `AEC`). See `src/auth/session.ts`.
+1. **Anonymous bootstrap** — On first use, the client makes a short HTTP handshake
+   (`google.com` → consent → Maps) and keeps **anonymous** cookies such as `NID` and
+   `AEC`. No Google account, API key, or cookies to configure — this is bot/consent
+   context, not user login. See `src/auth/session.ts`.
 2. **API calls** — Services build request URLs and protobuf payloads, then parse JSON
    responses into typed results.
 3. **No headless browser** — Chromium/Playwright is not used at runtime. The only

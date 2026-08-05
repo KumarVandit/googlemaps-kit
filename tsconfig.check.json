@@ -6,5 +6,5 @@
     "outDir": "./dist-check"
   },
   "include": ["src/**/*", "examples/**/*", "scripts/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist", "scripts/archive", "examples/internal"]
+  "exclude": ["node_modules", "dist"]
 }
