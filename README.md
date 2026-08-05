@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/banner.png" alt="googlemaps-kit — TypeScript SDK for Google Maps consumer surfaces" width="100%">
+</p>
+
 # googlemaps-kit
 
 > TypeScript SDK for programmatic access to Google Maps consumer surfaces.

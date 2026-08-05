@@ -22,7 +22,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "assets/banner.png"
   ],
   "sideEffects": false,
   "engines": {
