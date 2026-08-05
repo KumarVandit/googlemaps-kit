@@ -2,13 +2,11 @@
 
 ## Unreleased
 
-### Public API (anonymous-only v1)
+## 0.1.1
 
-- README rewritten: notebooklm-style feature tables, short quick start
-- Examples renamed (`search-text.ts`, `place-get.ts`, `quick-start.ts`, …)
-- Removed `maps.askMaps`, `maps.auth`, and user cookie config from public client
-- npm package: `dist/`, `README.md`, `LICENSE` only
-- Auth scripts archived (`auth-login`, `verify-signed-in`, `verify-ask-maps`)
+- README banner image (`assets/banner.png`) for GitHub and npm
+- README: clarify anonymous bootstrap (not user login)
+- GitHub repo pruned to public-facing SDK, examples, and release scripts
 
 ## 0.1.0
 
