@@ -1,0 +1,776 @@
+{
+  "encoding": {
+    "algorithm": "Nxa.toString",
+    "offset": 2147483648,
+    "formula": "rpcid = Nxa(fieldNumber + 2147483648)"
+  },
+  "infrastructure": {
+    "xsrf": {
+      "field": 48448350,
+      "rpcid": "AvYl1c",
+      "name": "xsrf"
+    },
+    "batchEnvelope": {
+      "field": 463303444,
+      "rpcid": "eEpPyd",
+      "jd": "KpfDkf"
+    }
+  },
+  "featureServices": {
+    "crisis_wildfires": {
+      "rpcid": "v2iAld",
+      "field": 299174093,
+      "transport": "batchexecute"
+    },
+    "air-quality": {
+      "rpcid": "GivvBd",
+      "field": 496503080,
+      "transport": "batchexecute"
+    },
+    "air-quality-heatmap": {
+      "rpcid": "FQvEwd",
+      "field": 436338559,
+      "transport": "batchexecute"
+    },
+    "directions": {
+      "rpcid": "yGjtvd",
+      "field": 421707520,
+      "transport": "batchexecute"
+    },
+    "map-actions": {
+      "rpcid": "Ai4NDd",
+      "field": 525000010,
+      "transport": "batchexecute"
+    },
+    "destinations": {
+      "rpcid": "zi4NDd",
+      "field": 525000009,
+      "transport": "batchexecute"
+    },
+    "place-data": {
+      "rpcid": "PpHItd",
+      "field": 399996237,
+      "transport": "batchexecute"
+    },
+    "categorical-search": {
+      "rpcid": "Zrzurd",
+      "field": 372386015,
+      "transport": "batchexecute"
+    }
+  },
+  "mapsAiAgent": [
+    {
+      "field": 25000002,
+      "rpcid": "MrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000003,
+      "rpcid": "NrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000004,
+      "rpcid": "OrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000005,
+      "rpcid": "PrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000006,
+      "rpcid": "QrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000007,
+      "rpcid": "RrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000008,
+      "rpcid": "SrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000009,
+      "rpcid": "TrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000010,
+      "rpcid": "UrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000011,
+      "rpcid": "VrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000012,
+      "rpcid": "WrFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000019,
+      "rpcid": "dsFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000020,
+      "rpcid": "esFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000025,
+      "rpcid": "jsFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000027,
+      "rpcid": "lsFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000028,
+      "rpcid": "msFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000030,
+      "rpcid": "osFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000031,
+      "rpcid": "psFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000032,
+      "rpcid": "qsFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000033,
+      "rpcid": "rsFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000034,
+      "rpcid": "ssFsZc",
+      "service": "MapsAiAgentService"
+    },
+    {
+      "field": 25000056,
+      "rpcid": "OsFsZc",
+      "service": "MapsAiAgentService"
+    }
+  ],
+  "allRpcMethods": [
+    {
+      "field": 126,
+      "rpcid": "U8ArXc",
+      "msgClass": "ZHg",
+      "descClass": "pIg",
+      "module": "combined"
+    },
+    {
+      "field": 363,
+      "rpcid": "xdBrXc",
+      "msgClass": "_.ax",
+      "descClass": "F3g",
+      "module": "combined"
+    },
+    {
+      "field": 618,
+      "rpcid": "siBrXc",
+      "msgClass": "_.ax",
+      "descClass": "pIg",
+      "module": "combined"
+    },
+    {
+      "field": 1326,
+      "rpcid": "YvBrXc",
+      "msgClass": "_.ax",
+      "descClass": "D3g",
+      "module": "combined"
+    },
+    {
+      "field": 25000002,
+      "rpcid": "MrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.kTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000003,
+      "rpcid": "NrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.dTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000004,
+      "rpcid": "OrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.oTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000005,
+      "rpcid": "PrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.qTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000006,
+      "rpcid": "QrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.sTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000007,
+      "rpcid": "RrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.mTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000008,
+      "rpcid": "SrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.WSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000009,
+      "rpcid": "TrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.eSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000010,
+      "rpcid": "UrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.ZRb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000011,
+      "rpcid": "VrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.USb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000012,
+      "rpcid": "WrFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.ZJ,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000019,
+      "rpcid": "dsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.YJ,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000020,
+      "rpcid": "esFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.rSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000025,
+      "rpcid": "jsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.nUb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000027,
+      "rpcid": "lsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "Igc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000028,
+      "rpcid": "msFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.wSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000030,
+      "rpcid": "osFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.mSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000031,
+      "rpcid": "psFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.pSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000032,
+      "rpcid": "qsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "_.gTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000033,
+      "rpcid": "rsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "Kgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000034,
+      "rpcid": "ssFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "Hgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 25000056,
+      "rpcid": "OsFsZc",
+      "msgClass": "_.Rs",
+      "descClass": "Jgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 28517612,
+      "rpcid": "ewgKZc",
+      "msgClass": "_.Xs",
+      "descClass": "_.kTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 30096869,
+      "rpcid": "vmaSZc",
+      "msgClass": "_.Ts",
+      "descClass": "_.oTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 30511227,
+      "rpcid": "RSeUZc",
+      "msgClass": "_.Xs",
+      "descClass": "_.dTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 30929027,
+      "rpcid": "xtkWZc",
+      "msgClass": "_.Xs",
+      "descClass": "_.aSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 32819068,
+      "rpcid": "uIM5Zc",
+      "msgClass": "_.Ts",
+      "descClass": "_.pSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 33356690,
+      "rpcid": "ott8Zc",
+      "msgClass": "_.Xs",
+      "descClass": "_.sTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 40154408,
+      "rpcid": "GWtG0c",
+      "msgClass": "_.Xs",
+      "descClass": "_.ZRb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 40251317,
+      "rpcid": "n0XG0c",
+      "msgClass": "_.Xs",
+      "descClass": "_.mTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 42466818,
+      "rpcid": "cc3R0c",
+      "msgClass": "_.Xs",
+      "descClass": "_.rSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 43229016,
+      "rpcid": "KBRV0c",
+      "msgClass": "_.Xs",
+      "descClass": "_.WSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 48185015,
+      "rpcid": "tPEk1c",
+      "msgClass": "_.om",
+      "descClass": "class extends _.t{constructor(a",
+      "module": "combined"
+    },
+    {
+      "field": 48343962,
+      "rpcid": "c8rl1c",
+      "msgClass": "_.Zs",
+      "descClass": "_.gTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 48448350,
+      "rpcid": "AvYl1c",
+      "msgClass": "_.om",
+      "descClass": "Axa",
+      "module": "combined"
+    },
+    {
+      "field": 49095464,
+      "rpcid": "aedp1c",
+      "msgClass": "_.Zs",
+      "descClass": "Kgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 50242228,
+      "rpcid": "iVWu1c",
+      "msgClass": "_.om",
+      "descClass": "zmb",
+      "module": "combined"
+    },
+    {
+      "field": 51650189,
+      "rpcid": "rDZB1c",
+      "msgClass": "_.Xs",
+      "descClass": "_.eSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 52617685,
+      "rpcid": "bJPG1c",
+      "msgClass": "_.Ts",
+      "descClass": "_.mSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 53863091,
+      "rpcid": "h13M1c",
+      "msgClass": "_.Xs",
+      "descClass": "_.YJ,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 60681369,
+      "rpcid": "TRal2c",
+      "msgClass": "_.Xs",
+      "descClass": "_.USb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 106627163,
+      "rpcid": "R2125c",
+      "msgClass": "_.om",
+      "descClass": "smb",
+      "module": "combined"
+    },
+    {
+      "field": 135491995,
+      "rpcid": "N9qn8c",
+      "msgClass": "_.Xs",
+      "descClass": "_.ZJ,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 153782030,
+      "rpcid": "kfWQ9c",
+      "msgClass": "_.Xs",
+      "descClass": "Jgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 172661375,
+      "rpcid": "B7nnbd",
+      "msgClass": "_.Xs",
+      "descClass": "_.qTb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 175237375,
+      "rpcid": "Z7gAbd",
+      "msgClass": "ZKb",
+      "descClass": "class extends _.t{constructor(a",
+      "module": "combined"
+    },
+    {
+      "field": 203522521,
+      "rpcid": "frMRdd",
+      "msgClass": "_.om",
+      "descClass": "$xa",
+      "module": "combined"
+    },
+    {
+      "field": 216564156,
+      "rpcid": "OB1Ued",
+      "msgClass": "_.Ts",
+      "descClass": "Igc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 278731023,
+      "rpcid": "x81Vjd",
+      "msgClass": "_.om",
+      "descClass": "Fxa",
+      "module": "combined"
+    },
+    {
+      "field": 282806283,
+      "rpcid": "Raqgkd",
+      "msgClass": "_.Xs",
+      "descClass": "_.nUb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 299174093,
+      "rpcid": "v2iAld",
+      "msgClass": "_.Fy",
+      "descClass": "_.Xm",
+      "module": "combined"
+    },
+    {
+      "field": 343593479,
+      "rpcid": "tLwapd",
+      "msgClass": "_.Ts",
+      "descClass": "Hgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 343593480,
+      "rpcid": "uLwapd",
+      "msgClass": "_.Ts",
+      "descClass": "_.wSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 372386015,
+      "rpcid": "Zrzurd",
+      "msgClass": "_.sr",
+      "descClass": "class extends _.t{constructor(a",
+      "module": "combined"
+    },
+    {
+      "field": 376862676,
+      "rpcid": "GZXQrd",
+      "msgClass": "_.Zs",
+      "descClass": "Hgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 376862677,
+      "rpcid": "HZXQrd",
+      "msgClass": "_.Zs",
+      "descClass": "_.wSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 379780825,
+      "rpcid": "T7y5rd",
+      "msgClass": "_.Xs",
+      "descClass": "_.wSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 399996237,
+      "rpcid": "PpHItd",
+      "msgClass": "_.Fy",
+      "descClass": "_.Hy",
+      "module": "combined"
+    },
+    {
+      "field": 421707520,
+      "rpcid": "yGjtvd",
+      "msgClass": "_.Fy",
+      "descClass": "_.Enb",
+      "module": "combined"
+    },
+    {
+      "field": 436338559,
+      "rpcid": "FQvEwd",
+      "msgClass": "_.Fy",
+      "descClass": "_.Iy",
+      "module": "combined"
+    },
+    {
+      "field": 463303444,
+      "rpcid": "eEpPyd",
+      "msgClass": "_.om",
+      "descClass": "Yxa",
+      "module": "combined"
+    },
+    {
+      "field": 474430528,
+      "rpcid": "yY4Izd",
+      "msgClass": "_.mO",
+      "descClass": "_.wSb,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 474430529,
+      "rpcid": "zY4Izd",
+      "msgClass": "_.mO",
+      "descClass": "Hgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 491381901,
+      "rpcid": "vQS5Ad",
+      "msgClass": "_.lO",
+      "descClass": "_.YJ,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 491381902,
+      "rpcid": "wQS5Ad",
+      "msgClass": "_.lO",
+      "descClass": "Hgc,_.Nb",
+      "module": "combined"
+    },
+    {
+      "field": 496503080,
+      "rpcid": "GivvBd",
+      "msgClass": "_.Fy",
+      "descClass": "_.vr",
+      "module": "combined"
+    },
+    {
+      "field": 525000009,
+      "rpcid": "zi4NDd",
+      "msgClass": "_.Fy",
+      "descClass": "Fob",
+      "module": "combined"
+    },
+    {
+      "field": 525000010,
+      "rpcid": "Ai4NDd",
+      "msgClass": "_.Fy",
+      "descClass": "_.Gy",
+      "module": "combined"
+    }
+  ],
+  "jdServices": {
+    "rTCZff": "Wxa",
+    "KpfDkf": "Yxa",
+    "jCvsMd": "Gm",
+    "WTNmv": "Hm",
+    "dhHkVc": "Kn",
+    "DzddFf": "On",
+    "hZJcjf": "Pn",
+    "moasRd": "Zn",
+    "CNWU5e": "XBa",
+    "cCHt5d": "ao",
+    "v3Bbmc": "tg",
+    "pUMjxc": "q",
+    "CEnkte": "Ks",
+    "nvNove": "dt",
+    "zNdXX": "tYa",
+    "N3FmZb": "ft",
+    "mgzXhd": "xt",
+    "TyFfQb": "Xqb",
+    "GkHlod": "fD",
+    "MgyuKd": "srb",
+    "We9Kzc": "yD",
+    "aRnFrf": "dJb",
+    "uRsS0c": "PL",
+    "C1qV3": "Bjb",
+    "WwTQs": "Fxb",
+    "R6fnef": "Ixb",
+    "i50kQ": "s_",
+    "yZmx3b": "eRf",
+    "qBcNy": "l6g",
+    "FfQQOc": "H7g",
+    "rdrCjf": "fRf",
+    "c3tLN": "Igh",
+    "rIVnrc": "Jgh",
+    "RUI7Hc": "Bhh",
+    "fOkEif": "gWe"
+  },
+  "semanticSurfaces": {
+    "place": "GET /maps/preview/place?pb=",
+    "search": "GET /search?tbm=map&pb=",
+    "reviews_boq": "GET httpservice GetLocalBoqProxy",
+    "reviews_ugc": "GET /maps/rpc/listugcposts?pb=",
+    "knowledge": "GET /maps/rpc/getknowledgeentity",
+    "local_posts": "GET /maps/preview/localposts",
+    "directions_ui": "GET /maps/preview/directions"
+  },
+  "uiRouteTypes": {
+    "ofa": "air-quality",
+    "x_": "ask-maps",
+    "S6": "contributions",
+    "Afa": "crisis",
+    "Gfa": "debug",
+    "V6": "departure-board",
+    "NU": "directions",
+    "z_": "directory",
+    "gta": "editable-features",
+    "EMPTY": "empty",
+    "Y6": "enroute",
+    "ERROR": "error",
+    "A_": "ev-info-for-hosts",
+    "Ata": "expanded-filters",
+    "Kta": "freeform-data",
+    "d7": "gallery",
+    "e7": "geocode",
+    "f7": "geopolitical",
+    "eva": "knowledge",
+    "QN": "list",
+    "LOADING": "loading",
+    "w7": "local-post-expanded",
+    "Fva": "location-sharing",
+    "P_": "my-maps",
+    "jL": "open-hours",
+    "D7": "person-location",
+    "B7": "personal-activities",
+    "H7": "photo-updates",
+    "YQ": "place",
+    "I7": "place-bundles",
+    "J7": "place-contributions",
+    "K7": "place-qa",
+    "rga": "planets",
+    "SN": "publish-private-photo",
+    "kV": "saved-place-list",
+    "uz": "service-alert",
+    "S7": "suppressed-results",
+    "Jga": "transit-line",
+    "MD": "trip-details",
+    "Wga": "your-places",
+    "Exa": "shortlist",
+    "jya": "timeline",
+    "Pxa": "street-view-remix"
+  },
+  "stats": {
+    "modulesAnalyzed": 104,
+    "gcMethods": 72,
+    "jdServices": 35,
+    "mapsAiAgentMethods": 22
+  }
+}

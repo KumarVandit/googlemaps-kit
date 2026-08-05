@@ -1,0 +1,46 @@
+[
+  [
+    "partial place",
+    [
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "tokenA",
+        "tokenB",
+        null,
+        null,
+        null,
+        null,
+        [
+          "tokenA",
+          "tokenB",
+          ["Main Street", "Springfield"],
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          [null, null, 39.7817, -89.6501],
+          null,
+          "Springfield City Hall",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "Springfield City Hall, Main Street, Springfield"
+        ]
+      ]
+    ]
+  ],
+  null,
+  0
+]

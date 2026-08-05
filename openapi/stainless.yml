@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://app.stainless.com/config.schema.json
+# Stainless config for googlemaps-kit — generate multi-language SDKs from openapi.yaml
+# Docs: https://www.stainless.com/docs/sdks/configure/
+
+organization:
+  name: googlemaps-kit
+  docs: https://github.com/KumarVandit/googlemaps-kit#readme
+  contact: security@localhost
+
+settings:
+  license: MIT
+
+edition: "2025-10-08"
+
+environments:
+  local: http://127.0.0.1:8787
+  production: http://127.0.0.1:8787
+
+resources:
+  $client:
+    methods:
+      health: get /v1/health
+  places:
+    models:
+      place_summary: "#/components/schemas/PlaceSummary"
+      place_details: "#/components/schemas/PlaceDetails"
+      search_text_response: "#/components/schemas/SearchTextResponse"
+    methods:
+      search_text: post /v1/places/search_text
+      get: post /v1/places/get
+  directions:
+    models:
+      directions_result: "#/components/schemas/DirectionsResult"
+    methods:
+      get: post /v1/directions
+  geocode:
+    models:
+      geocode_response: "#/components/schemas/GeocodeResponse"
+    methods:
+      lookup: post /v1/geocode
+  timezone:
+    models:
+      timezone_result: "#/components/schemas/TimezoneResult"
+    methods:
+      get: post /v1/timezone
+  distance_matrix:
+    models:
+      distance_matrix_result: "#/components/schemas/DistanceMatrixResult"
+    methods:
+      get: post /v1/distance_matrix
+  elevation:
+    models:
+      elevation_result: "#/components/schemas/ElevationResult"
+    methods:
+      get: post /v1/elevation
+
+client_settings:
+  opts:
+    gmaps_cookies:
+      type: string
+      nullable: true
+      auth:
+        security_scheme: SessionCookies
+      read_env: GMAPS_COOKIES
+
+readme:
+  example_requests:
+    default:
+      type: request
+      endpoint: post /v1/places/search_text
+      params:
+        body:
+          query: restaurants in hsr layout
+          location:
+            lat: 12.91
+            lng: 77.63
+          limit: 5
+    headline:
+      type: request
+      endpoint: post /v1/places/search_text
+      params:
+        body:
+          query: restaurants in hsr layout
+          limit: 5
+
+targets:
+  typescript:
+    edition: typescript.2025-10-10
+    package_name: googlemaps-kit-api
+    publish:
+      npm: false
+  python:
+    edition: python.2025-10-08
+    package_name: googlemaps_kit
+    project_name: googlemaps-kit
+    publish:
+      pypi: false
+  go:
+    edition: go.2025-10-08
+    package_name: googlemapskit
+    publish: {}

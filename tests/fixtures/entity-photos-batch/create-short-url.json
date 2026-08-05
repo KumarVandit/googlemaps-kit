@@ -1,0 +1,10 @@
+{
+  "summary": {
+    "rpc": "/MapsUrlService.CreateShortUrl",
+    "errorCode": null,
+    "shortUrl": "https://maps.app.goo.gl/AEVE6kU9wBuZAfjv6"
+  },
+  "raw": [
+    "https://maps.app.goo.gl/AEVE6kU9wBuZAfjv6"
+  ]
+}

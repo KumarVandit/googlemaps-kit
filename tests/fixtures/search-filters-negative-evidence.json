@@ -1,0 +1,63 @@
+{
+  "conclusion": "No search filter encoding produces real filtering on anonymous GET /search?tbm=map",
+  "verifiedAt": "2026-07-31",
+  "query": "restaurants",
+  "location": { "lat": 12.9168, "lng": 77.645 },
+  "carriers": {
+    "tbs": {
+      "status": "ignored",
+      "evidence": "14 tbs= tokens (lf_od:1, mr:1,price:N, mr:1,avg:N, hc:dates, etc.) all return HTTP 200 with identical 19-result set vs baseline",
+      "candidates": [
+        "lf:1",
+        "lf_od:1",
+        "lf:1,lf_od:1",
+        "mr:1,price:1",
+        "mr:1,price:2",
+        "mr:1,price:3",
+        "mr:1,price:4",
+        "mr:1,avg:4",
+        "mr:1,avg:4.5",
+        "mr:1,avg:3",
+        "qdr:h",
+        "hq:h",
+        "hc:2026-08-01,2026-08-03",
+        "ht:20260801,20260803"
+      ]
+    },
+    "queryParams": {
+      "status": "ignored",
+      "evidence": "Extra query params return identical result set",
+      "candidates": ["open_state=now", "min_rating=4.0", "min_price=1&max_price=2", "open_now=1", "rating=4"]
+    },
+    "pbSuffixField50": {
+      "status": "broken",
+      "evidence": "Appending !50m{slot} blocks to simplified search pb returns HTTP 200 with ZERO results — malformed pb, not filtered results",
+      "minedEncoding": {
+        "openNow": "!50m2!1m1!1i3!2m1!1i1",
+        "minRating4": "!50m2!1m1!1i2!2m1!1i8",
+        "priceLevel2": "!50m2!1m1!1i1!2m1!1i2",
+        "hotelDates": "!50m2!1m1!1i14!2m2!1s{checkIn}!2s{checkOut}"
+      },
+      "source": "FRNZOb.js (A2b/yM/C2b chip values, _.m4b slot map) + eH4Qrd.js (_.BF field 50 xB map)"
+    },
+    "livePbField50Injection": {
+      "status": "pb_corruption_not_filtering",
+      "evidence": "Replacing !50m3!2e2!3m1!3b1 in live captured pb changes count 22→19 but yields the SAME 19 places as unfiltered simplified pb; open_now and min_rating4 remove identical 3 places (not closed/low-rated); min rating in 'filtered' set still 4.1 with baseline min 4.0",
+      "candidates": [
+        "!50m4!1m1!1i3!2m1!1i1!2e2!3m1!3b1",
+        "!50m4!1m1!1i2!2m1!1i8!2e2!3m1!3b1",
+        "!50m4!1m1!1i1!2m1!1i2!2e2!3m1!3b1"
+      ]
+    }
+  },
+  "clientArchitecture": {
+    "filterStorage": "Request proto field 50 (_.BF) → xB map keyed by slot → gE value (eH4Qrd.js lrg/Se merge)",
+    "uiChips": {
+      "openHours": "A2b('Open now', 1) / A2b('Open 24 hours', 2) → slot 3",
+      "rating": "yM('4.0', 8) etc → slot 2, codes 4–9",
+      "price": "C2b('$$', 2) bitmask → slot 1 or 19",
+      "hotelDates": "kAb → slot 14"
+    },
+    "anonymousSession": "Browser capture shows zero batchexecute calls; filters may require authenticated Wiz session or a different RPC surface"
+  }
+}

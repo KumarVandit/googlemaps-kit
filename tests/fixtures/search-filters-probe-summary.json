@@ -1,0 +1,61 @@
+{
+  "probedAt": "2026-07-30T20:32:58.751Z",
+  "endpoint": "GET /search?tbm=map",
+  "query": "restaurants",
+  "location": {
+    "lat": 12.9168,
+    "lng": 77.645
+  },
+  "baselineResultCount": 19,
+  "candidatesTried": 29,
+  "behaviouralDiffCount": 0,
+  "brokenPbCount": 8,
+  "livePbWorkingFilters": [
+    "live f50 slot3 open_now",
+    "live f50 slot2 rating4",
+    "live f50 slot1 price$$",
+    "live remove f50"
+  ],
+  "changed": [
+    {
+      "label": "pb slot3 open_now",
+      "encoding": "3!2m1!1i1",
+      "count": 0
+    },
+    {
+      "label": "pb slot3 open_24h",
+      "encoding": "3!2m1!1i2",
+      "count": 0
+    },
+    {
+      "label": "pb slot2 rating 4.0",
+      "encoding": "2!2m1!1i8",
+      "count": 0
+    },
+    {
+      "label": "pb slot2 rating 4.5",
+      "encoding": "2!2m1!1i9",
+      "count": 0
+    },
+    {
+      "label": "pb slot1 price $$",
+      "encoding": "1!2m1!1i2",
+      "count": 0
+    },
+    {
+      "label": "pb slot1 price $$$$",
+      "encoding": "1!2m1!1i8",
+      "count": 0
+    },
+    {
+      "label": "pb slot14 hotel dates",
+      "encoding": "14!2m2!1s2026-08-01!2s2026-08-03",
+      "count": 0
+    },
+    {
+      "label": "pb open+rating+price",
+      "encoding": "3!2m1!1i12!2m1!1i81!2m1!1i2",
+      "count": 0
+    }
+  ]
+}

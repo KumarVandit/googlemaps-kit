@@ -1,0 +1,17 @@
+# Prefer package.json "files"; this excludes accidental extras.
+.cache
+sdks
+scripts
+tests
+examples
+docs
+openapi
+.stainless
+*.tsbuildinfo
+.env
+.env.*
+coverage
+*.tgz
+src
+dist-server
+!dist

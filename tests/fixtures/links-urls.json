@@ -1,0 +1,59 @@
+{
+  "placeFull": {
+    "url": "https://www.google.com/maps/place/Kake+Di+Hatti+HSR+Layout/@12.9121263,77.6499775,17z/data=!3m1!4b1!4m6!3m5!1s0x3bae1500315fdff7:0x9fe54cd44a84f1c7!8m2!3d12.9121263!4d77.6499775!16s%2Fg%2F11x8fq7n_z",
+    "name": "Kake Di Hatti HSR Layout",
+    "hexId": "0x3bae1500315fdff7:0x9fe54cd44a84f1c7",
+    "placeId": "CfffXzEAFa47EcfxhErUTOWfAAA",
+    "featureId": "/g/11x8fq7n_z",
+    "lat": 12.9121263,
+    "lng": 77.6499775,
+    "zoom": 17,
+    "cid": "11521699696364286407"
+  },
+  "viewport": {
+    "url": "https://www.google.com/maps/@12.9121263,77.6499775,15z",
+    "lat": 12.9121263,
+    "lng": 77.6499775,
+    "zoom": 15
+  },
+  "search": {
+    "url": "https://www.google.com/maps/search/restaurants+in+hsr+layout/@12.9121181,77.6445548,14z",
+    "query": "restaurants in hsr layout",
+    "lat": 12.9121181,
+    "lng": 77.6445548,
+    "zoom": 14
+  },
+  "directionsWalking": {
+    "url": "https://www.google.com/maps/dir/12.9168407,77.6450439/12.9352,77.6245/data=!4m2!4m1!3e2",
+    "origin": "12.9168407,77.6450439",
+    "destination": "12.9352,77.6245",
+    "mode": "walking"
+  },
+  "directionsDriving": {
+    "url": "https://www.google.com/maps/dir/Actify+Data+Labs/Starbucks+HSR/@12.926,77.635,14z/data=!4m2!4m1!3e0",
+    "origin": "Actify Data Labs",
+    "destination": "Starbucks HSR",
+    "mode": "driving",
+    "lat": 12.926,
+    "lng": 77.635,
+    "zoom": 14
+  },
+  "list": {
+    "url": "https://www.google.com/maps/placelists/list/PiSwyqmbpwpP_Nr5sAang4x5QxbKwA",
+    "listId": "PiSwyqmbpwpP_Nr5sAang4x5QxbKwA"
+  },
+  "cid": {
+    "url": "https://maps.google.com/?cid=11521699696364286407",
+    "cid": "11521699696364286407"
+  },
+  "shortLinkModern": {
+    "url": "https://maps.app.goo.gl/MMjvFNWpUTjiupHc9",
+    "code": "MMjvFNWpUTjiupHc9",
+    "host": "maps.app.goo.gl"
+  },
+  "shortLinkLegacy": {
+    "url": "https://goo.gl/maps/abc123XYZ",
+    "code": "abc123XYZ",
+    "host": "goo.gl"
+  }
+}

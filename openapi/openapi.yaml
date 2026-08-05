@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: googlemaps-kit API
+  description: |
+    HTTP facade over googlemaps-kit. Reverse-engineered Google Maps consumer surfaces
+    with Places-like shapes. Not an official Google product.
+
+    Generate multi-language SDKs with Stainless from this spec and stainless.yml.
+    The hand-written TypeScript package remains the primary implementation.
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+  contact:
+    name: googlemaps-kit
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local facade (npm run api:serve)
+tags:
+  - name: Health
+  - name: Places
+  - name: Directions
+  - name: Geocode
+  - name: Timezone
+  - name: DistanceMatrix
+  - name: Elevation
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /v1/places/search_text:
+    post:
+      operationId: searchText
+      tags: [Places]
+      summary: Text search
+      description: Consumer search with list-level place fields (rating, phone, hours, timezone).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchTextRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTextResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /v1/places/get:
+    post:
+      operationId: getPlace
+      tags: [Places]
+      summary: Place details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetPlaceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceDetails"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /v1/directions:
+    post:
+      operationId: getDirections
+      tags: [Directions]
+      summary: Directions between two points
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DirectionsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DirectionsResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /v1/geocode:
+    post:
+      operationId: geocode
+      tags: [Geocode]
+      summary: Forward geocode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeocodeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeocodeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /v1/timezone:
+    post:
+      operationId: getTimezone
+      tags: [Timezone]
+      summary: IANA timezone for coordinates
+      description: Default offline geo-tz lookup; optional Google geocode source.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimezoneRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimezoneResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /v1/distance_matrix:
+    post:
+      operationId: getDistanceMatrix
+      tags: [DistanceMatrix]
+      summary: Origins x destinations travel matrix
+      description: Fan-out over directions (metricsOnly). Small matrices are near one round trip.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DistanceMatrixRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistanceMatrixResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /v1/elevation:
+    post:
+      operationId: getElevation
+      tags: [Elevation]
+      summary: Point elevation (directions-derived)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElevationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElevationResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+components:
+  schemas:
+    Health:
+      type: object
+      required: [ok, version]
+      properties:
+        ok:
+          type: boolean
+        version:
+          type: string
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+    LatLng:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+    SearchTextRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          example: restaurants in hsr layout
+        location:
+          $ref: "#/components/schemas/LatLng"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 60
+          default: 20
+        field_mask:
+          type: string
+          enum: [enterprise, pro, atmosphere]
+          default: enterprise
+    SearchTextResponse:
+      type: object
+      required: [places, request_count, timing_ms]
+      properties:
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaceSummary"
+        request_count:
+          type: integer
+        timing_ms:
+          type: number
+    PlaceSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        place_id:
+          type: string
+        hex_id:
+          type: string
+        rating:
+          type: number
+        review_count:
+          type: integer
+        phone:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        open_status:
+          type: string
+        timezone:
+          type: string
+        thumbnail_url:
+          type: string
+    GetPlaceRequest:
+      type: object
+      required: [hex_id]
+      properties:
+        hex_id:
+          type: string
+        name:
+          type: string
+        location:
+          $ref: "#/components/schemas/LatLng"
+        mode:
+          type: string
+          enum: [live, detail, rich]
+          default: live
+    PlaceDetails:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        place_id:
+          type: string
+        hex_id:
+          type: string
+        rating:
+          type: number
+        review_count:
+          type: integer
+        phone:
+          type: string
+        website:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timezone:
+          type: string
+        photos:
+          type: array
+          items:
+            type: string
+    DirectionsRequest:
+      type: object
+      required: [origin, destination]
+      properties:
+        origin:
+          oneOf:
+            - $ref: "#/components/schemas/LatLng"
+            - type: string
+        destination:
+          oneOf:
+            - $ref: "#/components/schemas/LatLng"
+            - type: string
+        mode:
+          type: string
+          enum: [driving, walking, bicycling, transit]
+          default: driving
+        metrics_only:
+          type: boolean
+          default: false
+    DirectionsResult:
+      type: object
+      properties:
+        distance:
+          type: string
+        duration:
+          type: string
+        legs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    GeocodeRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        location:
+          $ref: "#/components/schemas/LatLng"
+    GeocodeResponse:
+      type: object
+      properties:
+        result:
+          type: object
+          additionalProperties: true
+          nullable: true
+        alternatives:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    TimezoneRequest:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        source:
+          type: string
+          enum: [offline, geocode]
+          default: offline
+    TimezoneResult:
+      type: object
+      required: [lat, lng, status]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        status:
+          type: string
+          enum: [OK, NOT_FOUND, ERROR]
+        time_zone_id:
+          type: string
+        total_offset_minutes:
+          type: integer
+        timezone_source:
+          type: string
+    DistanceMatrixRequest:
+      type: object
+      required: [origins, destinations]
+      properties:
+        origins:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/LatLng"
+              - type: string
+        destinations:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/LatLng"
+              - type: string
+        mode:
+          type: string
+          enum: [driving, walking, bicycling, transit]
+          default: driving
+        concurrency:
+          type: integer
+          default: 8
+    DistanceMatrixResult:
+      type: object
+      required: [rows, request_count, implementation]
+      properties:
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
+        request_count:
+          type: integer
+        implementation:
+          type: string
+        timing_ms:
+          type: number
+    ElevationRequest:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+    ElevationResult:
+      type: object
+      required: [lat, lng, status]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        status:
+          type: string
+        elevation_meters:
+          type: number
+        timing_ms:
+          type: number
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    TooManyRequests:
+      description: Rate limited or throttled upstream
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    UpstreamError:
+      description: Upstream Google Maps error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"

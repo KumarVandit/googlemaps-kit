@@ -1,0 +1,35 @@
+# Dependencies & build
+node_modules/
+dist/
+dist-server/
+coverage/
+*.tgz
+
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+cookies.txt
+*.cookies
+auth-session*
+
+# Machine captures, probe dumps, browser profiles (device/session material)
+.cache/
+.playwright/
+chrome-profile/
+tmp/
+*.log
+**/capture.log
+**/cdp-*.json
+
+# Generated multi-lang SDKs (regenerate via Stainless)
+sdks/*
+!sdks/.gitkeep
+
+# Stainless local cache
+.stainless/.cache/
+
+# OS
+.DS_Store

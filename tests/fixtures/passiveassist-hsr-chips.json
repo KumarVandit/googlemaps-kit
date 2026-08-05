@@ -1,0 +1,156 @@
+[
+  1,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  [
+    [
+      2592000,
+      [
+        [
+          [
+            null,
+            null,
+            null,
+            null,
+            [
+              [
+                [
+                  null,
+                  null,
+                  [null, null, 12.9097733, 77.6461151],
+                  [null, null, 12.9144793, 77.6538399]
+                ],
+                3,
+                2,
+                50
+              ]
+            ],
+            [null, null, null, [null, 2592000]]
+          ]
+        ],
+        [null, [[null, null, null, [604800]]]]
+      ],
+      "3bae149cc3"
+    ],
+    "Parangi Palaya",
+    null,
+    1,
+    "0ahUKEwjJysGcgvyVAxVzleEIHSw8BoQQwbgBCAIoAA",
+    [
+      "https://ssl.gstatic.com/onebox/weather/128/cloudy.png",
+      "77°",
+      [
+        1800,
+        [
+          [
+            [
+              null,
+              null,
+              null,
+              null,
+              [
+                [
+                  [
+                    null,
+                    null,
+                    [null, null, 12.9097733, 77.6461151],
+                    [null, null, 12.9144793, 77.6538399]
+                  ],
+                  3,
+                  2,
+                  50
+                ]
+              ],
+              [null, null, null, [null, 1800]]
+            ]
+          ],
+          [null, [[null, null, null, [1800]]]]
+        ],
+        "3bae149cc3"
+      ],
+      "Cloudy"
+    ],
+    1,
+    ["4300397356554064625", "-148344396305124150"]
+  ],
+  {
+    "14": "0ahUKEwjJysGcgvyVAxVzleEIHSw8BoQQuLgBCAE",
+    "37": [
+      [
+        3600,
+        [
+          [
+            [
+              null,
+              null,
+              null,
+              [null, 3600]
+            ],
+            [
+              [
+                [
+                  null,
+                  null,
+                  null,
+                  null,
+                  [
+                    [
+                      [
+                        null,
+                        null,
+                        [null, null, 12.9097733, 77.6461151],
+                        [null, null, 12.9144793, 77.6538399]
+                      ],
+                      3,
+                      1,
+                      30
+                    ]
+                  ],
+                  [
+                    null,
+                    null,
+                    null,
+                    null,
+                    [
+                      [
+                        [
+                          null,
+                          null,
+                          [null, null, 12.9097733, 77.6461151],
+                          [null, null, 12.9144793, 77.6538399]
+                        ],
+                        2,
+                        1,
+                        null,
+                        150
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ],
+            [null, [[null, null, null, [900]]]],
+            "MAJOR_EVENT_CACHE_KEY_3bae149cc3"
+          ],
+          null,
+          1
+        ]
+      ]
+    ],
+    "62": [
+      "0ahUKEwjJysGcgvyVAxVzleEIHSw8BoQQlqMCCAMoAQ",
+      [
+        86400,
+        [null, null, null, [null, 86400]],
+        [null, null, null, [300]],
+        "PERSONALIZED_HISTORY_CACHE_KEY"
+      ],
+      null,
+      1
+    ]
+  }
+]

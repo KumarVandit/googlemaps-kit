@@ -1,0 +1,411 @@
+import type {
+  DirectionsLeg,
+  DirectionsResult,
+  DirectionsRoute,
+  DirectionsStep,
+  DirectionsTransitDetails,
+  LatLngBounds,
+} from '../types/directions.js';
+import type { Coordinates } from '../types/common.js';
+import type { PbNode } from '../types/protobuf.js';
+import { encodePolyline } from '../utils/encoded-polyline.js';
+import { safeGet } from '../utils/safe-get.js';
+
+/**
+ * Parse `/maps/preview/directions`.
+ *
+ * Driving/walking/bicycling route alternatives: `data[0][1]` (fallback: bounded search).
+ * Transit alternatives when `[0][1]` is empty: `data[0][20]` (duration often at `[2][1]`).
+ *
+ * Per-route summary header (first child): distance `[0][2][1]`, duration `[0][3][1]`,
+ * label `[0][1]`, traffic duration `[0][10][0][1]` / `[0][10][3][1]`, bounds `[0][7][3]`.
+ *
+ * Turn-by-turn steps: any node whose `[1]` is `<step …>` markup; per-step distance `[2][1]`,
+ * duration `[3][1]`, lat/lng path `[7][1]` / `[7][2]`, maneuver CSS `[2][1]` when `dir-tt-*`.
+ * Note: `[7][5][0]` is a Street View panoid, not an encoded polyline.
+ */
+
+const DURATION_RE = /^\d[\d.,]*\s*(min|mins|minute|minutes|hr|hrs|hour|hours|h|days?)\b/i;
+const DISTANCE_RE = /^\d[\d.,]*\s*(km|m|mi|ft|miles?)$/i;
+const STEP_MARKUP_RE = /<step\b/;
+const WARNING_RE = /toll|ferry|restricted|border|closed|warning|notice/i;
+
+export function extractDirections(data: PbNode): DirectionsResult {
+  const result: DirectionsResult = { legs: [], routes: [], raw: data };
+  if (!Array.isArray(data)) return result;
+
+  for (const node of findRouteAlternatives(data)) {
+    const route = parseRoute(node);
+    if (route) result.routes!.push(route);
+  }
+
+  const primary = result.routes![0];
+  if (primary) {
+    result.distance = primary.distance;
+    result.duration = primary.duration;
+    result.summary = primary.summary;
+    result.durationInTraffic = primary.durationInTraffic;
+    result.bounds = primary.bounds;
+    result.warnings = primary.warnings;
+    result.legs = primary.legs;
+  }
+
+  return result;
+}
+
+function findRouteAlternatives(data: PbNode[]): PbNode[] {
+  for (const path of [[0, 1], [0, 20]] as const) {
+    const anchored = safeGet<PbNode[]>(data, ...path);
+    if (Array.isArray(anchored) && anchored.some(looksLikeRoute)) {
+      return anchored.filter(looksLikeRoute);
+    }
+  }
+
+  const fallback = findFirst(data, (node) => {
+    if (!Array.isArray(node) || node.length === 0) return false;
+    const routeish = node.filter(looksLikeRoute).length;
+    return routeish > 0 && routeish === node.length;
+  });
+  return Array.isArray(fallback) ? fallback.filter(looksLikeRoute) : [];
+}
+
+function looksLikeRoute(node: PbNode): boolean {
+  if (!Array.isArray(node)) return false;
+  const header = routeHeaderNode(node);
+  if (!header) return false;
+  const distance = stringAt(header, [2, 1], DISTANCE_RE) ?? stringAt(header, [2, 1], DURATION_RE);
+  const duration = stringAt(header, [3, 1], DURATION_RE) ?? stringAt(header, [2, 1], DURATION_RE);
+  return Boolean(distance || duration || countStepMarkup(node) > 0);
+}
+
+function routeHeaderNode(route: PbNode): PbNode | undefined {
+  if (!Array.isArray(route)) return undefined;
+  const first = route[0];
+  if (first != null && looksLikeHeader(first)) return first as PbNode;
+  if (looksLikeHeader(route)) return route;
+  return findFirst(route, looksLikeHeader);
+}
+
+function looksLikeHeader(node: PbNode): boolean {
+  if (!Array.isArray(node)) return false;
+  return (
+    stringAt(node, [2, 1], DISTANCE_RE) != null ||
+    stringAt(node, [3, 1], DURATION_RE) != null ||
+    stringAt(node, [2, 1], DURATION_RE) != null
+  );
+}
+
+function parseRoute(node: PbNode): DirectionsRoute | null {
+  if (!Array.isArray(node)) return null;
+
+  const header = routeHeaderNode(node);
+  const distance =
+    (header ? stringAt(header, [2, 1], DISTANCE_RE) : undefined) ??
+    stringAt(node, [0, 2, 1], DISTANCE_RE);
+  const duration =
+    (header ? stringAt(header, [3, 1], DURATION_RE) : undefined) ??
+    stringAt(node, [0, 3, 1], DURATION_RE) ??
+    (header ? stringAt(header, [2, 1], DURATION_RE) : undefined) ??
+    stringAt(node, [0, 2, 1], DURATION_RE);
+  const summaryText = header ? safeGet<string>(header, 1) : undefined;
+  const summary =
+    typeof summaryText === 'string' &&
+    !DURATION_RE.test(summaryText) &&
+    !DISTANCE_RE.test(summaryText)
+      ? summaryText
+      : undefined;
+  const durationInTraffic = header ? parseDurationInTraffic(header) : undefined;
+  const bounds = header ? parseBounds(header) : undefined;
+  const warnings = collectWarnings(node);
+  const legs = parseLegs(node);
+  const steps = legs.flatMap((leg) => leg.steps ?? []);
+  const derivedSummary = summary ?? deriveSummary(steps);
+  const routePolyline = stitchPolylines(steps);
+
+  if (!distance && !duration && steps.length === 0 && legs.length === 0) return null;
+
+  if (legs.length === 0 && steps.length > 0) {
+    legs.push({ distance, duration, summary: derivedSummary, steps });
+  }
+
+  // We model a route as one leg spanning every step, so its totals are the
+  // route totals; without this the leg's distance/duration are always unset.
+  const soleLeg = legs.length === 1 ? legs[0] : undefined;
+  if (soleLeg) {
+    soleLeg.distance ??= distance;
+    soleLeg.duration ??= duration;
+    soleLeg.summary ??= derivedSummary;
+  }
+
+  return {
+    distance,
+    duration,
+    summary: derivedSummary,
+    durationInTraffic,
+    bounds,
+    warnings: warnings.length > 0 ? warnings : undefined,
+    legs,
+    polyline: routePolyline.encoded,
+    path: routePolyline.path,
+  };
+}
+
+function parseDurationInTraffic(header: PbNode): string | undefined {
+  const freeFlow = stringAt(header, [3, 1], DURATION_RE);
+  const candidates = [
+    stringAt(header, [10, 0, 1], DURATION_RE),
+    stringAt(header, [10, 3, 1], DURATION_RE),
+  ].filter((value): value is string => Boolean(value));
+  for (const candidate of candidates) {
+    if (candidate !== freeFlow) return candidate;
+  }
+  return candidates[0];
+}
+
+function parseBounds(header: PbNode): LatLngBounds | undefined {
+  const box = safeGet<PbNode[]>(header, 7, 3);
+  if (!Array.isArray(box)) return undefined;
+  const sw = coordFromNode(safeGet<PbNode>(box, 2));
+  const ne = coordFromNode(safeGet<PbNode>(box, 3));
+  if (!sw || !ne) return undefined;
+  return { southwest: sw, northeast: ne };
+}
+
+function coordFromNode(node: PbNode | undefined): Coordinates | undefined {
+  if (!Array.isArray(node)) return undefined;
+  const lat = node[2];
+  const lng = node[3];
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    return { lat, lng };
+  }
+  return undefined;
+}
+
+/**
+ * One leg per route, holding every step.
+ *
+ * The payload nests step groups inside a single leg container and each group
+ * carries the same header shape as a leg, so there is no reliable structural
+ * signal for per-waypoint leg boundaries. Splitting on the nesting produced
+ * phantom legs (11 for a point-to-point route), so multi-stop routes report a
+ * single leg covering the whole trip rather than a guessed split.
+ */
+function parseLegs(route: PbNode): DirectionsLeg[] {
+  const steps = parseSteps(route);
+  if (steps.length === 0) return [];
+  return [{ steps, summary: deriveSummary(steps) }];
+}
+
+function parseSteps(route: PbNode): DirectionsStep[] {
+  const holders: PbNode[] = [];
+  collect(route, (node) => Array.isArray(node) && isStepMarkup(node[1]), holders);
+
+  const steps: DirectionsStep[] = [];
+  const seen = new Set<string>();
+
+  for (const holder of holders) {
+    if (!Array.isArray(holder)) continue;
+    const markup = holder[1];
+    if (typeof markup !== 'string') continue;
+
+    const step = parseStepMarkup(markup);
+    const distance = stringAt(holder, [2, 1], DISTANCE_RE);
+    const duration = stringAt(holder, [3, 1], DURATION_RE);
+    if (distance) step.distance = distance;
+    if (duration) step.duration = duration;
+
+    const css = safeGet<string>(holder, 2, 1);
+    if (typeof css === 'string' && css.startsWith('dir-tt')) {
+      step.turn = parseTurnFromCss(css);
+      if (!step.maneuver) step.maneuver = step.turn;
+    }
+
+    const path = parseStepPath(holder);
+    if (path.length > 0) {
+      step.path = path;
+      if (path.length >= 2) {
+        step.polyline = encodePolyline(path);
+      }
+    }
+
+    const transit = parseTransitDetails(holder);
+    if (transit) step.transit = transit;
+
+    const key = `${step.instruction ?? ''}|${step.meters ?? ''}|${step.distance ?? ''}`;
+    if (!step.instruction || seen.has(key)) continue;
+    seen.add(key);
+    steps.push(step);
+  }
+
+  return steps;
+}
+
+function parseStepPath(holder: PbNode): Coordinates[] {
+  const block = safeGet<PbNode>(holder, 7);
+  if (!Array.isArray(block)) return [];
+
+  const points: Coordinates[] = [];
+  const segment = safeGet<PbNode[]>(block, 1);
+  if (Array.isArray(segment)) {
+    for (const point of segment) {
+      const coord = coordFromNode(point);
+      if (coord) points.push(coord);
+    }
+  }
+
+  const single = coordFromNode(safeGet<PbNode>(block, 2));
+  if (single) points.push(single);
+
+  return dedupeAdjacentPoints(points);
+}
+
+function dedupeAdjacentPoints(points: Coordinates[]): Coordinates[] {
+  const out: Coordinates[] = [];
+  for (const point of points) {
+    const prev = out[out.length - 1];
+    if (prev && prev.lat === point.lat && prev.lng === point.lng) continue;
+    out.push(point);
+  }
+  return out;
+}
+
+function parseTurnFromCss(css: string): string | undefined {
+  const parts = css.split(/\s+/);
+  for (const part of parts) {
+    if (part.startsWith('dir-tt-') && part !== 'dir-tt') {
+      return part.slice('dir-tt-'.length);
+    }
+  }
+  return undefined;
+}
+
+function parseTransitDetails(holder: PbNode): DirectionsTransitDetails | undefined {
+  if (!Array.isArray(holder)) return undefined;
+  const details: DirectionsTransitDetails = {};
+  const texts: string[] = [];
+  collectStrings(holder, texts);
+
+  for (const text of texts) {
+    if (/^(bus|metro|train|tram|subway|ferry|walk)/i.test(text)) details.line = details.line ?? text;
+    if (/toward|towards/i.test(text)) details.headsign = text;
+    if (/^\d+\s*stop/i.test(text)) {
+      const num = Number(text.match(/(\d+)/)?.[1]);
+      if (Number.isFinite(num)) details.numStops = num;
+    }
+    if (/^₹|^\$|€|fare/i.test(text)) details.fare = text;
+  }
+
+  return Object.keys(details).length > 0 ? details : undefined;
+}
+
+function collectStrings(node: PbNode, out: string[], depth = 0): void {
+  if (depth > 25) return;
+  if (typeof node === 'string' && node.length > 1 && !node.startsWith('<')) {
+    out.push(node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) collectStrings(child as PbNode, out, depth + 1);
+  }
+}
+
+function collectWarnings(route: PbNode): string[] {
+  const warnings = new Set<string>();
+  collect(route, (node) => {
+    if (typeof node === 'string' && WARNING_RE.test(node) && node.length < 200) {
+      warnings.add(node.trim());
+      return true;
+    }
+    return false;
+  }, []);
+  return [...warnings];
+}
+
+function countStepMarkup(node: PbNode): number {
+  let count = 0;
+  collect(node, (child) => {
+    if (Array.isArray(child) && isStepMarkup(child[1])) {
+      count += 1;
+      return true;
+    }
+    return false;
+  }, []);
+  return count;
+}
+
+function stitchPolylines(steps: DirectionsStep[]): { encoded?: string; path?: Coordinates[] } {
+  const path = dedupeAdjacentPoints(steps.flatMap((step) => step.path ?? []));
+  if (path.length < 2) return {};
+  return { path, encoded: encodePolyline(path) };
+}
+
+/** Collect steps by finding every node whose [1] is `<step …>` markup. */
+export function parseStepMarkup(markup: string): DirectionsStep {
+  const step: DirectionsStep = {};
+
+  const maneuver = markup.match(/<step[^>]*\bmaneuver='([^']+)'/)?.[1];
+  if (maneuver) step.maneuver = maneuver;
+
+  const meters = markup.match(/<step[^>]*\bmeters='(\d+)'/)?.[1];
+  if (meters) step.meters = Number(meters);
+
+  const roads = [...markup.matchAll(/<road\b[^>]*>([^<]+)<\/road>/g)].map((match) => match[1]!.trim());
+  if (roads.length > 0) step.roads = roads;
+
+  step.instruction = stripMarkup(markup);
+  return step;
+}
+
+function stripMarkup(markup: string): string {
+  return markup
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function deriveSummary(steps: DirectionsStep[]): string | undefined {
+  const roads = steps.flatMap((step) => step.roads ?? []);
+  if (roads.length === 0) return undefined;
+
+  const counts = new Map<string, number>();
+  for (const road of roads) counts.set(road, (counts.get(road) ?? 0) + 1);
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length);
+  const top = ranked.slice(0, 2).map(([road]) => road);
+  return top.length > 0 ? `via ${top.join(' and ')}` : undefined;
+}
+
+function stringAt(node: PbNode, path: number[], pattern: RegExp): string | undefined {
+  const value = safeGet<string>(node, ...path);
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return pattern.test(trimmed) ? trimmed : undefined;
+}
+
+function isStepMarkup(value: unknown): boolean {
+  return typeof value === 'string' && STEP_MARKUP_RE.test(value);
+}
+
+function collect(node: PbNode, predicate: (node: PbNode) => boolean, out: PbNode[], depth = 0): void {
+  if (depth > 35) return;
+  if (predicate(node)) out.push(node);
+  if (Array.isArray(node)) {
+    for (const child of node) collect(child as PbNode, predicate, out, depth + 1);
+  }
+}
+
+function findFirst(node: PbNode, predicate: (node: PbNode) => boolean, depth = 0): PbNode | undefined {
+  if (depth > 25) return undefined;
+  if (predicate(node)) return node;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findFirst(child as PbNode, predicate, depth + 1);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
