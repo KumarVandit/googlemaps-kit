@@ -1,6 +1,6 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript SDK for Google Maps consumer HTTP surfaces",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,7 @@
     }
   },
   "bin": {
-    "googlemaps-kit": "./dist/cli.js"
+    "googlemaps-kit": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -37,7 +37,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc -p tsconfig.check.json --noEmit",
-    "prepublishOnly": "npm run type-check && npm test && npm run build",
+    "prepublishOnly": "npm run clean && npm run type-check && npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "preexample": "npm run build",
