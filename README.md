@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KumarVandit/googlemaps-kit/main/assets/banner.png" alt="googlemaps-kit — TypeScript SDK for Google Maps consumer surfaces" width="100%">
+  <img src="https://raw.githubusercontent.com/KumarVandit/googlemaps-kit/main/assets/banner.png" alt="googlemaps-kit - TypeScript SDK for Google Maps consumer surfaces" width="100%">
 </p>
 
 # googlemaps-kit
@@ -7,6 +7,7 @@
 > TypeScript SDK for programmatic access to Google Maps consumer surfaces.
 
 [![npm version](https://img.shields.io/npm/v/googlemaps-kit.svg)](https://www.npmjs.com/package/googlemaps-kit)
+[![npm downloads](https://img.shields.io/npm/dm/googlemaps-kit.svg)](https://www.npmjs.com/package/googlemaps-kit)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](./package.json)
