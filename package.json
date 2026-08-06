@@ -37,7 +37,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc -p tsconfig.check.json --noEmit",
-    "prepublishOnly": "npm run clean && npm run type-check && npm test && npm run build",
+    "prepublishOnly": "npm run clean && npm run build && npm run type-check && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
     "preexample": "npm run build",
