@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Fix npm README banner (absolute image URL so the hero renders on npmjs.com)
+
 ## 0.2.1
 
 - Clean publish build (drop stale `/internal` artifacts from the tarball)
