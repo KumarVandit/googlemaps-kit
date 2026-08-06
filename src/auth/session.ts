@@ -19,6 +19,8 @@ export interface CookieJarState {
   cookies: Record<string, string>;
   userAgent: string;
   fetchedAt: number;
+  /** Maps HTML from bootstrap — reused for batchexecute token extraction. */
+  mapsHtml?: string;
 }
 
 let cachedSession: CookieJarState | null = null;
@@ -86,7 +88,10 @@ export const DEFAULT_SOCS =
   'CAISNQgEEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjYwMTE4LjA5X3AwGgJlbiACGgYIgIu7ywY';
 
 /**
- * Bootstrap cookies via the 3-step chain. Returns a cookie jar with NID when successful.
+ * Bootstrap cookies for anonymous Maps HTTP calls.
+ *
+ * Fast path: one Maps document fetch with pre-seeded SOCS consent (usually enough for NID).
+ * Fallback: google.com → consent.google.com → maps when the fast path misses NID.
  */
 export async function bootstrapSession(
   force = false,
@@ -103,23 +108,36 @@ export async function bootstrapSession(
   };
 
   const navHeaders = buildBrowserHeaders({ userAgent, mode: 'document' });
+  let mapsHtml: string | undefined;
 
-  for (const url of [
-    'https://www.google.com/',
-    'https://consent.google.com/',
-    'https://www.google.com/maps',
-  ]) {
-    const response = await fetchImpl(url, {
+  const mapsResponse = await fetchImpl('https://www.google.com/maps', {
+    headers: { ...navHeaders, Cookie: cookiesToHeader(jar) },
+    redirect: 'follow',
+  });
+  mergeSetCookies(jar, mapsResponse.headers);
+  mapsHtml = await mapsResponse.text();
+
+  if (!jar.NID) {
+    for (const url of ['https://www.google.com/', 'https://consent.google.com/']) {
+      const response = await fetchImpl(url, {
+        headers: { ...navHeaders, Cookie: cookiesToHeader(jar) },
+        redirect: 'follow',
+      });
+      mergeSetCookies(jar, response.headers);
+    }
+    const retryMaps = await fetchImpl('https://www.google.com/maps', {
       headers: { ...navHeaders, Cookie: cookiesToHeader(jar) },
       redirect: 'follow',
     });
-    mergeSetCookies(jar, response.headers);
+    mergeSetCookies(jar, retryMaps.headers);
+    mapsHtml = await retryMaps.text();
   }
 
   cachedSession = {
     cookies: jar,
     userAgent,
     fetchedAt: Date.now(),
+    mapsHtml,
   };
 
   return cachedSession;

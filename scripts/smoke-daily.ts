@@ -7,7 +7,7 @@
  */
 
 import { loadProjectEnv } from '../src/utils/load-env.js';
-import { createGMapsClient } from '../src/index.js';
+import { sdk } from '../src/index.js';
 
 loadProjectEnv();
 
@@ -48,7 +48,7 @@ function sleep(ms: number): Promise<void> {
 
 async function main(): Promise<void> {
   const started = performance.now();
-  const maps = createGMapsClient({
+  const maps = sdk({
     hl: 'en',
     gl: 'in',
     requestDelayMs: PACE_MS,
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   console.log('=== googlemaps-kit daily smoke ===\n');
 
   await smoke('search', async () => {
-    const page = await maps.search.searchPage({ query: 'restaurants', location: HSR, limit: 5 });
+    const page = await maps.places.search.searchPage({ query: 'restaurants', location: HSR, limit: 5 });
     if (page.results.length < 2) throw new Error(`only ${page.results.length} results`);
     return `${page.results.length} results, first="${page.results[0]?.name}"`;
   });
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   await sleep(PACE_MS);
 
   await smoke('reviews + aggregates', async () => {
-    const reviews = await maps.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
+    const reviews = await maps.places.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
     if (reviews.reviews.length === 0) throw new Error('no reviews');
     if (reviews.totalReviews == null) throw new Error('no aggregate total');
     return `${reviews.reviews.length} reviews, total=${reviews.totalReviews}`;
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
   await sleep(PACE_MS);
 
   await smoke('geocode', async () => {
-    const response = await maps.geocode.geocode('HSR Layout, Bengaluru');
+    const response = await maps.location.geocode.geocode('HSR Layout, Bengaluru');
     if (!response.result) throw new Error('no geocode result');
     const first = response.result;
     return `"${first.formattedAddress?.slice(0, 40) ?? first.name}" @ ${first.lat.toFixed(4)},${first.lng.toFixed(4)}`;

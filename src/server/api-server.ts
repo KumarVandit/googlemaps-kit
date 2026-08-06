@@ -8,7 +8,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { loadProjectEnv } from '../utils/load-env.js';
-import { createGMapsClient } from '../client/gmaps-client.js';
+import { sdk } from '../client/gmaps-client.js';
 import type { Coordinates, TravelMode } from '../types/common.js';
 import { GMapsError, GMapsAuthError, GMapsThrottleError } from '../types/common.js';
 
@@ -37,7 +37,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 }
 
 function clientFromRequest(_req: IncomingMessage) {
-  return createGMapsClient({
+  return sdk({
     hl: process.env.GMAPS_HL ?? 'en',
     gl: process.env.GMAPS_GL ?? 'us',
     concurrency: 8,
@@ -122,7 +122,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           typeof location === 'object'
             ? location
             : { lat: 20, lng: 0 };
-        const result = await maps.search.searchText({
+        const result = await maps.places.search.searchText({
           query,
           location: coords,
           limit: typeof body.limit === 'number' ? body.limit : 20,
@@ -189,7 +189,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           return;
         }
         const mode = (typeof body.mode === 'string' ? body.mode : 'driving') as TravelMode;
-        const result = await maps.directions.get({
+        const result = await maps.travel.directions.get({
           origin,
           destination,
           mode,
@@ -209,7 +209,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           return;
         }
         const location = toLatLng(body.location);
-        const result = await maps.geocode.geocode(query, {
+        const result = await maps.location.geocode.geocode(query, {
           lat: typeof location === 'object' ? location.lat : undefined,
           lng: typeof location === 'object' ? location.lng : undefined,
         });
@@ -224,7 +224,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           sendJson(res, 400, { error: 'lat and lng are required', code: 'bad_request' });
           return;
         }
-        const result = await maps.timezone.get({
+        const result = await maps.location.timezone.get({
           lat: body.lat,
           lng: body.lng,
           source: body.source === 'geocode' ? 'geocode' : 'offline',
@@ -253,7 +253,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           });
           return;
         }
-        const result = await maps.distanceMatrix.getMatrix({
+        const result = await maps.travel.distanceMatrix.getMatrix({
           origins,
           destinations,
           mode: (typeof body.mode === 'string' ? body.mode : 'driving') as TravelMode,
@@ -273,7 +273,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           sendJson(res, 400, { error: 'lat and lng are required', code: 'bad_request' });
           return;
         }
-        const result = await maps.elevation.getAtPoint({ lat: body.lat, lng: body.lng });
+        const result = await maps.travel.elevation.getAtPoint({ lat: body.lat, lng: body.lng });
         sendJson(res, 200, {
           lat: result.lat,
           lng: result.lng,

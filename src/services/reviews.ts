@@ -39,6 +39,11 @@ export interface GetReviewsOptions {
   includeAggregates?: boolean;
   /** Override session psi for aggregates (scraped from Maps bootstrap when omitted). */
   psi?: string;
+  /**
+   * Review transport. Default `auto` tries Boq then embedded.
+   * `rpc` requires signed-in SAPISID cookies.
+   */
+  source?: import('../types/dx.js').ReviewSource;
 }
 
 export class ReviewsService {
@@ -58,8 +63,15 @@ export class ReviewsService {
    * Fetch reviews from Google Maps internal surfaces:
    * 1. GetLocalBoqProxy httpservice RPC (default)
    * 2. Embedded snippets in place preview
+   *
+   * Pass `source` to force a transport (`boq` | `embedded` | `rpc` | `auto`).
    */
   async list(options: GetReviewsOptions): Promise<ReviewsResult> {
+    const source = options.source ?? 'auto';
+    if (source === 'boq') return this.listBoq(options);
+    if (source === 'embedded') return this.listEmbedded(options);
+    if (source === 'rpc') return this.listRpc(options);
+
     const boq = await this.listBoq(options);
     if (boq.reviews.length > 0) {
       return boq;
@@ -225,7 +237,7 @@ export class ReviewsService {
       ftid: options.ftid,
       hl: this.hl,
       gl: this.gl,
-      mode: options.lat != null && options.lng != null ? 'detail' : 'live',
+      mode: 'live',
     });
 
     const data = await this.http.get(url, {

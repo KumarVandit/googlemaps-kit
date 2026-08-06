@@ -1,30 +1,19 @@
-import { HttpClient } from '../client/http-client.js';
+import { HttpClient } from './http-client.js';
 import { loadProjectEnv } from '../utils/load-env.js';
 import { GMapsRpcClient } from '../rpc/rpc-client.js';
-import { BatchUrlService } from '../services/batch-url.js';
-import { CategoriesService } from '../services/categories.js';
-import { DirectionsService } from '../services/directions.js';
-import { DistanceMatrixService } from '../services/distance-matrix.js';
-import { ElevationService } from '../services/elevation.js';
-import { GeocodeService } from '../services/geocode.js';
-import { KnowledgeService } from '../services/knowledge.js';
-import { LinksService } from '../services/links.js';
-import { ListsService } from '../services/lists.js';
-import { LocalPostsService } from '../services/local-posts.js';
-import { PanoramaService } from '../services/panorama.js';
-import { PhotosService } from '../services/photos.js';
-import { PassiveAssistService } from '../services/passiveassist.js';
-import { PlacesService } from '../services/places.js';
-import { ReviewsService } from '../services/reviews.js';
-import { RevealService } from '../services/reveal.js';
-import { SearchService, searchResultToPlaceDetails } from '../services/search.js';
-import { StaticMapService } from '../services/static-map.js';
-import { SuggestService } from '../services/suggest.js';
-import { TilesService } from '../services/tiles.js';
-import { TimezoneService } from '../services/timezone.js';
-import { TrafficService } from '../services/traffic.js';
-import { TransitService } from '../services/transit.js';
-import { UgcAggregatesService } from '../services/ugc-aggregates.js';
+import { IntentApi } from './intent.js';
+import {
+  AgentNamespace,
+  createServiceBundle,
+  LocationNamespace,
+  MapNamespace,
+  MetaNamespace,
+  PlacesNamespace,
+  TravelNamespace,
+  type ServiceBundle,
+} from './namespaces.js';
+import { AuthNamespace, SurfacesNamespace } from './product-namespaces.js';
+import { searchResultToPlaceDetails } from '../services/search.js';
 import type {
   DirectionsOptions,
   DirectionsResult,
@@ -38,6 +27,32 @@ import type {
   SearchOptions,
   SearchResult,
 } from '../types/common.js';
+import { GMapsAuthError } from '../types/common.js';
+import type {
+  ClientCapabilities,
+  DiscoverOptions,
+  DiscoverPagesOptions,
+  DiscoverResult,
+  MediaManyOptions,
+  MediaOptions,
+  MediaResult,
+  OpinionsOptions,
+  OpinionsPagesOptions,
+  OpinionsResult,
+  PipelineOptions,
+  PipelineResult,
+  PlaceProfile,
+  PlaceRef,
+  ProfileManyOptions,
+  ProfileOptions,
+  ResolveOptions,
+  ResolvedPlace,
+  RouteOptions,
+  RouteResult,
+  SessionMode,
+} from '../types/dx.js';
+import { TtlCache } from '../utils/ttl-cache.js';
+import { createMapsTools, type CreateMapsToolsOptions, type MapsTools } from './maps-tools.js';
 
 loadProjectEnv();
 
@@ -57,100 +72,230 @@ export interface EnrichSearchOptions extends SearchOptions {
   concurrency?: number;
 }
 
+function normalizeConfig(config: GMapsConfig = {}): GMapsConfig {
+  const hl = config.locale?.hl ?? config.hl ?? process.env.GMAPS_HL ?? 'en';
+  const gl = config.locale?.gl ?? config.gl ?? process.env.GMAPS_GL ?? 'us';
+  const cookies = config.cookies ?? process.env.GMAPS_COOKIES;
+  const session: SessionMode =
+    config.session ?? (cookies ? 'authenticated' : 'anonymous');
+  const concurrency =
+    config.concurrency ??
+    config.performance?.concurrency ??
+    Number(process.env.GMAPS_CONCURRENCY ?? 6);
+
+  if (session === 'authenticated' && !cookies) {
+    throw new GMapsAuthError(
+      "session: 'authenticated' requires cookies (config.cookies or GMAPS_COOKIES). " +
+        "Use session: 'anonymous' (default) when you do not have signed-in cookies.",
+    );
+  }
+
+  return {
+    ...config,
+    hl,
+    gl,
+    locale: { hl, gl, ...config.locale },
+    cookies,
+    session,
+    debug: config.debug ?? process.env.GMAPS_DEBUG === 'true',
+    maxRetries: config.maxRetries ?? 2,
+    retryDelay: config.retryDelay ?? 500,
+    retryMaxDelay: config.retryMaxDelay ?? 30_000,
+    requestDelayMs: config.requestDelayMs ?? Number(process.env.GMAPS_REQUEST_DELAY_MS ?? 0),
+    concurrency,
+    performance: {
+      mode: config.performance?.mode ?? 'fast',
+      concurrency,
+      ...config.performance,
+    },
+    warmOnCreate: config.warmOnCreate,
+    buildLabel: config.buildLabel ?? process.env.GMAPS_BUILD_LABEL,
+    sessionId: config.sessionId ?? process.env.GMAPS_SESSION_ID,
+  };
+}
+
+function jarHasSapisid(jar: Record<string, string>): boolean {
+  return Boolean(jar.SAPISID || jar['__Secure-1PAPISID'] || jar['__Secure-3PAPISID']);
+}
+
 /**
  * Main Google Maps SDK client.
+ *
+ * Create with `sdk()` or `GMaps.create()`.
+ *
+ * **Intent:** `discover`, `resolve`, `profile`, `route`, `opinions`, `media`
+ * **Namespaces:** `places`, `location`, `travel`, `map`, `meta`, `agent`, `auth`, `surfaces`
  */
 export class GMapsClient {
-  readonly search: SearchService;
-  readonly places: PlacesService;
-  readonly reviews: ReviewsService;
-  readonly reveal: RevealService;
-  readonly passiveAssist: PassiveAssistService;
-  readonly localPosts: LocalPostsService;
-  readonly knowledge: KnowledgeService;
-  readonly directions: DirectionsService;
-  readonly suggest: SuggestService;
-  readonly panorama: PanoramaService;
-  readonly tiles: TilesService;
-  readonly lists: ListsService;
-  readonly photos: PhotosService;
-  readonly links: LinksService;
-  readonly traffic: TrafficService;
-  readonly transit: TransitService;
-  readonly categories: CategoriesService;
-  readonly ugcAggregates: UgcAggregatesService;
-  readonly batchUrl: BatchUrlService;
-  readonly distanceMatrix: DistanceMatrixService;
-  readonly elevation: ElevationService;
-  readonly timezone: TimezoneService;
-  readonly staticMap: StaticMapService;
-  readonly geocode: GeocodeService;
+  /** POI discovery & details namespace. */
+  readonly places: PlacesNamespace;
+  /** Geocode / timezone / reveal. */
+  readonly location: LocationNamespace;
+  /** Routing & traffic. */
+  readonly travel: TravelNamespace;
+  /** Tiles, static map, Street View. */
+  readonly map: MapNamespace;
+  /** Categories, lists, links, aggregates. */
+  readonly meta: MetaNamespace;
+  /** Signed-in Ask Maps. */
+  readonly agent: AgentNamespace;
+  /** Session status (cookie presence / live probe — no secrets). */
+  readonly auth: AuthNamespace;
+  /** Catalog of Maps surfaces this kit supports. */
+  readonly surfaces: SurfacesNamespace;
 
   private http: HttpClient;
   private config: GMapsConfig;
-  private rpcClient: GMapsRpcClient | null = null;
-  private rpcInitPromise: Promise<GMapsRpcClient> | null = null;
+  private services: ServiceBundle;
+  private intent: IntentApi;
   private runtimePromise: Promise<import('../rpc/maps-runtime.js').MapsRuntime> | null = null;
+  private intentCache?: TtlCache<unknown>;
 
   constructor(config: GMapsConfig = {}) {
-    this.config = {
-      hl: config.hl ?? process.env.GMAPS_HL ?? 'en',
-      gl: config.gl ?? process.env.GMAPS_GL ?? 'us',
-      buildLabel: config.buildLabel ?? process.env.GMAPS_BUILD_LABEL,
-      sessionId: config.sessionId ?? process.env.GMAPS_SESSION_ID,
-      debug: config.debug ?? false,
-      maxRetries: config.maxRetries ?? 2,
-      retryDelay: config.retryDelay ?? 500,
-      retryMaxDelay: config.retryMaxDelay ?? 30_000,
-      requestDelayMs: config.requestDelayMs ?? Number(process.env.GMAPS_REQUEST_DELAY_MS ?? 0),
-      concurrency: config.concurrency ?? Number(process.env.GMAPS_CONCURRENCY ?? 6),
-    };
-
+    this.config = normalizeConfig(config);
     this.http = new HttpClient({ config: this.config });
-    this.search = new SearchService(this.http, this.config);
-    this.places = new PlacesService(this.http, this.config);
-    this.reviews = new ReviewsService(this.http, this.config);
-    this.reveal = new RevealService(this.http, this.config);
-    this.passiveAssist = new PassiveAssistService(this.http, this.config);
-    this.localPosts = new LocalPostsService(this.http, this.config);
-    this.knowledge = new KnowledgeService(this.http, this.config);
-    this.directions = new DirectionsService(this.http, this.config);
-    this.suggest = new SuggestService(this.http, this.config);
-    this.panorama = new PanoramaService(this.http, this.config);
-    this.tiles = new TilesService(this.http, this.config);
-    this.lists = new ListsService(this.http, this.config);
-    this.photos = new PhotosService(this.http, this.config);
-    this.links = new LinksService(this.http, this.config);
-    this.traffic = new TrafficService(this.http, this.config);
-    this.transit = new TransitService(this.http, this.config);
-    this.categories = new CategoriesService(this.http, this.config);
-    this.ugcAggregates = new UgcAggregatesService(this.http, this.config);
-    this.batchUrl = new BatchUrlService(this.http, this.config);
-    this.geocode = new GeocodeService(this.http, this.config);
-    this.distanceMatrix = new DistanceMatrixService(this.directions, this.config);
-    this.elevation = new ElevationService(this.http, this.directions, this.config);
-    this.timezone = new TimezoneService(this.geocode, this.config);
-    this.staticMap = new StaticMapService(this.http, this.config);
+    if (this.config.warmOnCreate !== false && !this.config.cookies) {
+      void this.http.warmSession();
+    }
+
+    if (this.config.cache) {
+      this.intentCache = new TtlCache(this.config.cache);
+    }
+
+    this.services = createServiceBundle(this.http, this.config);
+    const signedIn = () => this.isSignedIn();
+
+    this.places = new PlacesNamespace(this.services);
+    this.location = new LocationNamespace(this.services);
+    this.travel = new TravelNamespace(this.services);
+    this.map = new MapNamespace(this.services);
+    this.meta = new MetaNamespace(this.services);
+    this.agent = new AgentNamespace(this.services, signedIn);
+    this.auth = new AuthNamespace(this.http, this.config);
+    this.surfaces = new SurfacesNamespace();
+
+    this.intent = new IntentApi(
+      this.services,
+      this.config,
+      signedIn,
+      (opts) => this.getPlaceComplete(opts),
+      this.intentCache,
+    );
+  }
+
+  // ——— Intent API ———
+
+  /**
+   * Find places near a point. Returns `{ places, timingMs, mode, pagination }`.
+   * Default mode `fast` (~400 ms warm).
+   */
+  discover(options: DiscoverOptions): Promise<DiscoverResult> {
+    return this.intent.discover(options);
+  }
+
+  /** Stream discover pages (deduped). */
+  discoverPages(options: DiscoverPagesOptions): AsyncGenerator<DiscoverResult> {
+    return this.intent.discoverPages(options);
+  }
+
+  /**
+   * Resolve URL/query → identity (`hexId`, name, coords when known).
+   * Not a full place card — follow with `profile()`.
+   */
+  resolve(options: ResolveOptions): Promise<ResolvedPlace> {
+    return this.intent.resolve(options);
+  }
+
+  /**
+   * Place profile. Always `{ place, depth, reviews?, … }` — use `place.name`.
+   * Default depth `card` (details only).
+   */
+  profile(ref: PlaceRef, options?: ProfileOptions): Promise<PlaceProfile> {
+    return this.intent.profile(ref, options);
+  }
+
+  /** Profile many places with bounded concurrency. */
+  profileMany(refs: PlaceRef[], options?: ProfileManyOptions): Promise<PlaceProfile[]> {
+    return this.intent.profileMany(refs, options);
+  }
+
+  /**
+   * Directions. Default metrics only; pass `includeSteps: true` for turn-by-turn.
+   */
+  route(options: RouteOptions): Promise<RouteResult> {
+    return this.intent.route(options);
+  }
+
+  /**
+   * Reviews. Default one page, no aggregates RPC (set `includeAggregates: true` for histogram).
+   */
+  opinions(ref: PlaceRef, options?: OpinionsOptions): Promise<OpinionsResult> {
+    return this.intent.opinions(ref, options);
+  }
+
+  /** Stream review pages. */
+  opinionsPages(
+    ref: PlaceRef,
+    options?: OpinionsPagesOptions,
+  ): AsyncGenerator<OpinionsResult> {
+    return this.intent.opinionsPages(ref, options);
+  }
+
+  /**
+   * Photos (+ optional Street View). Flat `photos[]` array.
+   */
+  media(ref: PlaceRef, options?: MediaOptions): Promise<MediaResult> {
+    return this.intent.media(ref, options);
+  }
+
+  /** Media for many places with bounded concurrency. */
+  mediaMany(refs: PlaceRef[], options?: MediaManyOptions): Promise<MediaResult[]> {
+    return this.intent.mediaMany(refs, options);
+  }
+
+  /** Discover → profile → optional opinions pipeline. */
+  pipeline(options: PipelineOptions): Promise<PipelineResult> {
+    return this.intent.pipeline(options);
+  }
+
+  /** Ready-made Intent tools for agents. */
+  tools(options?: CreateMapsToolsOptions): MapsTools {
+    return createMapsTools(this, options);
+  }
+
+  /** Clear Intent TTL cache (no-op when cache disabled). */
+  clearCache(): void {
+    this.intentCache?.clear();
+  }
+
+  /** Capability flags for anonymous vs signed-in surfaces. */
+  async capabilities(): Promise<ClientCapabilities> {
+    const signedIn = this.isSignedIn();
+    const session: SessionMode = signedIn ? 'authenticated' : 'anonymous';
+    return {
+      session,
+      signedIn,
+      search: true,
+      placeDetails: true,
+      reviewsBoq: true,
+      reviewsRpc: signedIn,
+      photos: true,
+      directions: true,
+      askMaps: signedIn,
+      askMapsHistory: signedIn,
+      privateLists: signedIn,
+      legacyRpc: signedIn,
+    };
+  }
+
+  private isSignedIn(): boolean {
+    if (jarHasSapisid(this.http.getCookieJar())) return true;
+    if (this.config.cookies && /SAPISID=/i.test(this.config.cookies)) return true;
+    return false;
   }
 
   async rpc(): Promise<GMapsRpcClient> {
-    if (this.rpcClient) {
-      return this.rpcClient;
-    }
-
-    if (!this.rpcInitPromise) {
-      this.rpcInitPromise = GMapsRpcClient.fromHttpSession(
-        this.http.getCookieJar(),
-        this.http.getUserAgent(),
-        this.config,
-        (fn) => this.http.runScheduled(fn),
-      ).then((client) => {
-        this.rpcClient = client;
-        return client;
-      });
-    }
-
-    return this.rpcInitPromise;
+    return this.http.getRpcClient(this.config);
   }
 
   async features(): Promise<import('../rpc/feature-rpc.js').FeatureRpcService> {
@@ -167,7 +312,7 @@ export class GMapsClient {
   }
 
   async getPlaceFull(options: GetPlaceFullOptions): Promise<PlaceFullResult> {
-    return this.places.getFull(options, this.reviews);
+    return this.places.getFull(options);
   }
 
   /**
@@ -188,7 +333,7 @@ export class GMapsClient {
     let knowledge: KnowledgeEntity | undefined;
     if (includeKnowledge) {
       const start = performance.now();
-      const entity = await this.knowledge.get({
+      const entity = await this.places.knowledge.get({
         hexId: options.hexId,
         ftid: options.ftid,
         placeId: full.details.placeId,
@@ -204,7 +349,12 @@ export class GMapsClient {
   }
 
   async getDirections(options: DirectionsOptions): Promise<DirectionsResult> {
-    return this.directions.get(options);
+    return this.travel.directions.get(options);
+  }
+
+  /** Wait until the client is ready for requests. */
+  ready(): Promise<void> {
+    return this.http.warmSession();
   }
 
   /** Request/session counters for harness scripts (no secrets). */
@@ -213,9 +363,8 @@ export class GMapsClient {
   }
 
   async searchEnriched(options: EnrichSearchOptions): Promise<EnrichedSearchResult[]> {
-    const results = await this.search.search(options);
+    const results = await this.places.search.search(options);
 
-    // Official Text Search Enterprise parity: one RPC, details lifted from the search row.
     if (options.fromSearchOnly || (!options.includeDetails && !options.includeReviews)) {
       return results.map((result) => ({
         ...result,
@@ -223,14 +372,12 @@ export class GMapsClient {
       }));
     }
 
-    const concurrency = options.concurrency ?? 10;
+    const concurrency = options.concurrency ?? this.config.concurrency ?? 10;
     const enriched: EnrichedSearchResult[] = [];
 
     for (let i = 0; i < results.length; i += concurrency) {
       const chunk = results.slice(i, i + concurrency);
-      const batch = await Promise.all(
-        chunk.map((result) => this.enrichSingle(result, options)),
-      );
+      const batch = await Promise.all(chunk.map((result) => this.enrichSingle(result, options)));
       enriched.push(...batch);
     }
 
@@ -243,7 +390,6 @@ export class GMapsClient {
   ): Promise<EnrichedSearchResult> {
     const enriched: EnrichedSearchResult = {
       ...result,
-      // Always keep search-row details as a non-lossy base; place preview may truncate.
       details: searchResultToPlaceDetails(result),
     };
 
@@ -251,8 +397,8 @@ export class GMapsClient {
       return enriched;
     }
 
-    const lat = result.latitude ?? options.location.lat;
-    const lng = result.longitude ?? options.location.lng;
+    const lat = result.lat ?? result.latitude ?? options.location?.lat ?? options.near?.lat;
+    const lng = result.lng ?? result.longitude ?? options.location?.lng ?? options.near?.lng;
 
     if (options.includeDetails && options.includeReviews) {
       const full = await this.getPlaceFull({
@@ -266,7 +412,6 @@ export class GMapsClient {
       enriched.details = {
         ...enriched.details,
         ...full.details,
-        // Prefer preview photos when present; fall back to search thumbnail.
         photos:
           full.details.photos && full.details.photos.length > 0
             ? full.details.photos
@@ -305,7 +450,7 @@ export class GMapsClient {
     }
 
     if (options.includeReviews) {
-      enriched.reviews = await this.reviews.list({
+      enriched.reviews = await this.places.reviews.list({
         hexId: result.hexId,
         name: result.name,
         lat,
@@ -319,6 +464,23 @@ export class GMapsClient {
   }
 }
 
-export function createGMapsClient(config?: GMapsConfig): GMapsClient {
+/**
+ * Create a Maps SDK client.
+ *
+ * @example
+ * import { sdk } from 'googlemaps-kit';
+ * const maps = sdk({ locale: { hl: 'en', gl: 'in' } });
+ * const { places } = await maps.discover({ query: 'coffee', near: { lat, lng } });
+ */
+export function sdk(config?: GMapsConfig): GMapsClient {
   return new GMapsClient(config);
 }
+
+/** Namespace-style entry: `GMaps.create(config)` / `GMaps.Client`. */
+export const GMaps = {
+  create: sdk,
+  Client: GMapsClient,
+} as const;
+
+export { createMapsTools } from './maps-tools.js';
+export type { CreateMapsToolsOptions, MapsToolDefinition, MapsTools } from './maps-tools.js';

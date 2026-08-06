@@ -22,7 +22,6 @@ export function buildSearchPb(params: {
 }): string {
   const queryEncoded = encodeURIComponent(params.query);
   const offsetPart = params.offset > 0 ? `!8i${params.offset}` : '';
-  // Live browser capture: !22m5!1s{psi}!7e81!14m1!3s{psi}!15i9937
   const psiPart = params.psi ? `!22m5!1s${params.psi}!7e81!14m1!3s${params.psi}!15i9937` : '';
 
   return (
@@ -31,9 +30,9 @@ export function buildSearchPb(params: {
     `!3m2!1i1024!2i768!4f13.1` +
     `!7i${params.resultsCount}${offsetPart}` +
     `!10b1` +
-    `!12m57!1m5!18b1!30b1!31m1!1b1!34e1` +
+    `!12m58!1m5!18b1!30b1!31m1!1b1!34e1` +
     `!2m4!5m1!6e2!20e3!39b1` +
-    `!6m29!32i1!49b1!63m0!66b1!74i${params.maxRadius}` +
+    `!6m30!32i1!49b1!63m0!66b1!74i${params.maxRadius}` +
     `!85b1!114b1!149b1!206b1!209b1!212b1!215b1!216b1!222b1!223b1!232b1!234b1!235b1!246b1!253b1!260b1!266b1!270b1!273b1!280b1!281b1!286b1!291m0!302i300!303i100` +
     `!10b1!12b1!13b1!14b1!16b1!17m1!3e1!20m4!5e2!6b1!8b1!14b1!46m1!1b0!96b1!99b1` +
     `!19m4!2m3!1i360!2i120!4i8` +
@@ -167,9 +166,6 @@ export function buildPlaceLivePb(params: { hexId: string; psi?: string }): strin
     '!37i788'
   );
 }
-
-/** @deprecated Use buildPlaceDetailPb */
-export const buildPlacePb = buildPlaceRichPb;
 
 export type PlacePbMode = 'detail' | 'rich' | 'live';
 

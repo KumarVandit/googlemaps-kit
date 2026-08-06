@@ -8,7 +8,7 @@ import { assertDefined, CEVI, createExampleClient } from './shared.js';
 async function main() {
   const maps = createExampleClient();
 
-  const page = await maps.reviews.listBoq({
+  const page = await maps.places.reviews.listBoq({
     hexId: CEVI.hexId,
     ftid: CEVI.ftid,
     limit: 5,
@@ -20,7 +20,7 @@ async function main() {
     console.log('Place total:', page.totalReviews, '| aggregate:', page.aggregateRating);
   }
 
-  const all = await maps.reviews.listAll({
+  const all = await maps.places.reviews.listAll({
     hexId: CEVI.hexId,
     ftid: CEVI.ftid,
     limit: 10,

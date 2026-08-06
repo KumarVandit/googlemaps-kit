@@ -8,7 +8,7 @@
  */
 
 import { mintViewportPsi } from './lib/mint-viewport-psi.js';
-import { buildPlaceLink, createGMapsClient, parseMapsUrl } from '../src/index.js';
+import { buildPlaceLink, sdk, parseMapsUrl } from '../src/index.js';
 import { parseDistanceToMeters } from '../src/utils/directions-metrics.js';
 import { haversineMeters } from '../src/utils/geo.js';
 import { KNOWN_SURFACES, listSurfacesByStatus } from '../src/known-surfaces.js';
@@ -87,7 +87,7 @@ function keyOf(result: SearchResult): string {
 }
 
 async function main(): Promise<void> {
-  const maps = createGMapsClient({ hl: 'en', gl: 'in' });
+  const maps = sdk({ hl: 'en', gl: 'in' });
 
   console.log('=== googlemaps-kit end-to-end verification ===\n');
 
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   let page1Keys = new Set<string>();
 
   await check('search.searchPage page 1', async () => {
-    const page = await maps.search.searchPage({
+    const page = await maps.places.search.searchPage({
       query: 'restaurants',
       location: HSR,
       limit: 20,
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   });
 
   await check('search.searchPage page 2 (psi + offset, no overlap)', async () => {
-    const page = await maps.search.searchPage({
+    const page = await maps.places.search.searchPage({
       query: 'restaurants',
       location: HSR,
       limit: 20,
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
   });
 
   await check('search.searchAll (3 pages, deduped)', async () => {
-    const all = await maps.search.searchAll({
+    const all = await maps.places.search.searchAll({
       query: 'cafes',
       location: HSR,
       limit: 20,
@@ -166,14 +166,14 @@ async function main(): Promise<void> {
 
   console.log('\n-- Reviews --');
   await check('reviews.listBoq', async () => {
-    const reviews = await maps.reviews.listBoq({ hexId: HEX, limit: 10 });
+    const reviews = await maps.places.reviews.listBoq({ hexId: HEX, limit: 10 });
     assert(reviews.reviews.length > 0, 'no reviews');
     assert(reviews.reviews[0]?.text || reviews.reviews[0]?.rating, 'first review empty');
     return `${reviews.reviews.length} reviews, total=${reviews.totalReviews ?? '?'}`;
   });
 
   await check('reviews.listBoq — owner reply + helpful count', async () => {
-    const all = await maps.reviews.listAll({ hexId: HEX, limit: 20, maxPages: 1 });
+    const all = await maps.places.reviews.listAll({ hexId: HEX, limit: 20, maxPages: 1 });
     const withReply = all.reviews.find((r) => r.ownerReply?.text);
     assert(withReply?.ownerReply?.text, 'no owner reply in boq payload');
     const withHelpful = all.reviews.find((r) => (r.helpfulCount ?? 0) > 0);
@@ -182,16 +182,16 @@ async function main(): Promise<void> {
   });
 
   await check('reviews.listBoq — sort reorders (newest vs highest)', async () => {
-    const newest = await maps.reviews.listBoq({ hexId: HEX, limit: 10, sort: 2 });
-    const highest = await maps.reviews.listBoq({ hexId: HEX, limit: 10, sort: 3 });
+    const newest = await maps.places.reviews.listBoq({ hexId: HEX, limit: 10, sort: 2 });
+    const highest = await maps.places.reviews.listBoq({ hexId: HEX, limit: 10, sort: 3 });
     assert(newest.reviews[0]?.reviewId !== highest.reviews[0]?.reviewId, 'sort did not change first review');
     assert(highest.reviews.every((r) => r.rating === 5), 'highest sort should be all 5-star');
     return `newest="${newest.reviews[0]?.author}", highest first rating=${highest.reviews[0]?.rating}`;
   });
 
   await check('reviews.listBoq — keyword filter narrows client-side', async () => {
-    const baseline = await maps.reviews.listBoq({ hexId: HEX, limit: 20 });
-    const filtered = await maps.reviews.listBoq({
+    const baseline = await maps.places.reviews.listBoq({ hexId: HEX, limit: 20 });
+    const filtered = await maps.places.reviews.listBoq({
       hexId: HEX,
       limit: 20,
       filters: { search: 'naan' },
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
   });
 
   await check('reviews.listBoq — aggregate histogram via includeAggregates', async () => {
-    const reviews = await maps.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
+    const reviews = await maps.places.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
     assert(reviews.ratingDistribution != null, 'no ratingDistribution');
     assert(reviews.totalReviews != null && reviews.totalReviews > 0, 'no totalReviews');
     const sum =
@@ -220,20 +220,20 @@ async function main(): Promise<void> {
   });
 
   await check('reviews.listAll (2 pages)', async () => {
-    const reviews = await maps.reviews.listAll({ hexId: HEX, limit: 10, maxPages: 2 });
+    const reviews = await maps.places.reviews.listAll({ hexId: HEX, limit: 10, maxPages: 2 });
     assert(reviews.reviews.length > 10, `only ${reviews.reviews.length} reviews across 2 pages`);
     return `${reviews.reviews.length} reviews paginated`;
   });
 
   console.log('\n-- Local posts --');
   await check('localPosts.list (empty is valid)', async () => {
-    const posts = await maps.localPosts.list({ hexId: HEX, ftid: FTID });
+    const posts = await maps.places.localPosts.list({ hexId: HEX, ftid: FTID });
     return `${posts.length} posts`;
   });
 
   console.log('\n-- Reveal --');
   await check('reveal.revealAtClick (hidden POI)', async () => {
-    const result = await maps.reveal.revealAtClick({
+    const result = await maps.location.reveal.revealAtClick({
       camLat: LAT,
       camLng: LNG,
       hitLat: 12.912691,
@@ -254,7 +254,12 @@ async function main(): Promise<void> {
       // checked against Amsterdam.
       const [origin, destination] =
         mode === 'bicycling' ? [AMSTERDAM_A, AMSTERDAM_B] : [HSR, KORAMANGALA];
-      const route = await maps.getDirections({ origin, destination, mode });
+      const route = await maps.getDirections({
+        origin,
+        destination,
+        mode,
+        includeSteps: true,
+      });
 
       assert(route.duration, 'no duration');
       assert(route.distance, 'no distance');
@@ -287,7 +292,7 @@ async function main(): Promise<void> {
   console.log('\n-- Knowledge --');
   await check('knowledge fallback from place preview', async () => {
     const place = await maps.places.get({ hexId: HEX, name: NAME, lat: LAT, lng: LNG, mode: 'rich' });
-    const entity = await maps.knowledge.get({ hexId: HEX, ftid: FTID, fallbackDetails: place });
+    const entity = await maps.places.knowledge.get({ hexId: HEX, ftid: FTID, fallbackDetails: place });
     assert(entity?.name, 'no knowledge entity');
     assert((entity?.facts?.length ?? 0) > 0, 'no facts');
     return `"${entity!.name}", ${entity!.facts!.length} facts`;
@@ -334,7 +339,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Autocomplete --');
   await check('suggest place query returns ids', async () => {
-    const result = await maps.suggest.suggest({ query: 'hsr layout', lat: HSR.lat, lng: HSR.lng });
+    const result = await maps.places.suggest.suggest({ query: 'hsr layout', lat: HSR.lat, lng: HSR.lng });
     assert(result.suggestions.length > 0, 'no suggestions');
     const places = result.suggestions.filter((s) => s.kind === 'place');
     assert(places.length > 0, 'no place-kind suggestions');
@@ -346,8 +351,8 @@ async function main(): Promise<void> {
 
   await check('suggest coordinates bias results', async () => {
     const [blr, ams] = await Promise.all([
-      maps.suggest.suggest({ query: 'starbucks', lat: HSR.lat, lng: HSR.lng }),
-      maps.suggest.suggest({ query: 'starbucks', lat: AMSTERDAM_A.lat, lng: AMSTERDAM_A.lng }),
+      maps.places.suggest.suggest({ query: 'starbucks', lat: HSR.lat, lng: HSR.lng }),
+      maps.places.suggest.suggest({ query: 'starbucks', lat: AMSTERDAM_A.lat, lng: AMSTERDAM_A.lng }),
     ]);
     const blrText = blr.suggestions.map((s) => s.secondaryText ?? '').join(' ');
     const amsText = ams.suggestions.map((s) => s.secondaryText ?? '').join(' ');
@@ -358,7 +363,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Street View --');
   await check('panorama.findNearby + get metadata', async () => {
-    const metadata = await maps.panorama.getByLocation(12.9767936, 77.5906664);
+    const metadata = await maps.map.panorama.getByLocation(12.9767936, 77.5906664);
     assert(metadata, 'no panorama resolved for a covered location');
     assert(metadata?.panoId, 'panorama has no id');
     assert(metadata?.captureDate, 'panorama has no capture date');
@@ -369,15 +374,15 @@ async function main(): Promise<void> {
   await check('panorama.get rejects an unknown id (stub detection)', async () => {
     // Must be well-formed (22 chars of base64url); a malformed id 400s instead of
     // returning the stub, which would test the wrong path.
-    const metadata = await maps.panorama.get('AAAAAAAAAAAAAAAAAAAAAA');
+    const metadata = await maps.map.panorama.get('AAAAAAAAAAAAAAAAAAAAAA');
     assert(metadata === null, 'stub response was not detected as not-found');
     return 'unknown id returned null';
   });
 
   await check('panorama imagery URL serves real bytes', async () => {
-    const refs = await maps.panorama.findNearby({ lat: 48.8584, lng: 2.2945 });
+    const refs = await maps.map.panorama.findNearby({ lat: 48.8584, lng: 2.2945 });
     assert(refs.length > 0, 'no panoramas near the Eiffel Tower');
-    const url = maps.panorama.buildThumbnailUrl({ panoId: refs[0]!.panoId, width: 640, height: 480 });
+    const url = maps.map.panorama.buildThumbnailUrl({ panoId: refs[0]!.panoId, width: 640, height: 480 });
     const response = await fetch(url);
     const bytes = (await response.arrayBuffer()).byteLength;
     assert(response.headers.get('content-type')?.startsWith('image/'), 'response is not an image');
@@ -388,7 +393,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Place lists --');
   await check('lists.get public shared list', async () => {
-    const list = await maps.lists.get({ listId: 'PiSwyqmbpwpP_Nr5sAang4x5QxbKwA' });
+    const list = await maps.meta.lists.get({ listId: 'PiSwyqmbpwpP_Nr5sAang4x5QxbKwA' });
     assert(list.entries.length > 10, `only ${list.entries.length} entries`);
     assert(list.title, 'list has no title');
     const withCoords = list.entries.filter((entry) => entry.lat && entry.lng).length;
@@ -400,7 +405,7 @@ async function main(): Promise<void> {
   await check('lists.get surfaces an error for an unknown list', async () => {
     let threw = false;
     try {
-      await maps.lists.get({ listId: 'ThisListIdIsNotReal000000000000' });
+      await maps.meta.lists.get({ listId: 'ThisListIdIsNotReal000000000000' });
     } catch {
       threw = true;
     }
@@ -410,7 +415,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Links --');
   await check('links.expand resolves a maps.app.goo.gl short link', async () => {
-    const parsed = await maps.links.resolve('https://maps.app.goo.gl/UUsVjfy9MPeF3RwT9');
+    const parsed = await maps.meta.links.resolve('https://maps.app.goo.gl/UUsVjfy9MPeF3RwT9');
     if (parsed.kind !== 'place') throw new Error(`expected a place link, got ${parsed.kind}`);
     assert(parsed.hexId, 'no hex id recovered from the short link');
     return `place — ${parsed.name ?? '?'} (${parsed.hexId})`;
@@ -430,7 +435,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Place photos --');
   await check('photos.list defaults to batchexecute when coords are set', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -445,7 +450,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.list place_preview opt-in returns URL-only rows', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       lat: LAT,
       lng: LNG,
@@ -460,7 +465,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos combined source outgrows either source alone', async () => {
-    const gallery = await maps.photos.list({
+    const gallery = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -468,7 +473,7 @@ async function main(): Promise<void> {
       pageSize: 40,
       source: 'batchexecute',
     });
-    const combined = await maps.photos.list({
+    const combined = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -487,7 +492,7 @@ async function main(): Promise<void> {
   });
 
   await check('a place photo url serves real image bytes', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -503,7 +508,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.list minWidth/height returns a resized URL that serves bytes', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -523,7 +528,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.list batchexecute exposes category tab counts', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -539,7 +544,7 @@ async function main(): Promise<void> {
   await check(
     'photos.list reports the listentityphotos abuse block as a typed error',
     async () => {
-      const page = await maps.photos.list({ hexId: HEX, source: 'listentityphotos' });
+      const page = await maps.places.photos.list({ hexId: HEX, source: 'listentityphotos' });
       return `unexpected success: ${page.photos.length} photos`;
     },
     { expectBlocked: true, required: false },
@@ -547,7 +552,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Geocoding --');
   await check('geocode resolves an address to coordinates', async () => {
-    const { result } = await maps.geocode.geocode('Eiffel Tower, Paris');
+    const { result } = await maps.location.geocode.geocode('Eiffel Tower, Paris');
     assert(result, 'no geocode result');
     const offBy = haversineMeters(result!.lat, result!.lng, 48.8584, 2.2945);
     assert(offBy < 500, `resolved ${offBy.toFixed(0)}m away from the expected point`);
@@ -555,7 +560,7 @@ async function main(): Promise<void> {
   });
 
   await check('reverseGeocode resolves coordinates to a place', async () => {
-    const { result } = await maps.geocode.reverseGeocode(LAT, LNG);
+    const { result } = await maps.location.geocode.reverseGeocode(LAT, LNG);
     assert(result, 'no reverse geocode result');
     const offBy = haversineMeters(result!.lat, result!.lng, LAT, LNG);
     assert(offBy < 2000, `reverse result ${offBy.toFixed(0)}m away`);
@@ -564,14 +569,14 @@ async function main(): Promise<void> {
 
   console.log('\n-- Map tiles --');
   await check('tiles.getTileByLatLng returns a real PNG', async () => {
-    const tile = await maps.tiles.getTileByLatLng({ lat: LAT, lng: LNG, zoom: 14 });
+    const tile = await maps.map.tiles.getTileByLatLng({ lat: LAT, lng: LNG, zoom: 14 });
     assert(tile.width === 256 && tile.height === 256, `unexpected size ${tile.width}x${tile.height}`);
     assert(tile.bytes.byteLength > 4000, `tile only ${tile.bytes.byteLength} bytes`);
     return `${tile.width}x${tile.height} PNG, ${(tile.bytes.byteLength / 1024).toFixed(0)} KB`;
   });
 
   await check('tiles.getIcon returns a POI icon PNG', async () => {
-    const icon = await maps.tiles.getIcon();
+    const icon = await maps.map.tiles.getIcon();
     assert(icon.bytes.byteLength > 100, `icon only ${icon.bytes.byteLength} bytes`);
     return `${icon.bytes.byteLength} bytes`;
   });
@@ -589,7 +594,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- batchexecute service RPCs (anonymous, 2026 service-path format) --');
   await check('traffic.getAreaTraffic returns a viewport traffic summary', async () => {
-    const report = await maps.traffic.getAreaTraffic({
+    const report = await maps.travel.traffic.getAreaTraffic({
       swLat: LAT - 0.05,
       swLng: LNG - 0.05,
       neLat: LAT + 0.05,
@@ -600,7 +605,7 @@ async function main(): Promise<void> {
   });
 
   await check('transit.getStationDepartures returns live train rows', async () => {
-    const board = await maps.transit.getStationDepartures({
+    const board = await maps.travel.transit.getStationDepartures({
       hexId: '0x48761b3c5cbf139b:0x7be9c9cf71db38fb',
       name: "King's Cross",
       lat: 51.5316034,
@@ -617,7 +622,7 @@ async function main(): Promise<void> {
   });
 
   await check('passiveAssist.getViewportChips returns neighbourhood chips', async () => {
-    const result = await maps.passiveAssist.getViewportChips({
+    const result = await maps.location.passiveAssist.getViewportChips({
       lat: 51.5074,
       lng: -0.1278,
       zoom: 14,
@@ -631,13 +636,13 @@ async function main(): Promise<void> {
   });
 
   await check('categories.getHierarchy returns the gcid taxonomy', async () => {
-    const roots = await maps.categories.getHierarchy();
+    const roots = await maps.meta.categories.getHierarchy();
     assert(roots.length > 3, `only ${roots.length} root categories`);
     return `${roots.length} roots, first="${roots[0]?.name ?? '?'}"`;
   });
 
   await check('categories.suggest maps a query to gcids', async () => {
-    const hits = await maps.categories.suggest({ query: 'restaurant' });
+    const hits = await maps.meta.categories.suggest({ query: 'restaurant' });
     assert(hits.length > 0, 'no category suggestions');
     assert(
       hits.some((hit) => hit.gcid.startsWith('gcid:')),
@@ -647,7 +652,7 @@ async function main(): Promise<void> {
   });
 
   await check('ugcAggregates.getPlaceAggregates returns a rating histogram', async () => {
-    const aggregates = await maps.ugcAggregates.getPlaceAggregates({ hexId: HEX });
+    const aggregates = await maps.meta.ugcAggregates.getPlaceAggregates({ hexId: HEX });
     assert(aggregates.totalCount != null && aggregates.totalCount > 0, 'no review total');
     const buckets = aggregates.ratingDistribution ?? [];
     assert(buckets.length === 5, `expected 5 rating buckets, got ${buckets.length}`);
@@ -657,7 +662,7 @@ async function main(): Promise<void> {
   });
 
   await check('batchUrl.decode resolves a Maps url server-side', async () => {
-    const decoded = await maps.batchUrl.decode({
+    const decoded = await maps.meta.batchUrl.decode({
       url: 'https://www.google.com/maps/place/Kake+Di+Hatti+HSR+Layout/@12.9121263,77.6499775,17z',
     });
     assert(decoded.name, 'no place name decoded');
@@ -665,7 +670,7 @@ async function main(): Promise<void> {
   });
 
   await check('batchUrl.createShortUrl returns a maps.app.goo.gl link anonymously', async () => {
-    const result = await maps.batchUrl.createShortUrl({
+    const result = await maps.meta.batchUrl.createShortUrl({
       url: `https://www.google.com/maps/place/Kake+Di+Hatti+HSR+Layout/@${LAT},${LNG},17z/data=!3m1!4b1!4m6!3m5!1s${encodeURIComponent(HEX)}!8m2!3d${LAT}!4d${LNG}!16s%2Fg%2F11x8fq7n_z`,
     });
     assert(result.shortUrl?.includes('maps.app.goo.gl'), `bad short url: ${result.shortUrl}`);
@@ -673,7 +678,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.list batchexecute returns real gallery photos + pagination token', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -700,7 +705,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.listAll batchexecute pages to gallery end', async () => {
-    const all = await maps.photos.listAll({
+    const all = await maps.places.photos.listAll({
       hexId: HEX,
       featureId: FTID,
       lat: LAT,
@@ -721,7 +726,7 @@ async function main(): Promise<void> {
   });
 
   await check('photos.list street_view category returns panorama rows when available', async () => {
-    const page = await maps.photos.list({
+    const page = await maps.places.photos.list({
       hexId: '0x47e66e2964e34e2d:0x8dd2639d37ccbd2',
       featureId: '/m/02ft9',
       lat: 48.8583701,
@@ -741,7 +746,7 @@ async function main(): Promise<void> {
 
   console.log('\n-- Official-API parity --');
   await check('distanceMatrix.getMatrix fills a 2x2 matrix', async () => {
-    const matrix = await maps.distanceMatrix.getMatrix({
+    const matrix = await maps.travel.distanceMatrix.getMatrix({
       origins: [
         { lat: LAT, lng: LNG },
         { lat: 12.9352, lng: 77.6245 },
@@ -759,7 +764,7 @@ async function main(): Promise<void> {
   });
 
   await check('elevation.getAlongPath returns a route elevation profile', async () => {
-    const profile = await maps.elevation.getAlongPath({
+    const profile = await maps.travel.elevation.getAlongPath({
       points: [
         { lat: 39.7392, lng: -104.9903 },
         { lat: 39.6654, lng: -105.2057 },
@@ -773,14 +778,14 @@ async function main(): Promise<void> {
   });
 
   await check('timezone.get resolves a half-hour offset zone', async () => {
-    const zone = await maps.timezone.get({ lat: LAT, lng: LNG });
+    const zone = await maps.location.timezone.get({ lat: LAT, lng: LNG });
     assert(zone.timeZoneId, 'no IANA timezone id');
     assert(zone.totalOffsetMinutes === 330, `expected +330 minutes for India, got ${zone.totalOffsetMinutes}`);
     return `${zone.timeZoneId} (${zone.totalOffsetMinutes} min, ${zone.offsetSource})`;
   });
 
   await check('staticMap.getStaticMap stitches a real PNG', async () => {
-    const image = await maps.staticMap.getStaticMap({ lat: LAT, lng: LNG, zoom: 14, width: 400, height: 300 });
+    const image = await maps.map.staticMap.getStaticMap({ lat: LAT, lng: LNG, zoom: 14, width: 400, height: 300 });
     assert(image.width === 400 && image.height === 300, `got ${image.width}x${image.height}`);
     assert(image.bytes.byteLength > 10_000, `only ${image.bytes.byteLength} bytes`);
     return `${image.width}x${image.height} from ${image.tilesFetched} tiles, ${(image.bytes.byteLength / 1024).toFixed(0)} KB`;
@@ -796,8 +801,8 @@ async function main(): Promise<void> {
 
   console.log('\n-- Directions parity --');
   await check('directions with a waypoint lengthens the route', async () => {
-    const direct = await maps.directions.get({ origin: 'HSR Layout, Bengaluru', destination: 'Koramangala, Bengaluru' });
-    const viaStop = await maps.directions.get({
+    const direct = await maps.travel.directions.get({ origin: 'HSR Layout, Bengaluru', destination: 'Koramangala, Bengaluru' });
+    const viaStop = await maps.travel.directions.get({
       origin: 'HSR Layout, Bengaluru',
       destination: 'Koramangala, Bengaluru',
       waypoints: [{ location: 'Indiranagar, Bengaluru' }],
@@ -810,7 +815,7 @@ async function main(): Promise<void> {
   });
 
   await check('directions expose route bounds and path coordinates', async () => {
-    const route = await maps.directions.get({
+    const route = await maps.travel.directions.get({
       origin: 'HSR Layout, Bengaluru',
       destination: 'Koramangala, Bengaluru',
     });
@@ -858,7 +863,7 @@ async function main(): Promise<void> {
   await check(
     'knowledge RPC rejects with a typed error',
     async () => {
-      const entity = await maps.knowledge.get({ hexId: HEX, ftid: FTID, tryRpc: true });
+      const entity = await maps.places.knowledge.get({ hexId: HEX, ftid: FTID, tryRpc: true });
       assert(entity?.name, 'knowledge RPC returned nothing usable');
       return `unexpected success: ${entity!.name}`;
     },

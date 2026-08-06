@@ -1,7 +1,5 @@
 import { HttpClient } from '../client/http-client.js';
-import { cookiesToHeader } from '../auth/session.js';
 import { extractPlaceUgcAggregates } from '../parsers/ugc-aggregates.js';
-import { parseMapsPageTokens } from '../rpc/app-options.js';
 import { buildPlaceUgcAggregatesArgs } from '../rpc/batch-request-builders.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient, isBatchErrorCode } from '../rpc/batch-rpc.js';
@@ -41,20 +39,6 @@ export class UgcAggregatesService {
   }
 
   private async resolvePsi(): Promise<string> {
-    const placePath = `/maps/place/@12.9121263,77.6499775,14z`;
-    const html = await fetch(`https://www.google.com${placePath}`, {
-      headers: {
-        'User-Agent': this.http.getUserAgent(),
-        Cookie: cookiesToHeader(this.http.getCookieJar()),
-        Accept: 'text/html',
-      },
-      redirect: 'follow',
-    }).then((r) => r.text());
-    const tokens = parseMapsPageTokens(html);
-    const psi = tokens.psi ?? tokens.kEI;
-    if (!psi) {
-      throw new GMapsAuthError('Could not obtain Maps session psi token for UGC aggregates');
-    }
-    return psi;
+    return this.http.resolvePsi();
   }
 }

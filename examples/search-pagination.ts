@@ -8,7 +8,7 @@ import { createExampleClient, HSR_CENTER } from './shared.js';
 async function main() {
   const maps = createExampleClient();
 
-  const p1 = await maps.search.searchPage({
+  const p1 = await maps.places.search.searchPage({
     query: 'restaurants in HSR Layout',
     location: HSR_CENTER,
     limit: 10,
@@ -25,7 +25,7 @@ async function main() {
     return;
   }
 
-  const p2 = await maps.search.searchPage({
+  const p2 = await maps.places.search.searchPage({
     query: 'restaurants in HSR Layout',
     location: HSR_CENTER,
     limit: 10,

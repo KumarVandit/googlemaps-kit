@@ -8,7 +8,7 @@ import { assertDefined, createExampleClient, HSR_CENTER, KORAMANGALA } from './s
 async function main() {
   const maps = createExampleClient();
 
-  const route = await maps.directions.get({
+  const route = await maps.travel.directions.get({
     origin: HSR_CENTER,
     destination: KORAMANGALA,
     mode: 'driving',

@@ -74,11 +74,12 @@ describe('HttpClient hardening', () => {
   it('tracks session warm count for anonymous clients', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(")]}'\n[[1]]", {
-          status: 200,
-          headers: { 'set-cookie': 'NID=warm; Path=/' },
-        }),
+      vi.fn().mockImplementation(
+        () =>
+          new Response(")]}'\n[[1]]", {
+            status: 200,
+            headers: { 'set-cookie': 'NID=warm; Path=/' },
+          }),
       ),
     );
 

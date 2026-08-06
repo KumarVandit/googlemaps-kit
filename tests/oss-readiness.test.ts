@@ -35,6 +35,8 @@ describe('open-source readiness', () => {
     expect(pkg.license).toBe('MIT');
     expect(pkg.files).toContain('dist');
     expect(pkg.files).not.toContain('openapi');
-    expect(pkg.exports['./internal']).toBeDefined();
+    expect(pkg.exports['./advanced']).toBeDefined();
+    expect(pkg.exports['./internal']).toBeUndefined();
+    expect(pkg.exports['.']).toBeDefined();
   });
 });

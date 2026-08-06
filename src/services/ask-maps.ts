@@ -217,7 +217,7 @@ export class AskMapsService {
     throw new GMapsError(
       'Places AI summaries (generativeSummary, reviewSummary, neighborhoodSummary, ' +
         'evChargeAmenitySummary) are Places API (New) field masks only. Consumer Maps ' +
-        'place-preview does not embed them. Use an official API key, or maps.askMaps.ask() ' +
+        'place-preview does not embed them. Use an official API key, or maps.agent.ask() ' +
         'for the signed-in Ask Maps agent.',
       501,
     );

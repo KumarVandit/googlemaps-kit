@@ -13,6 +13,27 @@ export interface GMapsConfig {
   hl?: string;
   /** Country code, e.g. "in", "us" */
   gl?: string;
+  /**
+   * Locale group (preferred over top-level hl/gl when both are set).
+   * `locale.hl` / `locale.gl` win over `hl` / `gl`.
+   */
+  locale?: {
+    hl?: string;
+    gl?: string;
+  };
+  /**
+   * Session profile. `authenticated` expects cookies via `cookies` or `GMAPS_COOKIES`.
+   * Does not log the user in — only selects capability expectations.
+   */
+  session?: import('./dx.js').SessionMode;
+  /**
+   * Default performance knobs for Intent helpers (`discover` mode, bulk concurrency).
+   */
+  performance?: {
+    /** Default search mode for `discover()` when options.mode is omitted. */
+    mode?: 'fast' | 'full';
+    concurrency?: number;
+  };
   /** Google session cookies (enables full review RPC when SAPISID is present) */
   cookies?: string;
   /** batchexecute `at` token (SNlM0e from WIZ_global_data; optional for anonymous) */
@@ -33,6 +54,20 @@ export interface GMapsConfig {
   requestDelayMs?: number;
   /** Max concurrent in-flight HTTP requests (default 6) */
   concurrency?: number;
+  /**
+   * Initialize network context on client creation (default true).
+   */
+  warmOnCreate?: boolean;
+  /**
+   * Lifecycle hooks for Intent + HTTP (metrics, logging, Sentry).
+   * Callbacks are fire-and-forget — thrown errors are swallowed.
+   */
+  hooks?: import('./hooks.js').GMapsHooks;
+  /**
+   * Optional in-memory TTL cache for Intent `discover` / `profile` (card depth).
+   * Pass `false` to disable explicitly. Default: off.
+   */
+  cache?: import('./hooks.js').GMapsCacheOptions | false;
 }
 
 /** Signed-in session probe result — see AuthService.getStatus(). */
@@ -88,6 +123,10 @@ export interface BatchExecuteConfig {
    * `concurrency` and are invisible to `getStats()`.
    */
   schedule?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /** Abort in-flight batchexecute when signal fires. */
+  signal?: AbortSignal;
+  /** Optional lifecycle hooks (usually inherited from GMapsConfig.hooks). */
+  hooks?: import('./hooks.js').GMapsHooks;
 }
 
 /** Tokens scraped from a Maps HTML bootstrap page. */
@@ -131,9 +170,21 @@ export interface Coordinates {
   lng: number;
 }
 
+/**
+ * `fast` — 5 results, lite parse, 50 km radius (~400–500 ms warm).
+ * `full` — up to 20 results with hours, phone, and attributes.
+ */
+export type SearchMode = 'fast' | 'full';
+
 export interface SearchOptions {
   query: string;
-  location: Coordinates;
+  /**
+   * Bias center (search service spelling).
+   * Intent `discover` uses `near` — both are accepted via normalization.
+   */
+  location?: Coordinates;
+  /** Alias for `location` (Intent spelling). */
+  near?: Coordinates;
   /** Results per page (default 20) */
   limit?: number;
   /** Search radius in meters (default 150000) */
@@ -149,6 +200,11 @@ export interface SearchOptions {
   /** ech page counter for pagination (default 1) */
   ech?: number;
   /**
+   * `fast` — 5 results, lite parse (~400 ms). `full` — 20 results with all fields.
+   * `searchText()` defaults to `fast`; `search()` / `searchPage()` default to `full`.
+   */
+  mode?: SearchMode;
+  /**
    * Filter parsed results client-side. Anonymous GET search ignores server-side
    * filter pb — see `searchFilters` in known-surfaces.ts.
    */
@@ -158,16 +214,20 @@ export interface SearchOptions {
 /**
  * Field-mask tiers mirroring Places API (New) Text Search SKUs.
  *
- * Search rows already embed Enterprise-class fields (hours, phone, attributes,
- * thumbnail). Use `searchText` for one-call parity; only escalate to place
- * preview when you need a full photo gallery or review snippets.
+ * - `pro` — name, address, rating, coords, thumbnail (default limit 10, faster parse)
+ * - `enterprise` — hours, phone, attributes (default limit 20)
+ * - `atmosphere` — same payload as enterprise today (attributes included)
  */
 export type SearchFieldMask = 'pro' | 'enterprise' | 'atmosphere';
 
 export interface SearchTextOptions extends SearchOptions {
   /**
-   * Desired field tier. All tiers are satisfied from the search payload alone
-   * today — this documents intent and future-proofs if we ever thin the parser.
+   * `fast` (default) — name, rating, coords, thumbnail in one low-latency call.
+   * `full` — enterprise field set (hours, phone, attributes) with up to 20 rows.
+   */
+  mode?: SearchMode;
+  /**
+   * Field tier when `mode` is `full`. Ignored in `fast` mode.
    */
   fieldMask?: SearchFieldMask;
 }
@@ -183,7 +243,10 @@ export interface SearchTextResult {
 }
 
 export interface SearchPageResult {
+  /** Prefer `places` in new code — same array. */
   results: SearchResult[];
+  /** Alias of `results` (matches discover / searchText). */
+  places: SearchResult[];
   pagination: {
     offset: number;
     pageSize: number;
@@ -201,7 +264,15 @@ export interface SearchResult {
   ftid?: string;
   rating?: number;
   reviewCount?: number;
+  /**
+   * Preferred coordinate fields (same values as latitude/longitude).
+   * Prefer these in new code and Intent/agent flows.
+   */
+  lat?: number;
+  lng?: number;
+  /** Same as `lat` — both are set by parsers. */
   latitude?: number;
+  /** Same as `lng` — both are set by parsers. */
   longitude?: number;
   phone?: string;
   /** E.164-style number from placeData[178] when Google provides one (e.g. "+91 …"). */
@@ -324,7 +395,15 @@ export interface PlaceDetails {
   priceLevel?: number;
   /** Human-readable price range, e.g. "₹400–1,400". */
   priceRange?: string;
+  /**
+   * Preferred coordinate fields (same values as latitude/longitude).
+   * Prefer these in new code and Intent/agent flows.
+   */
+  lat?: number;
+  lng?: number;
+  /** Same as `lat` — both are set by parsers. */
   latitude?: number;
+  /** Same as `lng` — both are set by parsers. */
   longitude?: number;
   phone?: string;
   website?: string;
@@ -570,6 +649,21 @@ export class GMapsAuthError extends GMapsError {
   constructor(message: string, cause?: unknown) {
     super(message, 401, cause);
     this.name = 'GMapsAuthError';
+  }
+}
+
+/**
+ * Signed-in session required for a named capability.
+ * Prefer this over a bare GMapsAuthError for Intent / agent surfaces.
+ */
+export class AuthRequiredError extends GMapsAuthError {
+  constructor(
+    message: string,
+    public readonly capability: import('./dx.js').AuthCapability,
+    cause?: unknown,
+  ) {
+    super(message, cause);
+    this.name = 'AuthRequiredError';
   }
 }
 

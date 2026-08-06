@@ -62,7 +62,4 @@ export function extractListUgcReviews(data: PbNode): ReviewsResult {
   };
 }
 
-/** @deprecated Use extractListUgcReviews */
-export const extractReviews = extractListUgcReviews;
-
 export type { ListUgcReviewsResponseRoot };

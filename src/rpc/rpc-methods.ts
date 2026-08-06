@@ -11,9 +11,6 @@ export const MAPS_WIZ_UI_APP = 'MapsWizUi';
 export const MAPS_WIZ_UI_PATH = '/maps/_/MapsWizUi/';
 export const BATCH_EXECUTE_PATH = '/maps/_/MapsWizUi/data/batchexecute';
 
-/** @deprecated Use MAPS_WIZ_UI_PATH — Maps uses WizUi, not legacy MapsUi */
-export const MAPS_UI_APP = 'MapsUi';
-
 /**
  * batchexecute rpcids use Google's Nxa encoder over protobuf field numbers.
  * Use encodeRpcId(field) from ./nxa.js — NOT _.Sc module IDs or Jd service names.
@@ -46,12 +43,6 @@ export const MAPS_AI_AGENT_RPC = {
   AGENT_08: 'SrFsZc',
   AGENT_09: 'TrFsZc',
   AGENT_10: 'UrFsZc',
-} as const;
-
-/** @deprecated Use FEATURE_RPC / descriptor registry */
-export const RPC_CANDIDATES = {
-  REVIEW_UI: 'DJRUGc',
-  PROTO_KPF_DKF: 'KpfDkf',
 } as const;
 
 // ============================================================================

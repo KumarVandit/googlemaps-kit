@@ -1,5 +1,5 @@
 /**
- * Place preview via places.get() (rich pb for hours and attributes).
+ * Place preview via places.get() (live pb — fastest path).
  *
  * Run: npm run example:place
  */
@@ -14,7 +14,8 @@ async function main() {
     lat: CEVI.lat,
     lng: CEVI.lng,
     ftid: CEVI.ftid,
-    mode: 'rich',
+    mode: 'live',
+    skipIncompleteRetry: true,
   });
 
   assertDefined(place.name, 'place.name');

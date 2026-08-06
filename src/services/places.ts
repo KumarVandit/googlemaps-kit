@@ -1,4 +1,5 @@
 import { HttpClient } from '../client/http-client.js';
+import { fetchPlaceEnrichment, mergePlaceEnrichment } from '../client/place-enrichment.js';
 import { extractLocalPosts } from '../parsers/local-posts.js';
 import {
   extractEmbeddedReviews,
@@ -119,8 +120,13 @@ export class PlacesService {
   }
 
   async get(options: GetPlaceOptions): Promise<PlaceDetails> {
-    const preview = await this.fetchPreview(options);
-    return this.parsePreview(preview.data, options);
+    const config = { hl: this.hl, gl: this.gl };
+    const [preview, enrichment] = await Promise.all([
+      this.fetchPreview(options),
+      fetchPlaceEnrichment(this.http, config, options),
+    ]);
+    const details = this.parsePreview(preview.data, options);
+    return mergePlaceEnrichment(details, enrichment);
   }
 
   async getMany(
@@ -186,15 +192,19 @@ export class PlacesService {
       return reviews;
     });
 
-    const [preview, reviewsBoq] = await Promise.all([
+    const config = { hl: this.hl, gl: this.gl };
+    const enrichmentPromise = fetchPlaceEnrichment(this.http, config, options);
+
+    const [preview, enrichment, reviewsBoq] = await Promise.all([
       this.fetchPreview(placeOpts),
+      enrichmentPromise,
       reviewsPromise,
     ]);
     meta.sources.preview = true;
     meta.previewMode = preview.mode;
     meta.timingMs!.preview = preview.timingMs;
 
-    const details = this.parsePreview(preview.data, placeOpts);
+    const details = mergePlaceEnrichment(this.parsePreview(preview.data, placeOpts), enrichment);
     const embedded = extractEmbeddedReviews(
       Array.isArray((preview.data as MapsPreviewPlaceResponse)[6])
         ? ((preview.data as MapsPreviewPlaceResponse)[6] as PlaceDataNode)

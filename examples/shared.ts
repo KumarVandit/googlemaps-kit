@@ -1,4 +1,4 @@
-import { createGMapsClient, type GMapsConfig } from '../dist/index.js';
+import { sdk, type GMapsConfig } from '../dist/index.js';
 
 /** HSR Layout, Bengaluru */
 export const HSR_CENTER = { lat: 12.9168407, lng: 77.6450439 };
@@ -15,7 +15,7 @@ export const CEVI = {
 } as const;
 
 export function createExampleClient(overrides: GMapsConfig = {}) {
-  return createGMapsClient({ hl: 'en', gl: 'in', ...overrides });
+  return sdk({ hl: 'en', gl: 'in', ...overrides });
 }
 
 export function fail(message: string): never {

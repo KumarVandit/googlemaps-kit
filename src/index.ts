@@ -1,55 +1,22 @@
 /**
- * googlemaps-kit public API.
- * Low-level RPC builders, parsers, and registries: import from 'googlemaps-kit/internal'.
+ * googlemaps-kit — customer-facing API.
+ *
+ * App code: `import { sdk } from 'googlemaps-kit'`
+ * Wire / protobuf / RPC: `import { … } from 'googlemaps-kit/advanced'`
  */
 
-export { GMapsClient, createGMapsClient } from './client/gmaps-client.js';
+export { GMapsClient, sdk, GMaps } from './client/gmaps-client.js';
 export type { EnrichSearchOptions } from './client/gmaps-client.js';
-
-export { SearchService } from './services/search.js';
-export { PlacesService } from './services/places.js';
-export type { GetPlaceOptions, PlacePreviewFetchResult } from './services/places.js';
-export { ReviewsService } from './services/reviews.js';
-export type { GetReviewsOptions } from './services/reviews.js';
-export { RevealService } from './services/reveal.js';
-export type { RevealPlaceOptions, RevealedPlace, RevealPlaceResult } from './types/reveal.js';
-export { PassiveAssistService } from './services/passiveassist.js';
+export type { AuthNamespace, SurfacesNamespace } from './client/product-namespaces.js';
+export type { AuthStatusOptions } from './auth/auth-status.js';
 export type {
-  MintedViewportPsi,
-  PassiveAssistChip,
-  PassiveAssistOptions,
-  PassiveAssistPsiContext,
-  PassiveAssistResult,
-} from './types/passiveassist.js';
-export { LocalPostsService } from './services/local-posts.js';
-export type { GetLocalPostsOptions } from './services/local-posts.js';
-export { KnowledgeService } from './services/knowledge.js';
-export type { GetKnowledgeOptions } from './services/knowledge.js';
-export { DirectionsService } from './services/directions.js';
-export { SuggestService } from './services/suggest.js';
-export { PanoramaService } from './services/panorama.js';
-export { TilesService } from './services/tiles.js';
-export { ListsService } from './services/lists.js';
-export { GeocodeService } from './services/geocode.js';
-export { PhotosService } from './services/photos.js';
-export { LinksService } from './services/links.js';
-export { TrafficService } from './services/traffic.js';
-export { TransitService } from './services/transit.js';
-export type {
-  GetStationDeparturesOptions,
-  ListTransitLinesOptions,
-  TransitDeparture,
-  TransitModeBoard,
-  TransitStationBoard,
-} from './types/transit.js';
-export { CategoriesService } from './services/categories.js';
-export { UgcAggregatesService } from './services/ugc-aggregates.js';
-export { BatchUrlService } from './services/batch-url.js';
-export { DistanceMatrixService } from './services/distance-matrix.js';
-export { ElevationService } from './services/elevation.js';
-export { TimezoneService } from './services/timezone.js';
-export { StaticMapService } from './services/static-map.js';
+  KnownSurfaceName,
+  SurfaceInfo,
+  SurfaceStatus,
+} from './known-surfaces.js';
+export { KNOWN_SURFACES, getSurfaceInfo, listSurfacesByStatus } from './known-surfaces.js';
 
+/** Shareable google.com/maps URLs (not wire request URLs). */
 export {
   buildPlaceUrl as buildPlaceLink,
   buildSearchUrl as buildSearchLink,
@@ -86,7 +53,7 @@ export type {
   StaticMapMarkerStyle,
   StaticMapScale,
 } from './types/static-map.js';
-export type { SearchClientFilters, SearchFilters, SearchRatingFilter, SearchPriceLevel } from './types/search-filters.js';
+export type { SearchClientFilters, SearchRatingFilter, SearchPriceLevel } from './types/search-filters.js';
 export type {
   DistanceMatrixOptions,
   DistanceMatrixResult,
@@ -173,6 +140,7 @@ export type {
   SearchResult,
   SearchPageResult,
   SearchFieldMask,
+  SearchMode,
   SearchTextOptions,
   SearchTextResult,
   PlaceDetails,
@@ -216,6 +184,7 @@ export type {
 export {
   GMapsError,
   GMapsAuthError,
+  AuthRequiredError,
   GMapsNetworkError,
   GMapsParseError,
   GMapsPhotosBlockedError,
@@ -223,3 +192,98 @@ export {
   GMapsEmptyPayloadError,
   GMapsCookiesExpiredError,
 } from './types/common.js';
+
+export type {
+  PlaceRef,
+  NormalizedPlaceRef,
+  SessionMode,
+  ProfileDepth,
+  ReviewSource,
+  ClientCapabilities,
+  AuthCapability,
+  IntentCallOptions,
+  DiscoverOptions,
+  DiscoverPagesOptions,
+  DiscoverResult,
+  ResolveOptions,
+  ResolvedPlace,
+  ProfileOptions,
+  ProfileManyOptions,
+  PlaceProfile,
+  RouteOptions,
+  RouteResult,
+  OpinionsOptions,
+  OpinionsPagesOptions,
+  OpinionsResult,
+  MediaOptions,
+  MediaManyOptions,
+  MediaResult,
+  PipelineOptions,
+  PipelinePlaceRow,
+  PipelineResult,
+} from './types/dx.js';
+
+export type {
+  GMapsHooks,
+  GMapsCacheOptions,
+  HookActionEvent,
+  HookRetryEvent,
+  HookErrorEvent,
+  HookActionType,
+  ProgressEvent,
+  ProgressCallback,
+} from './types/hooks.js';
+
+export { createMapsTools } from './client/maps-tools.js';
+export type {
+  CreateMapsToolsOptions,
+  MapsToolDefinition,
+  MapsTools,
+} from './client/maps-tools.js';
+
+export { toCsv, toGeoJSON } from './utils/export-results.js';
+export type { ExportablePlace, GeoJsonFeatureCollection } from './utils/export-results.js';
+
+export {
+  normalizePlaceRef,
+  resolveRouteEndpoint,
+  resolveSearchCenter,
+  resolveDirectionsEndpoints,
+} from './utils/place-ref.js';
+export { applyCoordAliases, toCoordinates } from './utils/coords.js';
+export { placeIdToFeatureId, featureIdToPlaceId, parseFeatureId } from './utils/ids.js';
+
+export type {
+  PlacesNamespace,
+  LocationNamespace,
+  TravelNamespace,
+  MapNamespace,
+  MetaNamespace,
+  AgentNamespace,
+} from './client/namespaces.js';
+
+export type {
+  AskMapsOptions,
+  AskMapsResult,
+  AskMapsPlaceRef,
+} from './services/ask-maps.js';
+
+export type { GetPlaceOptions, PlacePreviewFetchResult } from './services/places.js';
+export type { GetReviewsOptions } from './services/reviews.js';
+export type { RevealPlaceOptions, RevealedPlace, RevealPlaceResult } from './types/reveal.js';
+export type {
+  MintedViewportPsi,
+  PassiveAssistChip,
+  PassiveAssistOptions,
+  PassiveAssistPsiContext,
+  PassiveAssistResult,
+} from './types/passiveassist.js';
+export type { GetLocalPostsOptions } from './services/local-posts.js';
+export type { GetKnowledgeOptions } from './services/knowledge.js';
+export type {
+  GetStationDeparturesOptions,
+  ListTransitLinesOptions,
+  TransitDeparture,
+  TransitModeBoard,
+  TransitStationBoard,
+} from './types/transit.js';

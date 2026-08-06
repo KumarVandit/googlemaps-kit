@@ -10,6 +10,7 @@ import type {
   SearchResultWrapper,
 } from '../types/protobuf.js';
 import { asPlaceDataNode, asSearchRoot } from '../types/protobuf.js';
+import { applyCoordAliases } from '../utils/coords.js';
 import { safeGet } from '../utils/safe-get.js';
 import {
   extractAttributeGroups,
@@ -22,6 +23,19 @@ import {
   parseOpenStatus,
   parsePriceLevel,
 } from './shared.js';
+
+export interface ExtractBusinessesOptions {
+  /**
+   * Skip hours, attributes, and deep contact parsing (`pro` field mask).
+   * Cuts parse time on large payloads without changing the HTTP request.
+   */
+  lite?: boolean;
+  /**
+   * Scan the primary result lists (`root[0]`, `root[64]`) before the legacy deep walk.
+   * Default true — matches live Maps layout and avoids walking the full ~130 KB tree.
+   */
+  fastPath?: boolean;
+}
 
 /**
  * International / E.164-ish form from placeData[178][0][1][*] when present
@@ -45,7 +59,26 @@ function parseInternationalPhone(placeData: PlaceDataNode): string | undefined {
   return parsePhone(placeData);
 }
 
-function extractSingleBusiness(bizData: PlaceDataNode): SearchResult | null {
+function resolvePlaceDataFromWrapper(entry: PbNode): PlaceDataNode | null {
+  if (!Array.isArray(entry)) return null;
+  const candidates = [
+    entry[14],
+    entry[1],
+    safeGet<PbNode>(entry, 1, 14),
+    safeGet<PbNode>(entry, 1, 1, 14),
+  ];
+  for (const candidate of candidates) {
+    const biz = asPlaceDataNode(candidate);
+    const name = biz ? safeGet<string>(biz, 11) : undefined;
+    if (biz && typeof name === 'string' && name.length > 2) return biz;
+  }
+  return null;
+}
+
+function extractSingleBusiness(
+  bizData: PlaceDataNode,
+  options?: ExtractBusinessesOptions,
+): SearchResult | null {
   if (!Array.isArray(bizData) || bizData.length < 12) return null;
 
   const name = safeGet<string>(bizData, 11);
@@ -53,7 +86,8 @@ function extractSingleBusiness(bizData: PlaceDataNode): SearchResult | null {
   if (name.length < 2 || name.endsWith('=')) return null;
   if (/^[A-Za-z0-9+/=]+$/.test(name)) return null;
 
-  const business: SearchResult = {
+  const lite = options?.lite === true;
+  const business: SearchResult = applyCoordAliases({
     name,
     address: safeGet<string>(bizData, 18),
     placeId: safeGet<string>(bizData, 78),
@@ -63,19 +97,18 @@ function extractSingleBusiness(bizData: PlaceDataNode): SearchResult | null {
     reviewCount: parseReviewCountFromBlock(bizData[4]),
     latitude: safeGet<number>(bizData, 9, 2),
     longitude: safeGet<number>(bizData, 9, 3),
-    phone: parsePhone(bizData),
-    internationalPhone: parseInternationalPhone(bizData),
-    website: parseWebsiteFromContact(bizData[7]),
-    timezone: safeGet<string>(bizData, 30),
-  };
+  });
 
-  // Per-place photo already present in the search payload, so a thumbnail per result costs
-  // no extra request. Note `[75]` also holds image URLs but those are shared amenity icons
-  // (4 unique ids across 20 rows), so they are deliberately ignored here.
+  if (!lite) {
+    business.phone = parsePhone(bizData);
+    business.internationalPhone = parseInternationalPhone(bizData);
+    business.website = parseWebsiteFromContact(bizData[7]);
+    business.timezone = safeGet<string>(bizData, 30);
+  }
+
   const thumbnailUrl = safeGet<string>(bizData, 157);
   if (typeof thumbnailUrl === 'string' && thumbnailUrl.startsWith('http')) {
     business.thumbnailUrl = thumbnailUrl;
-    // Official Text Search `places.photos` is typically one (or a few) refs — same idea.
     business.photos = [thumbnailUrl];
   }
 
@@ -93,23 +126,50 @@ function extractSingleBusiness(bizData: PlaceDataNode): SearchResult | null {
     business.priceLevel = parsePriceLevel(ratingBlock);
   }
 
-  // Full weekly hours + open-now label live in the search row (placeData[203]) — same tree
-  // as place preview. Parsing them here is what lets one search call match Places API
-  // Text Search Enterprise fields without N detail round-trips.
-  const hoursRoot = bizData[203];
-  if (Array.isArray(hoursRoot)) {
-    business.openStatus = parseOpenStatus(hoursRoot);
-    if (business.openStatus) {
-      business.isOpenNow = /^open\b/i.test(business.openStatus.trim());
+  if (!lite) {
+    const hoursRoot = bizData[203];
+    if (Array.isArray(hoursRoot)) {
+      business.openStatus = parseOpenStatus(hoursRoot);
+      if (business.openStatus) {
+        business.isOpenNow = /^open\b/i.test(business.openStatus.trim());
+      }
+      const schedule: PlaceOpeningSchedule | undefined = extractOpeningSchedule(bizData);
+      if (schedule) business.openingSchedule = schedule;
     }
-    const schedule: PlaceOpeningSchedule | undefined = extractOpeningSchedule(bizData);
-    if (schedule) business.openingSchedule = schedule;
+
+    const attributeGroups: PlaceAttributeGroup[] = extractAttributeGroups(bizData);
+    if (attributeGroups.length > 0) business.attributeGroups = attributeGroups;
   }
 
-  const attributeGroups: PlaceAttributeGroup[] = extractAttributeGroups(bizData);
-  if (attributeGroups.length > 0) business.attributeGroups = attributeGroups;
-
   return business;
+}
+
+function collectPrimaryWrappers(root: SearchMapResponseRoot): SearchResultWrapper[] {
+  const wrappers: SearchResultWrapper[] = [];
+  const seen = new Set<SearchResultWrapper>();
+
+  const push = (entry: PbNode) => {
+    if (!Array.isArray(entry) || !resolvePlaceDataFromWrapper(entry)) return;
+    if (seen.has(entry)) return;
+    seen.add(entry);
+    wrappers.push(entry);
+  };
+
+  const primary = root[0];
+  if (Array.isArray(primary)) {
+    const nested = primary[1];
+    if (Array.isArray(nested)) {
+      for (const entry of nested) push(entry);
+    }
+    for (const entry of primary) push(entry);
+  }
+
+  const organicSection = root[64];
+  if (Array.isArray(organicSection)) {
+    for (const entry of organicSection) push(entry);
+  }
+
+  return wrappers;
 }
 
 function findBusinessArrays(obj: PbNode, depth = 0, maxDepth = 10): SearchResultWrapper[] {
@@ -145,65 +205,84 @@ function searchAllIndices(data: SearchMapResponseRoot): SearchResultWrapper[] {
   return found;
 }
 
-/** Extract businesses from `search?tbm=map` protobuf-over-JSON response. */
-export function extractBusinesses(data: PbNode): SearchResult[] {
+function extractAds(root: SearchMapResponseRoot): SearchResult[] {
   const businesses: SearchResult[] = [];
+  const adsEntries = safeGet<PbNode[]>(root, 2, 11, 0) ?? [];
+  if (!Array.isArray(adsEntries)) return businesses;
 
+  for (const ad of adsEntries) {
+    if (!Array.isArray(ad) || ad.length < 3) continue;
+    const adName = safeGet<string>(ad, 1);
+    if (!adName) continue;
+
+    const business: SearchResult = applyCoordAliases({
+      name: adName,
+      placeId: safeGet<string>(ad, 0),
+      latitude: safeGet<number>(ad, 2, 0, 2),
+      longitude: safeGet<number>(ad, 2, 0, 3),
+      rating: safeGet<number>(ad, 2, 6),
+      isAd: true,
+    });
+
+    const websiteUrl = safeGet<string>(ad, 3, 1);
+    if (websiteUrl && !websiteUrl.startsWith('https://www.google.com')) {
+      business.website = websiteUrl;
+    }
+
+    businesses.push(business);
+  }
+  return businesses;
+}
+
+function dedupeBusinesses(businesses: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  return businesses.filter((biz) => {
+    const key = biz.placeId ?? biz.hexId ?? biz.name;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractFromWrappers(
+  wrappers: SearchResultWrapper[],
+  options?: ExtractBusinessesOptions,
+): SearchResult[] {
+  const businesses: SearchResult[] = [];
+  for (const entry of wrappers) {
+    const bizData = resolvePlaceDataFromWrapper(entry);
+    if (!bizData) continue;
+    const business = extractSingleBusiness(bizData, options);
+    if (business?.name) businesses.push(business);
+  }
+  return businesses;
+}
+
+/** Extract businesses from `search?tbm=map` protobuf-over-JSON response. */
+export function extractBusinesses(data: PbNode, options?: ExtractBusinessesOptions): SearchResult[] {
   try {
     const root = asSearchRoot(data);
     if (!root) return [];
 
-    for (const entry of searchAllIndices(root)) {
-      const bizData = asPlaceDataNode(safeGet<PbNode>(entry, 14));
-      if (Array.isArray(bizData)) {
-        const business = extractSingleBusiness(bizData);
-        if (business?.name) businesses.push(business);
-      }
+    const useFastPath = options?.fastPath !== false;
+    let businesses: SearchResult[] = [];
+
+    if (useFastPath) {
+      businesses = extractFromWrappers(collectPrimaryWrappers(root), options);
     }
 
-    const organicSection = root[64];
-    if (Array.isArray(organicSection)) {
-      for (const entry of organicSection) {
-        const bizData = Array.isArray(entry) ? asPlaceDataNode(entry[1]) : undefined;
-        if (Array.isArray(bizData) && bizData.length > 11) {
-          const business = extractSingleBusiness(bizData);
+    if (businesses.length === 0) {
+      for (const entry of searchAllIndices(root)) {
+        const bizData = asPlaceDataNode(safeGet<PbNode>(entry, 14));
+        if (Array.isArray(bizData)) {
+          const business = extractSingleBusiness(bizData, options);
           if (business?.name) businesses.push(business);
         }
       }
     }
 
-    const adsEntries = safeGet<PbNode[]>(root, 2, 11, 0) ?? [];
-    if (Array.isArray(adsEntries)) {
-      for (const ad of adsEntries) {
-        if (!Array.isArray(ad) || ad.length < 3) continue;
-        const adName = safeGet<string>(ad, 1);
-        if (!adName) continue;
-
-        const business: SearchResult = {
-          name: adName,
-          placeId: safeGet<string>(ad, 0),
-          latitude: safeGet<number>(ad, 2, 0, 2),
-          longitude: safeGet<number>(ad, 2, 0, 3),
-          rating: safeGet<number>(ad, 2, 6),
-          isAd: true,
-        };
-
-        const websiteUrl = safeGet<string>(ad, 3, 1);
-        if (websiteUrl && !websiteUrl.startsWith('https://www.google.com')) {
-          business.website = websiteUrl;
-        }
-
-        businesses.push(business);
-      }
-    }
-
-    const seen = new Set<string>();
-    return businesses.filter((biz) => {
-      const key = biz.placeId ?? biz.hexId ?? biz.name;
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    businesses.push(...extractAds(root));
+    return dedupeBusinesses(businesses);
   } catch {
     return [];
   }

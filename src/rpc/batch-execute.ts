@@ -7,6 +7,9 @@ import type { BatchExecuteConfig, RPCCall, RPCResponse } from '../types/common.j
 import { GMapsAuthError, GMapsError, GMapsNetworkError } from '../types/common.js';
 import { isServicePath, rpcidForService } from './batch-services.js';
 import { parseChunkedResponse } from '../utils/chunked-decoder.js';
+import { sleep as sleepAbortable, throwIfAborted } from '../utils/abort.js';
+import { fireError, fireRetry } from '../utils/hooks.js';
+import { getRequestSignal } from '../utils/request-context.js';
 
 class ReqIdGenerator {
   private readonly base: number;
@@ -80,11 +83,19 @@ export class BatchExecuteClient {
     const retryDelay = this.config.retryDelay ?? 1000;
     const retryMaxDelay = this.config.retryMaxDelay ?? 5000;
     let lastError: Error | null = null;
+    const signal = this.config.signal ?? getRequestSignal();
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      throwIfAborted(signal);
       if (attempt > 0) {
         const delay = Math.min(retryDelay * Math.pow(2, attempt - 1), retryMaxDelay);
-        await this.sleep(delay);
+        fireRetry(this.config.hooks, {
+          type: 'batchexecute',
+          attempt,
+          delayMs: delay,
+          error: lastError ?? undefined,
+        });
+        await this.sleep(delay, signal);
       }
 
       try {
@@ -98,6 +109,7 @@ export class BatchExecuteClient {
               ...this.config.headers,
             },
             body: formData.toString(),
+            signal,
           });
           return { response: res, body: await res.text() };
         });
@@ -127,9 +139,14 @@ export class BatchExecuteClient {
         return this.decodeResponse(body);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        if (signal?.aborted) {
+          fireError(this.config.hooks, { type: 'batchexecute', error });
+          throw error;
+        }
         if (this.isRetryableError(lastError) && attempt < maxRetries) {
           continue;
         }
+        fireError(this.config.hooks, { type: 'batchexecute', error });
         throw error;
       }
     }
@@ -236,8 +253,8 @@ export class BatchExecuteClient {
     return [429, 500, 502, 503, 504].includes(status);
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return sleepAbortable(ms, signal);
   }
 
   private resolveBatchExecuteUrl(): string {

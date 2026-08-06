@@ -47,3 +47,4 @@ sdks/*
 
 # OS
 .DS_Store
+.cursor/

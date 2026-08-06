@@ -1,5 +1,5 @@
 /**
- * Text search: searchText() (enterprise field mask) and search().
+ * Text search: searchText() fast (default) vs full mode.
  *
  * Run: npm run example:search
  */
@@ -7,35 +7,40 @@ import { assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
+  await maps.ready();
 
-  console.log('searchText() with fieldMask enterprise\n');
+  console.log('searchText() — fast mode (default)\n');
   const t0 = performance.now();
-  const { places, timingMs } = await maps.search.searchText({
+  const fast = await maps.places.search.searchText({
     query: 'restaurants in hsr layout',
     location: HSR_CENTER,
-    limit: 5,
-    fieldMask: 'enterprise',
   });
-  console.log(`SDK timing: ${timingMs}ms | wall: ${(performance.now() - t0).toFixed(0)}ms`);
-  console.log(`Results: ${places.length}\n`);
+  console.log(`SDK timing: ${fast.timingMs}ms | wall: ${(performance.now() - t0).toFixed(0)}ms`);
+  console.log(`Results: ${fast.places.length}\n`);
 
-  for (const [i, p] of places.slice(0, 5).entries()) {
+  for (const [i, p] of fast.places.entries()) {
     console.log(
       `${i + 1}. ${p.name}` +
         (p.rating != null ? ` | rating ${p.rating}` : '') +
-        (p.phone ? ` | ${p.phone}` : '') +
-        (p.openStatus ? ` | ${p.openStatus}` : ''),
+        (p.thumbnailUrl ? ' | photo' : ''),
     );
   }
 
-  console.log('\nsearch() full rows\n');
-  const rows = await maps.search.search({
+  console.log('\nsearchText() — full mode (hours, phone, attributes)\n');
+  const full = await maps.places.search.searchText({
     query: 'cafes in hsr layout',
     location: HSR_CENTER,
-    limit: 3,
+    mode: 'full',
+    limit: 5,
   });
-  assertDefined(rows[0]?.name, 'first search row name');
-  console.log(`Top: ${rows[0]!.name} | hexId: ${rows[0]!.hexId ?? 'n/a'}`);
+  assertDefined(full.places[0]?.name, 'first search row name');
+  const p = full.places[0]!;
+  console.log(
+    `Top: ${p.name}` +
+      (p.phone ? ` | ${p.phone}` : '') +
+      (p.openStatus ? ` | ${p.openStatus}` : '') +
+      ` | hexId: ${p.hexId ?? 'n/a'}`,
+  );
 }
 
 main().catch((err) => {

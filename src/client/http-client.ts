@@ -6,6 +6,8 @@ import {
   randomUserAgent,
   type CookieJarState,
 } from '../auth/session.js';
+import { parseMapsPageTokens } from '../rpc/app-options.js';
+import { GMapsRpcClient } from '../rpc/rpc-client.js';
 import {
   GMapsAuthError,
   GMapsEmptyPayloadError,
@@ -13,7 +15,12 @@ import {
   GMapsPhotosBlockedError,
   GMapsThrottleError,
   type GMapsConfig,
+  type MapsPageTokens,
 } from '../types/common.js';
+import type { GMapsHooks } from '../types/hooks.js';
+import { sleep as sleepAbortable, throwIfAborted } from '../utils/abort.js';
+import { fireError, fireRetry } from '../utils/hooks.js';
+import { getRequestSignal } from '../utils/request-context.js';
 import { RequestScheduler } from '../utils/request-scheduler.js';
 import { backoffWithJitter, parseRetryAfterMs } from '../utils/retry-backoff.js';
 import { classifyThrottleFailure, isAutomatedQueryBlock } from '../utils/throttle-detection.js';
@@ -61,6 +68,8 @@ export interface HttpGetOptions {
    * {@link GMapsEmptyPayloadError} instead of returning silently.
    */
   rejectEmptyPayload?: boolean;
+  /** Abort this request (also reads AsyncLocalStorage request context). */
+  signal?: AbortSignal;
 }
 
 export interface HttpClientOptions {
@@ -85,9 +94,14 @@ export class HttpClient {
   private requestCount = 0;
   private sessionWarmCount = 0;
   private scheduler: RequestScheduler;
+  private mapsHtmlCache?: string;
+  private mapsTokensCache?: { tokens: MapsPageTokens; fetchedAt: number };
+  private warming: Promise<void> | null = null;
+  private readonly hooks: GMapsHooks | undefined;
 
   constructor(options: HttpClientOptions) {
     this.config = options.config;
+    this.hooks = options.config.hooks;
     this.suppliedCookies = Boolean(options.config.cookies);
     if (options.config.cookies) {
       this.cookieJar = this.parseCookieString(options.config.cookies);
@@ -100,6 +114,10 @@ export class HttpClient {
     installKeepAliveDispatcher(concurrency);
   }
 
+  private resolveSignal(options?: HttpGetOptions): AbortSignal | undefined {
+    return options?.signal ?? getRequestSignal();
+  }
+
   async get<T = unknown>(url: string, options?: HttpGetOptions): Promise<T> {
     return this.scheduler.run(() => this.getInternal<T>(url, options));
   }
@@ -109,12 +127,25 @@ export class HttpClient {
     const retryDelay = this.config.retryDelay ?? 500;
     const retryMaxDelay = this.config.retryMaxDelay ?? 30_000;
     let lastError: Error | null = null;
+    const signal = this.resolveSignal(options);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      throwIfAborted(signal);
+      const incompleteRetry = attempt > 0 && lastError?.message === 'Response rejected as incomplete';
       if (attempt > 0) {
-        const delay = backoffWithJitter(retryDelay, attempt, retryMaxDelay);
-        await this.sleep(delay);
-        await this.ensureSession(true);
+        const delay = incompleteRetry
+          ? backoffWithJitter(100, attempt, 1_500)
+          : backoffWithJitter(retryDelay, attempt, retryMaxDelay);
+        fireRetry(this.hooks, {
+          type: 'http.get',
+          attempt,
+          delayMs: delay,
+          error: lastError ?? undefined,
+        });
+        await this.sleep(delay, signal);
+        if (!incompleteRetry) {
+          await this.ensureSession(true);
+        }
       } else {
         await this.ensureSession();
       }
@@ -143,7 +174,7 @@ export class HttpClient {
         }
 
         const start = performance.now();
-        const response = await fetch(url, { headers, redirect: 'follow' });
+        const response = await fetch(url, { headers, redirect: 'follow', signal });
         const elapsed = performance.now() - start;
 
         this.mergeResponseCookies(response.headers);
@@ -164,7 +195,7 @@ export class HttpClient {
           const retryAfterMs = parseRetryAfterMs(response.headers.get('Retry-After'));
           if (attempt < maxRetries) {
             lastError = new GMapsThrottleError('Rate limited (429)', retryAfterMs);
-            if (retryAfterMs) await this.sleep(retryAfterMs);
+            if (retryAfterMs) await this.sleep(retryAfterMs, signal);
             continue;
           }
           throw new GMapsThrottleError('Rate limited (429)', retryAfterMs);
@@ -228,6 +259,10 @@ export class HttpClient {
 
         return parsed;
       } catch (error) {
+        if (signal?.aborted) {
+          fireError(this.hooks, { type: 'http.get', error });
+          throw error;
+        }
         if (
           error instanceof GMapsAuthError ||
           error instanceof GMapsNetworkError ||
@@ -237,6 +272,7 @@ export class HttpClient {
         ) {
           lastError = error;
           if (attempt < maxRetries) continue;
+          fireError(this.hooks, { type: 'http.get', error });
           throw error;
         }
         throw error;
@@ -262,11 +298,19 @@ export class HttpClient {
     const retryMaxDelay = this.config.retryMaxDelay ?? 30_000;
     const minBytes = options?.minBytes ?? 8;
     let lastError: Error | null = null;
+    const signal = this.resolveSignal(options);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      throwIfAborted(signal);
       if (attempt > 0) {
         const delay = backoffWithJitter(retryDelay, attempt, retryMaxDelay);
-        await this.sleep(delay);
+        fireRetry(this.hooks, {
+          type: 'http.getBytes',
+          attempt,
+          delayMs: delay,
+          error: lastError ?? undefined,
+        });
+        await this.sleep(delay, signal);
         await this.ensureSession(true);
       } else {
         await this.ensureSession();
@@ -296,7 +340,7 @@ export class HttpClient {
         }
 
         const start = performance.now();
-        const response = await fetch(url, { headers, redirect: 'follow' });
+        const response = await fetch(url, { headers, redirect: 'follow', signal });
         const elapsed = performance.now() - start;
 
         this.mergeResponseCookies(response.headers);
@@ -317,7 +361,7 @@ export class HttpClient {
           const retryAfterMs = parseRetryAfterMs(response.headers.get('Retry-After'));
           if (attempt < maxRetries) {
             lastError = new GMapsThrottleError('Rate limited (429)', retryAfterMs);
-            if (retryAfterMs) await this.sleep(retryAfterMs);
+            if (retryAfterMs) await this.sleep(retryAfterMs, signal);
             continue;
           }
           throw new GMapsThrottleError('Rate limited (429)', retryAfterMs);
@@ -353,6 +397,10 @@ export class HttpClient {
 
         return { bytes, contentType };
       } catch (error) {
+        if (signal?.aborted) {
+          fireError(this.hooks, { type: 'http.getBytes', error });
+          throw error;
+        }
         if (
           error instanceof GMapsAuthError ||
           error instanceof GMapsNetworkError ||
@@ -362,6 +410,7 @@ export class HttpClient {
         ) {
           lastError = error;
           if (attempt < maxRetries) continue;
+          fireError(this.hooks, { type: 'http.getBytes', error });
           throw error;
         }
         throw error;
@@ -414,13 +463,114 @@ export class HttpClient {
     };
   }
 
-  /** @deprecated Use getStats().requestCount */
-  getRequestCount(): number {
-    return this.requestCount;
-  }
-
   async warmSession(): Promise<void> {
     await this.ensureSession();
+    void this.prewarmSearchSurface();
+  }
+
+  /**
+   * Open a keep-alive connection to the Maps search surface (limit-1 probe).
+   * Hides first-search TLS/TTFB from user-facing calls.
+   */
+  prewarmSearchSurface(hl = 'en', gl = 'us'): Promise<void> {
+    if (!this.searchSurfacePromise) {
+      this.searchSurfacePromise = this.runSearchSurfacePrewarm(hl, gl);
+    }
+    return this.searchSurfacePromise;
+  }
+
+  private searchSurfacePromise: Promise<void> | null = null;
+
+  private async runSearchSurfacePrewarm(hl: string, gl: string): Promise<void> {
+    try {
+      await this.ensureSession();
+      const { buildSearchUrl } = await import('../rpc/pb-builders.js');
+      const url = buildSearchUrl({
+        query: 'maps',
+        lat: 0,
+        lng: 0,
+        resultsCount: 1,
+        maxRadius: 50_000,
+        offset: 0,
+        hl,
+        gl,
+        zoom: 2,
+      });
+      await this.get(url, {
+        referer: 'https://www.google.com/maps/',
+        noRetry: true,
+        allowShortBody: true,
+      });
+    } catch {
+      // Non-fatal — search still works without the warm probe.
+    }
+  }
+
+  /** Session token used by Maps UI RPC envelopes. */
+  async resolvePsi(): Promise<string> {
+    const tokens = await this.getMapsPageTokens();
+    const psi = tokens.psi ?? tokens.kEI;
+    if (!psi) {
+      throw new GMapsAuthError('Maps session token unavailable');
+    }
+    return psi;
+  }
+
+  private rpcClient: GMapsRpcClient | null = null;
+  private rpcInit: Promise<GMapsRpcClient> | null = null;
+
+  /** Cached batchexecute client (one per HTTP session). */
+  async getRpcClient(config: GMapsConfig = {}): Promise<GMapsRpcClient> {
+    if (this.rpcClient) return this.rpcClient;
+    if (!this.rpcInit) {
+      this.rpcInit = (async () => {
+        await this.ensureSession();
+        const pageTokens = await this.getMapsPageTokens();
+        const client = await GMapsRpcClient.fromHttpSession(
+          this.getCookieJar(),
+          this.getUserAgent(),
+          config,
+          (fn) => this.runScheduled(fn),
+          pageTokens,
+        );
+        this.rpcClient = client;
+        return client;
+      })();
+    }
+    return this.rpcInit;
+  }
+
+  /**
+   * batchexecute tokens from the cached Maps bootstrap HTML (no extra fetch when warm).
+   */
+  peekMapsPageTokens(): MapsPageTokens | null {
+    const ttl = 30 * 60 * 1000;
+    if (this.mapsTokensCache && Date.now() - this.mapsTokensCache.fetchedAt < ttl) {
+      return this.mapsTokensCache.tokens;
+    }
+    return null;
+  }
+
+  async getMapsPageTokens(): Promise<MapsPageTokens> {
+    const ttl = 30 * 60 * 1000;
+    if (this.mapsTokensCache && Date.now() - this.mapsTokensCache.fetchedAt < ttl) {
+      return this.mapsTokensCache.tokens;
+    }
+
+    await this.ensureSession();
+    if (this.mapsHtmlCache) {
+      const tokens = parseMapsPageTokens(this.mapsHtmlCache);
+      this.mapsTokensCache = { tokens, fetchedAt: Date.now() };
+      return tokens;
+    }
+
+    const { extractMapsPageTokens } = await import('../auth/maps-tokens.js');
+    const tokens = await extractMapsPageTokens(
+      this.cookieJar,
+      this.sessionUserAgent ?? randomUserAgent(),
+    );
+    this.mapsTokensCache = { tokens, fetchedAt: Date.now() };
+    return tokens;
   }
 
   getUserAgent(): string {
@@ -455,6 +605,20 @@ export class HttpClient {
       return;
     }
 
+    if (!force && this.warming) {
+      await this.warming;
+      return;
+    }
+
+    this.warming = this.bootstrapSession(force);
+    try {
+      await this.warming;
+    } finally {
+      this.warming = null;
+    }
+  }
+
+  private async bootstrapSession(force: boolean): Promise<void> {
     this.sessionWarmCount++;
     const session: CookieJarState = await bootstrapSession(force);
     if (this.suppliedCookies) {
@@ -464,6 +628,13 @@ export class HttpClient {
     }
     this.sessionUserAgent = session.userAgent;
     this.sessionFetchedAt = session.fetchedAt;
+    if (session.mapsHtml) {
+      this.mapsHtmlCache = session.mapsHtml;
+      this.mapsTokensCache = {
+        tokens: parseMapsPageTokens(session.mapsHtml),
+        fetchedAt: session.fetchedAt,
+      };
+    }
   }
 
   private mergeResponseCookies(headers: Headers): void {
@@ -516,7 +687,7 @@ export class HttpClient {
     }
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return sleepAbortable(ms, signal);
   }
 }

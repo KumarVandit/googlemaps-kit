@@ -37,16 +37,8 @@ export async function createRpcClient(
   http: HttpClient,
   config: GMapsConfig = {},
 ): Promise<GMapsRpcClient> {
-  // Cookies are snapshotted here, so the session must already be bootstrapped —
-  // several services (ListEntityPhotos) return empty payloads for a cookieless caller.
   await http.warmSession();
-  return GMapsRpcClient.fromHttpSession(
-    http.getCookieJar(),
-    http.getUserAgent(),
-    config,
-    // Keeps batchexecute inside the same pacing/concurrency budget as plain GETs.
-    (fn) => http.runScheduled(fn),
-  );
+  return http.getRpcClient(config);
 }
 
 /**
@@ -78,6 +70,11 @@ export async function fetchPlacePsi(
   http: HttpClient,
   placePath: string,
 ): Promise<string | undefined> {
+  const cached = await http.getMapsPageTokens();
+  if (cached.psi ?? cached.kEI) {
+    return cached.psi ?? cached.kEI;
+  }
+
   const html = await fetch(`https://www.google.com${placePath}`, {
     headers: {
       'User-Agent': http.getUserAgent(),

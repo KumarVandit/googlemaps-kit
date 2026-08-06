@@ -11,12 +11,19 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](./package.json)
 
+**Site:** [googlemapskit.vaandeetttt.com](https://googlemapskit.vaandeetttt.com) · **npm:** [`googlemaps-kit`](https://www.npmjs.com/package/googlemaps-kit)
+
+Agent bootstrap (Cursor / Claude / Codex): use **Copy Agent Instruction** on the site, or:
+
+```bash
+npx skills add KumarVandit/googlemaps-kit --skill googlemaps-kit --agent '*'
+```
+
 ## Overview
 
-Service-based client for search, places, reviews, directions, photos, geocoding, tiles,
-and more. Calls the same HTTP endpoints the Maps web app uses. **No Maps Platform API
-key. No browser or Playwright dependency** — plain `fetch` via Node (`undici`) with
-browser-like headers and an automatically warmed anonymous cookie jar.
+Intent-first client for search, places, reviews, directions, photos, geocoding, tiles,
+and more. **No Maps Platform API key. No browser dependency** — works out of the box
+from Node 18+ with automatic client initialization.
 
 ## Disclaimer
 
@@ -25,230 +32,190 @@ block without notice. Intended for research and personal tooling, not bulk scrap
 
 ## How it works
 
-1. **Anonymous bootstrap** — On first use, the client makes a short HTTP handshake
-   (`google.com` → consent → Maps) and keeps **anonymous** cookies such as `NID` and
-   `AEC`. No Google account, API key, or cookies to configure — this is bot/consent
-   context, not user login. See `src/auth/session.ts`.
-2. **API calls** — Services build request URLs and protobuf payloads, then parse JSON
-   responses into typed results.
-3. **No headless browser** — Chromium/Playwright is not used at runtime. The only
-   exception is `passiveAssist`, which needs a viewport `psi` token you obtain outside
-   the SDK (for example from a browser session you control).
+1. **Zero config** — `sdk()` initializes automatically; no API keys or
+   manual setup.
+2. **Same surfaces as Maps** — Search, place details, reviews, directions, and photos
+   use the same HTTP and RPC paths as the Maps web app, merged into typed results.
+3. **Intent + namespaces** — call `discover` / `profile` / `route` for common flows, or
+   use domain namespaces (`places`, `travel`, `map`, …) for full control.
+4. **No headless browser** — except `passiveAssist`, which needs a viewport token you
+   supply externally.
 
-## Features
-
-### Search and places
-
-| Feature | Method | Example |
-|---------|--------|---------|
-| Text search | `maps.search.searchText()` | [search-text.ts](examples/search-text.ts) |
-| Search (full rows) | `maps.search.search()` | [search-text.ts](examples/search-text.ts) |
-| Search pagination | `maps.search.searchPage()` | [search-pagination.ts](examples/search-pagination.ts) |
-| Place details | `maps.places.get()` | [place-get.ts](examples/place-get.ts) |
-| Place + reviews | `maps.getPlaceFull()` | [place-full.ts](examples/place-full.ts) |
-| Reviews (Boq, paginated) | `maps.reviews.listAll()` | [reviews-list.ts](examples/reviews-list.ts) |
-| Autocomplete | `maps.suggest.suggest()` | [suggest.ts](examples/suggest.ts) |
-| Map-click POI | `maps.reveal.revealAtClick()` | — |
-
-`reviews.list()` tries Boq first, then embedded snippets from the place preview.
-
-### Directions and location
-
-| Feature | Method | Example |
-|---------|--------|---------|
-| Directions | `maps.directions.get()` | [directions-get.ts](examples/directions-get.ts) |
-| Geocode | `maps.geocode.geocode()` | [geocode.ts](examples/geocode.ts) |
-| Reverse geocode | `maps.geocode.reverseGeocode()` | [geocode.ts](examples/geocode.ts) |
-| Timezone | `maps.timezone.get()` | — |
-| Distance matrix | `maps.distanceMatrix.getMatrix()` | — |
-| Elevation | `maps.elevation.getAtPoint()` | — |
-
-Distance matrix and elevation are **derived** by fanning out directions requests, not a
-single Google matrix/elevation API.
-
-### Media and maps
-
-| Feature | Method | Notes |
-|---------|--------|-------|
-| Place photos | `maps.photos.list()` | `batchexecute` when `lat`/`lng` set; else `place_preview` |
-| Street View nearby | `maps.panorama.findNearby()` | Coverage tiles first |
-| Map tiles | `maps.tiles.getTileByLatLng()` | 256px roadmap verified |
-| Static map PNG | `maps.staticMap.getStaticMap()` | Stitched from `vt/proto` tiles |
-
-### Links and lists
-
-| Feature | Method | Example |
-|---------|--------|---------|
-| Short link resolve | `maps.links.resolve()` | — |
-| Parse Maps URL | `parseMapsUrl()` | [maps-url.ts](examples/maps-url.ts) |
-| Build share link | `buildPlaceLink()`, … | [maps-url.ts](examples/maps-url.ts) |
-| Public place lists | `maps.lists.get()` | — |
-
-### batchexecute
-
-| Feature | Method |
-|---------|--------|
-| Area traffic | `maps.traffic.getAreaTraffic()` |
-| Category taxonomy | `maps.categories.getHierarchy()` |
-| Category suggestions | `maps.categories.suggest()` |
-| Rating histogram | `maps.ugcAggregates.getPlaceAggregates()` |
-| URL decode | `maps.batchUrl.decode()` |
-| Short URL create | `maps.batchUrl.createShortUrl()` |
-| Transit departures | `maps.transit.getStationDepartures()` |
-
-Traffic, UGC aggregates, and batchexecute photo galleries resolve a Maps session `psi`
-from the warmed HTTP session when you do not pass one.
-
-Low-level RPC builders and parsers: `import from 'googlemaps-kit/internal'`.
-
-## Installation
+## Quick start
 
 ```bash
 npm install googlemaps-kit
 ```
 
-**Requirements:** Node.js >= 18
-
-**From source:**
-
-```bash
-git clone https://github.com/KumarVandit/googlemaps-kit.git
-cd googlemaps-kit
-npm install && npm run build
-```
-
-## Quick start
-
 ```typescript
-import { createGMapsClient } from 'googlemaps-kit';
+import { sdk } from 'googlemaps-kit';
 
-const maps = createGMapsClient({ hl: 'en', gl: 'in' });
+const maps = sdk({
+  locale: { hl: 'en', gl: 'in' },
+});
 
-const { places } = await maps.search.searchText({
+const { places } = await maps.discover({
   query: 'cafes in indiranagar',
-  location: { lat: 12.98, lng: 77.64 },
-  limit: 5,
+  near: { lat: 12.98, lng: 77.64 },
 });
 
 const top = places[0]!;
-const place = await maps.places.get({
-  hexId: top.hexId!,
-  name: top.name,
-  lat: top.latitude ?? 12.98,
-  lng: top.longitude ?? 77.64,
-  mode: 'rich',
-});
-
-const reviews = await maps.reviews.listAll({
-  hexId: place.hexId!,
-  limit: 10,
-  maxPages: 1,
-});
+const { place } = await maps.profile(top, { depth: 'card' });
+const reviews = await maps.opinions(top, { pages: 1 });
 
 console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 ```
 
-From a git checkout:
+## Package layout
 
-```bash
-npm run example:quick-start
+| Import | Use for |
+|--------|---------|
+| `googlemaps-kit` | Apps & agents — `sdk()`, Intent API, namespaces, result types |
+| `googlemaps-kit/advanced` | Under the hood — HTTP client, protobuf builders, RPC, parsers |
+
+## Intent API
+
+| Method | Input | Output | Latency notes |
+|--------|-------|--------|---------------|
+| `discover({ query, near })` | query + coords (`near` or `location`) | `{ places, timingMs, mode, pagination }` | Default `mode:'fast'` ~400 ms; pass `offset` to paginate |
+| `discoverPages(…)` | same + `maxPages` | async iterable of `DiscoverResult` | Streams pages; dedupes across pages |
+| `resolve({ query \| url, near? })` | text or URL | `{ hexId?, name?, lat?, lng?, source }` | Identity only — check `hexId` before `profile` |
+| `profile(ref, { depth? })` | PlaceRef | `{ place, depth, reviews?, … }` | Use **`place.name`** (not top-level `.name`) |
+| `profileMany(refs)` | PlaceRef[] | `PlaceProfile[]` | Bounded concurrency + `onProgress` |
+| `route({ from, to })` | coords / address / PlaceRef | DirectionsResult | Default metrics only |
+| `opinions(ref)` | PlaceRef | ReviewsResult | `reviewCount` = page size; `totalReviews` needs aggregates |
+| `opinionsPages(ref)` | PlaceRef | async iterable of review pages | Streams Boq pages |
+| `media(ref)` | PlaceRef | `{ photos[], photoCount, nextPageToken? }` | Flat `PlacePhoto[]` |
+| `mediaMany(refs)` | PlaceRef[] | `MediaResult[]` | Bounded concurrency |
+| `pipeline({ discover, … })` | discover + optional profile/opinions | enriched rows | One-shot lead scrape |
+| `tools()` | — | agent tool map | Same as `createMapsTools(maps)` |
+| `capabilities()` | — | capability flags | Async; cookie presence only |
+
+### Common mistakes
+
+| Mistake | Do this instead |
+|---------|-----------------|
+| `const p = await maps.profile(…); p.name` | `p.place.name` |
+| `route({ from: hexId })` | Pass coords or address — bare ids need lat/lng |
+| `reviews.reviewCount` as place total | Use `totalReviews` with `includeAggregates: true` |
+| `place.photos[0].normalizedUrl` after `profile` | Profile photos are URL strings; use `media()` for `PlacePhoto` |
+| `session: 'authenticated'` without cookies | Throws at create — cookies are the real gate |
+
+## Namespaces
+
+| Namespace | Contains |
+|-----------|----------|
+| `maps.places` | `search`, `suggest`, `details`, `get()`, `reviews`, `photos`, `knowledge`, `localPosts` |
+| `maps.location` | `geocode`, `timezone`, `reveal`, `passiveAssist` |
+| `maps.travel` | `directions`, `distanceMatrix`, `elevation`, `transit`, `traffic` |
+| `maps.map` | `tiles`, `staticMap`, `panorama` |
+| `maps.meta` | `categories`, `ugcAggregates`, `lists`, `links`, `batchUrl` |
+| `maps.agent` | `ask()`, `askMaps` (signed-in) |
+| `maps.auth` | `status()`, `summarize()` |
+| `maps.surfaces` | `list()`, `working()`, `get(name)` |
+
+```typescript
+await maps.places.search.searchText({ query: 'coffee', near, mode: 'fast' });
+await maps.travel.directions.get({ origin: 'A', destination: 'B' });
+await maps.location.geocode.geocode('HSR Layout, Bengaluru');
 ```
+
+## Auth tiers
+
+| Tier | How | Unlocks |
+|------|-----|---------|
+| **Anonymous** (default) | Session warms itself | Search, places, Boq reviews, photos, directions, traffic, categories |
+| **Authenticated** | `cookies` / `GMAPS_COOKIES` | Ask Maps, `reviews` `source:'rpc'`, private lists |
+
+Signed-in surfaces throw `AuthRequiredError` when cookies are missing.
 
 ## Configuration
 
-`createGMapsClient()` loads `.env.local` then `.env` from the working directory
-(see `loadProjectEnv()`). Existing `process.env` values are not overwritten.
+`sdk()` loads `.env.local` then `.env` from the working directory.
 
 | Option | Env var | Default | Description |
 |--------|---------|---------|-------------|
-| `hl` | `GMAPS_HL` | `en` | Language |
-| `gl` | `GMAPS_GL` | `us` | Region |
+| `locale.hl` / `hl` | `GMAPS_HL` | `en` | Language |
+| `locale.gl` / `gl` | `GMAPS_GL` | `us` | Region |
+| `session` | — | `anonymous` | Capability profile |
+| `cookies` | `GMAPS_COOKIES` | — | Optional signed-in cookie string |
+| `performance.mode` | — | `fast` | Default `discover()` search mode |
 | `requestDelayMs` | `GMAPS_REQUEST_DELAY_MS` | `0` | Min delay between request starts |
 | `concurrency` | `GMAPS_CONCURRENCY` | `6` | Max parallel in-flight requests |
-| `debug` | — | `false` | Log requests/responses (pass in config, not an env var) |
-| `maxRetries` | — | `2` | Retries on transient failures |
-| `retryDelay` | — | `500` | Base retry delay (ms) |
+| `debug` | `GMAPS_DEBUG` | `false` | Log requests/responses |
+| `hooks` | — | — | `onAction` / `onRetry` / `onError` lifecycle callbacks |
+| `cache` | — | off | Optional TTL cache for `discover` / `profile` (card) |
 
-Copy [`.env.example`](./.env.example) to `.env.local` for local overrides.
+## DX extras
 
-## Client
+```typescript
+const maps = sdk({
+  hooks: {
+    onAction: ({ type, status, durationMs }) => console.log(type, status, durationMs),
+  },
+  cache: { ttlMs: 60_000 },
+});
 
-`createGMapsClient()` exposes **24 services**:
+// cancel in-flight work
+const ac = new AbortController();
+await maps.discover({ query: 'coffee', near, signal: ac.signal });
 
-`search`, `places`, `reviews`, `directions`, `geocode`, `distanceMatrix`, `elevation`,
-`timezone`, `staticMap`, `suggest`, `panorama`, `tiles`, `lists`, `photos`, `links`,
-`traffic`, `transit`, `categories`, `ugcAggregates`, `batchUrl`, `knowledge`,
-`localPosts`, `reveal`, `passiveAssist`
+// stream pages
+for await (const page of maps.discoverPages({ query: 'coffee', near, maxPages: 3 })) {
+  console.log(page.places.length, page.pagination.hasMore);
+}
 
-**Convenience methods on the client:** `getPlaceFull`, `getPlaceComplete`, `getDirections`,
-`searchEnriched`, `getHttpStats()`
+// batch + pipeline
+await maps.profileMany(hits, { concurrency: 4, onProgress: console.log });
+await maps.pipeline({ discover: { query: 'coffee', near }, maxPlaces: 5, profile: { depth: 'card' } });
 
-**Advanced (lazy-loaded):** `rpc()`, `features()`, `runtime()`
+// agent tools
+const tools = maps.tools(); // or createMapsTools(maps)
+await tools.discover.execute({ query: 'coffee', nearLat: near.lat, nearLng: near.lng });
+```
 
-**Standalone exports:** `parseMapsUrl`, `buildPlaceLink`, `encodePolyline`,
-`decodeEncodedPolyline`, error classes, and domain types.
+CLI (JSON by default):
 
-## Error handling
+```bash
+npx googlemaps-kit discover "cafes" --near 12.98,77.64
+npx googlemaps-kit profile 0x…:0x… --depth card
+npx googlemaps-kit resolve --query "Indiranagar"
+```
+
+Export helpers: `toCsv(places)`, `toGeoJSON(places)`.
+
+## Advanced (under the hood)
+
+When you need protobuf `pb=` builders, batchexecute RPC IDs, or raw parsers:
 
 ```typescript
 import {
-  createGMapsClient,
-  GMapsThrottleError,
-  GMapsPhotosBlockedError,
-  GMapsEmptyPayloadError,
-} from 'googlemaps-kit';
-
-const maps = createGMapsClient();
-
-try {
-  await maps.photos.list({
-    hexId: '0x…',
-    lat: 12.91,
-    lng: 77.65,
-    source: 'listentityphotos', // GET RPC; often blocked
-  });
-} catch (error) {
-  if (error instanceof GMapsThrottleError) {
-    // Back off (client also retries with jitter)
-  } else if (error instanceof GMapsPhotosBlockedError) {
-    // Prefer default source or `source: 'batchexecute'`
-  } else if (error instanceof GMapsEmptyPayloadError) {
-    // HTTP 200 but empty/stub body
-  }
-}
+  HttpClient,
+  buildSearchPb,
+  extractBusinesses,
+  BATCH_EXECUTE_PATH,
+} from 'googlemaps-kit/advanced';
 ```
 
-## Best practices
-
-- Set `requestDelayMs` and `concurrency` for scheduled or high-volume jobs.
-- Under load, Google may return **HTTP 200 with truncated payloads** (fewer photos, missing
-  `reviewCount`). Check field presence, not status codes alone.
-- Pass `lat` and `lng` to `maps.photos.list()` for batchexecute galleries with metadata;
-  without coordinates it uses place preview URLs only.
-- Avoid `source: 'listentityphotos'`; many IPs get an abuse block (`GMapsPhotosBlockedError`).
-- `distanceMatrix.getMatrix()` costs **N×M directions requests** (deduped, bounded concurrency).
-- First batchexecute call may warm the session; empty 200 responses often mean the jar was
-  not warmed yet, not that the place has no data.
+Organized modules: HTTP transport, auth/session, RPC/protobuf, parsers, service classes.
 
 ## Limitations
 
-- Unofficial reverse-engineered surfaces; no stability guarantee.
-- No logged-in Google account support in the public API.
-- `knowledge.get()` uses place-preview fields as fallback (not a live knowledge-graph RPC).
-- `localPosts.list()` is unverified (sampled businesses returned empty payloads).
-- `passiveAssist.getViewportChips()` requires a viewport `psi` you supply; the SDK does not
-  open a browser.
-- Map tiles: 256px roadmap layer verified; other layers/sizes may return HTTP 400.
-- Bicycling directions are sparse in some regions.
+- Undocumented consumer surfaces; no stability guarantee.
+- Signed-in features need cookies you supply — the kit does not perform Google login.
+- `passiveAssist` needs a viewport `psi` you supply externally.
+- Map tiles: 256px roadmap layer verified; other layers may return HTTP 400.
 
 ## Development
 
 ```bash
 npm test
 npm run build
-npm run examples:all  # build + run every public example (live network)
-npm run verify:all    # live HTTP checks against Google
+npm run examples:all
+npm run verify:all
 ```
+
+**Website:** [googlemapskit.vaandeetttt.com](https://googlemapskit.vaandeetttt.com)
 
 ## License
 

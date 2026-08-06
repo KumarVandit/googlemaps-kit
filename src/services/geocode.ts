@@ -9,7 +9,7 @@ import type {
 } from '../types/geocode.js';
 import type { PbNode } from '../types/protobuf.js';
 
-const DEFAULT_RESULTS_COUNT = 5;
+const DEFAULT_RESULTS_COUNT = 1;
 const DEFAULT_MAX_RADIUS = 50_000;
 const DEFAULT_FORWARD_ZOOM = 15;
 const DEFAULT_REVERSE_ZOOM = 17;

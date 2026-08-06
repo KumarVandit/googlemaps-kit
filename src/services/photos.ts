@@ -384,9 +384,7 @@ export class PhotosService {
   }
 
   private async resolvePlacePsi(options: ListPlacePhotosOptions): Promise<string> {
-    const psi = await fetchSessionPsi(this.http, { lat: options.lat, lng: options.lng });
-    if (!psi) throw new GMapsError('Could not resolve Maps session psi for batchexecute photos');
-    return psi;
+    return this.http.resolvePsi();
   }
 
   private sleep(ms: number): Promise<void> {

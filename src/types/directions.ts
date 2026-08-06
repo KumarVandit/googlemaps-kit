@@ -12,11 +12,25 @@ export interface DirectionsWaypoint {
 }
 
 export interface DirectionsOptions {
-  origin: Coordinates | string;
-  destination: Coordinates | string;
+  /** Directions service spelling. Intent `route` uses `from` — both accepted. */
+  origin?: Coordinates | string;
+  destination?: Coordinates | string;
+  /** Alias for `origin` (Intent spelling). */
+  from?: Coordinates | string;
+  /** Alias for `destination`. */
+  to?: Coordinates | string;
   mode?: TravelMode;
   /** Intermediate stops — encoded as extra `!1m4!3m2!3d…!4d…!6e2` blocks (verified live). */
   waypoints?: DirectionsWaypoint[];
+  /**
+   * When true, scrape `/maps/dir/` HTML for turn-by-turn steps if the preview pb lacks them.
+   * Default false — returns duration/distance from preview only (faster).
+   */
+  includeSteps?: boolean;
+  /**
+   * Return duration/distance only — skip step scrape (used by distance matrix / elevation).
+   */
+  metricsOnly?: boolean;
 }
 
 export type StepManeuver =

@@ -61,6 +61,11 @@ describe('search filter encodings (mined from Maps JS)', () => {
 describe('search pb regression (filters default off)', () => {
   const unfilteredPb = buildSearchPb(BASE_PARAMS);
 
+  it('uses the browser-aligned feature-flag block (!12m58 / !6m30)', () => {
+    expect(unfilteredPb).toContain('!12m58!');
+    expect(unfilteredPb).toContain('!6m30!');
+  });
+
   it('leaves buildSearchPb byte-identical when filters are undefined', () => {
     expect(appendSearchFilterPb(unfilteredPb, undefined)).toBe(unfilteredPb);
   });

@@ -3,15 +3,9 @@ import { extractDirections } from '../parsers/directions.js';
 import { buildDirectionsUrls, directionsDataSuffix } from '../rpc/pb-builders.js';
 import type { Coordinates, DirectionsOptions, DirectionsResult, GMapsConfig } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
+import { resolveDirectionsEndpoints } from '../utils/place-ref.js';
 
-export interface DirectionsGetOptions extends DirectionsOptions {
-  /**
-   * Skip `/maps/dir/` HTML scrape when the preview pb lacks turn-by-turn steps.
-   * Use for distance-matrix / elevation cells where duration+distance are enough —
-   * saves ~300–800 ms per pair.
-   */
-  metricsOnly?: boolean;
-}
+export interface DirectionsGetOptions extends DirectionsOptions {}
 
 function formatDirEndpoint(value: Coordinates | string): string {
   if (typeof value === 'object') {
@@ -26,7 +20,12 @@ function formatDirEndpoint(value: Coordinates | string): string {
   return encodeURIComponent(value.replace(/ /g, '+'));
 }
 
-function buildMapsDirUrl(options: DirectionsOptions): string {
+function buildMapsDirUrl(options: {
+  origin: Coordinates | string;
+  destination: Coordinates | string;
+  waypoints?: DirectionsOptions['waypoints'];
+  mode?: DirectionsOptions['mode'];
+}): string {
   const segments = [
     formatDirEndpoint(options.origin),
     ...(options.waypoints ?? []).map((waypoint) => formatDirEndpoint(waypoint.location)),
@@ -49,11 +48,18 @@ export class DirectionsService {
 
   /**
    * Fetch driving/walking directions via `/maps/preview/directions`.
-   * Uses a built pb first; scrapes the Maps `/dir/` page pb when turn-by-turn steps are missing
-   * (unless `metricsOnly` — then one preview hit is enough for distance/duration).
+   * Coordinates resolve in one round trip; address strings may need an extra resolve step.
+   * Pass `includeSteps: true` for turn-by-turn steps when they are not in the preview payload.
    */
   async get(options: DirectionsGetOptions): Promise<DirectionsResult> {
+    const { origin, destination } = resolveDirectionsEndpoints(options);
+    const normalized: DirectionsOptions = {
+      ...options,
+      origin,
+      destination,
+    };
     let best: DirectionsResult = { legs: [] };
+    const wantSteps = normalized.includeSteps === true;
 
     const tryUrl = async (url: string): Promise<DirectionsResult | null> => {
       try {
@@ -67,22 +73,25 @@ export class DirectionsService {
       }
     };
 
-    for (const url of buildDirectionsUrls({ ...options, hl: this.hl, gl: this.gl })) {
+    for (const url of buildDirectionsUrls({
+      origin,
+      destination,
+      waypoints: normalized.waypoints,
+      mode: normalized.mode,
+      hl: this.hl,
+      gl: this.gl,
+    })) {
       const parsed = await tryUrl(url);
       if (!parsed) continue;
       if (this.isBetterResult(parsed, best)) best = parsed;
-      if (options.metricsOnly) {
-        if (parsed.duration || parsed.distance || (parsed.legs[0]?.distance ?? parsed.legs[0]?.duration)) {
-          return parsed;
-        }
-        continue;
-      }
-      if (this.hasTurnByTurn(parsed)) return parsed;
+      if (normalized.metricsOnly && this.hasMetrics(parsed)) return parsed;
+      if (wantSteps && this.hasTurnByTurn(parsed)) return parsed;
     }
 
-    if (options.metricsOnly) return best;
+    if (this.hasMetrics(best) && !wantSteps) return best;
+    if (wantSteps && this.hasTurnByTurn(best)) return best;
 
-    const scrapedPb = await this.scrapePbFromDirPage(options);
+    const scrapedPb = await this.scrapePbFromDirPage(normalized);
     if (scrapedPb) {
       const url =
         `https://www.google.com/maps/preview/directions` +
@@ -97,6 +106,15 @@ export class DirectionsService {
     return best;
   }
 
+  private hasMetrics(result: DirectionsResult): boolean {
+    return Boolean(
+      result.duration ||
+        result.distance ||
+        result.legs[0]?.duration ||
+        result.legs[0]?.distance,
+    );
+  }
+
   private isBetterResult(next: DirectionsResult, prev: DirectionsResult): boolean {
     const nextSteps = next.legs[0]?.steps?.length ?? 0;
     const prevSteps = prev.legs[0]?.steps?.length ?? 0;
@@ -109,7 +127,12 @@ export class DirectionsService {
 
   private async scrapePbFromDirPage(options: DirectionsOptions): Promise<string | null> {
     try {
-      const dirUrl = buildMapsDirUrl(options);
+      const dirUrl = buildMapsDirUrl({
+        origin: options.origin!,
+        destination: options.destination!,
+        waypoints: options.waypoints,
+        mode: options.mode,
+      });
       const html = await this.http.get<string>(dirUrl, {
         referer: 'https://www.google.com/maps/',
         raw: true,

@@ -69,6 +69,11 @@ export function isServicePath(id: string): boolean {
   return id.startsWith('/');
 }
 
+/** True when the rpcid is a legacy short id that needs WIZ `at` / SNlM0e (not service-path). */
+export function requiresLegacyXsrf(id: string): boolean {
+  return !isServicePath(id);
+}
+
 export function rpcidForService(servicePath: string): string | undefined {
   return BATCH_SERVICE_RPCIDS[servicePath as BatchServicePath];
 }
