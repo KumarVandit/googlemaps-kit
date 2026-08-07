@@ -24,6 +24,9 @@ tmp/
 **/capture.log
 **/cdp-*.json
 
+# Product website — deploy locally via `cd site && npx vercel --prod` (not published)
+site/
+
 # Maintainer-only tooling (not part of the public repo)
 scripts/archive/
 scripts/capture-*.ts
