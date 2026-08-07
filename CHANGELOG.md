@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0
+
+### CLI + TUI
+
+- **Interactive TUI** — `npx googlemaps-kit` / `googlemaps-kit tui` (Bubble Tea via `@oakoliver/bubbletea`, Charm-compatible Elm Architecture)
+- Menu for discover / resolve / profile / route / opinions / media / pipeline / capabilities
+- Forms, spinner, scrollable results (lipgloss + bubbles)
+- Scripted CLI refactored onto shared runners (same output as before)
+
+## 0.3.1
+
+- CLI `opinions`: print full review text (not truncated previews), show every review on the page
+
+## 0.3.0
+
+### CLI
+
+- **Pretty output** — table/card printers on TTY (JSON when piped); `--format` / `--json`
+- **Full Intent surface** — `discover`, `resolve`, `profile`, `route`, `opinions`, `media`, `pipeline`, `capabilities`
+- **Place by name** — `profile` / `opinions` / `media` accept `--query` (+ `--near`) instead of raw hexId
+- **Route by address** — `--from` / `--to` accept place names or `lat,lng`
+- Locale flags: `--hl` / `--gl`
+
 ## 0.2.2
 
 - Fix npm README banner (absolute image URL so the hero renders on npmjs.com)

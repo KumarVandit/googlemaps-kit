@@ -175,15 +175,24 @@ const tools = maps.tools(); // or createMapsTools(maps)
 await tools.discover.execute({ query: 'coffee', nearLat: near.lat, nearLng: near.lng });
 ```
 
-CLI (JSON by default):
+CLI (pretty tables on TTY, JSON when piped) + interactive TUI:
 
 ```bash
-npx googlemaps-kit discover "cafes" --near 12.98,77.64
-npx googlemaps-kit profile 0x…:0x… --depth card
-npx googlemaps-kit resolve --query "Indiranagar"
+# Interactive (Bubble Tea TUI)
+npx googlemaps-kit
+npx googlemaps-kit tui
+
+# Scripted
+npx googlemaps-kit discover "cafes in indiranagar" --near 12.98,77.64 --limit 5
+npx googlemaps-kit resolve --query "Cubbon Park Bangalore"
+npx googlemaps-kit profile --query "Third Wave Coffee Indiranagar" --near 12.98,77.64
+npx googlemaps-kit route --from "Cubbon Park, Bangalore" --to "Indiranagar, Bangalore"
+npx googlemaps-kit opinions --query "Third Wave Coffee Indiranagar" --near 12.98,77.64
+npx googlemaps-kit media --query "Third Wave Coffee Indiranagar" --near 12.98,77.64
+npx googlemaps-kit pipeline "cafes" --near 12.98,77.64 --max 3
 ```
 
-Export helpers: `toCsv(places)`, `toGeoJSON(places)`.
+TUI is built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) (TypeScript port). Use `--json` / `--format json|csv|geojson` for machine output. Export helpers: `toCsv(places)`, `toGeoJSON(places)`.
 
 ## Advanced (under the hood)
 
