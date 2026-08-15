@@ -2,44 +2,115 @@
  * Domain namespaces for GMapsClient.
  */
 
-import type { HttpClient } from './http-client.js';
-import type { GMapsConfig, GetPlaceFullOptions, PlaceFullResult } from '../types/common.js';
 import { AskMapsService } from '../services/ask-maps.js';
-import { BatchUrlService } from '../services/batch-url.js';
-import { CategoriesService } from '../services/categories.js';
+import { BatchUrlService } from '../services/meta.js';
+import { BikeShareService } from '../services/mobility.js';
+import { CategoriesService } from '../services/meta.js';
 import { DirectionsService } from '../services/directions.js';
 import { DistanceMatrixService } from '../services/distance-matrix.js';
 import { ElevationService } from '../services/elevation.js';
-import { EvChargingService } from '../services/ev-charging.js';
+import { EvChargingService } from '../services/mobility.js';
 import { GeocodeService } from '../services/geocode.js';
 import { KnowledgeService } from '../services/knowledge.js';
 import { LinksService } from '../services/links.js';
 import { ListsService } from '../services/lists.js';
 import { LocalPostsService } from '../services/local-posts.js';
-import { LocationContextService } from '../services/location-context.js';
+import { LocationContextService } from '../services/viewport.js';
 import { Map3dService } from '../services/map-3d.js';
-import { MapEarthService } from '../services/map-earth.js';
+import { MapEarthService } from '../services/tiles.js';
 import { MapLayersService } from '../services/map-layers.js';
 import { PanoramaService } from '../services/panorama.js';
-import { ParkingService } from '../services/parking.js';
-import { PassiveAssistService } from '../services/passiveassist.js';
+import { ParkingService } from '../services/mobility.js';
+import { PassiveAssistService } from '../services/viewport.js';
 import { PhotosService } from '../services/photos.js';
 import { PlaceAttributesService } from '../services/place-attributes.js';
 import { PlacesService, type GetPlaceOptions, type PlacePreviewFetchResult } from '../services/places.js';
 import { ReviewsService } from '../services/reviews.js';
-import { RevealService } from '../services/reveal.js';
+import { RevealService } from '../services/viewport.js';
+import { SearchAlongRouteService } from '../services/search-along-route.js';
 import { SearchService } from '../services/search.js';
 import { StaticMapService } from '../services/static-map.js';
-import { SuggestService } from '../services/suggest.js';
+import { SuggestService } from '../services/search.js';
 import { TilesService } from '../services/tiles.js';
-import { TimezoneService } from '../services/timezone.js';
+import { TimezoneService } from '../services/geocode.js';
 import { TrafficService } from '../services/traffic.js';
 import { TransitService } from '../services/transit.js';
-import { UgcAggregatesService } from '../services/ugc-aggregates.js';
+import { UgcAggregatesService } from '../services/meta.js';
+import { UserPrefsService } from '../services/meta.js';
+import { WaypointOptimizerService } from '../services/waypoint-optimizer.js';
 import type { PlaceDetails } from '../types/common.js';
 import { AuthRequiredError } from '../types/common.js';
 import type { AskMapsOptions, AskMapsResult } from '../services/ask-maps.js';
+import type { GetBikeAvailabilityOptions } from '../types/mobility.js';
+import type { SearchAlongRouteOptions, SearchAlongRouteResult } from '../types/search-along-route.js';
+import type { OptimizeWaypointsOptions, OptimizeWaypointsResult } from '../types/route-optimization.js';
 
+/**
+ * Auth + surface catalog namespaces — product-facing wrappers over kit internals.
+ */
+
+import { AuthService, summarizeAuthStatus, type AuthStatusOptions } from '../auth/auth-status.js';
+import type { HttpClient } from './http-client.js';
+import type { GetPlaceFullOptions, PlaceFullResult } from '../types/common.js';
+import type { AuthStatus, GMapsConfig } from '../types/common.js';
+import {
+  KNOWN_SURFACES,
+  getSurfaceInfo,
+  listSurfacesByStatus,
+  type KnownSurfaceName,
+  type SurfaceInfo,
+  type SurfaceStatus,
+} from '../known-surfaces.js';
+
+/** Session / cookie status for apps (no secret values returned). */
+export class AuthNamespace {
+  private readonly auth: AuthService;
+
+  constructor(http: HttpClient, config: GMapsConfig) {
+    this.auth = new AuthService(http, {
+      cookies: config.cookies,
+      authToken: config.authToken,
+    });
+  }
+
+  /** Live or cached auth probe — cookie names/lengths only, never values. */
+  status(options?: AuthStatusOptions): Promise<AuthStatus> {
+    return this.auth.getStatus(options);
+  }
+
+  /** One-line summary for logs (`signed-in, cookies=12, …`). */
+  async summarize(options?: AuthStatusOptions): Promise<string> {
+    return summarizeAuthStatus(await this.status(options));
+  }
+}
+
+/** Catalog of Maps surfaces this kit knows about (working / auth / blocked / …). */
+export class SurfacesNamespace {
+  /** All surface names. */
+  list(): KnownSurfaceName[] {
+    return Object.keys(KNOWN_SURFACES) as KnownSurfaceName[];
+  }
+
+  /** Surfaces filtered by status (`working`, `auth-required`, …). */
+  listByStatus(status: SurfaceStatus): KnownSurfaceName[] {
+    return listSurfacesByStatus(status);
+  }
+
+  /** Metadata for one surface. */
+  get(name: KnownSurfaceName): SurfaceInfo {
+    return getSurfaceInfo(name);
+  }
+
+  /** Full catalog object (read-only snapshot). */
+  catalog(): typeof KNOWN_SURFACES {
+    return KNOWN_SURFACES;
+  }
+
+  /** Names marked working (anonymous or with documented path). */
+  working(): KnownSurfaceName[] {
+    return listSurfacesByStatus('working');
+  }
+}
 export interface ServiceBundle {
   search: SearchService;
   places: PlacesService;
@@ -61,6 +132,9 @@ export interface ServiceBundle {
   traffic: TrafficService;
   parking: ParkingService;
   ev: EvChargingService;
+  bikeShare: BikeShareService;
+  searchAlongRoute: SearchAlongRouteService;
+  waypointOptimizer: WaypointOptimizerService;
   tiles: TilesService;
   layers: MapLayersService;
   staticMap: StaticMapService;
@@ -72,6 +146,7 @@ export interface ServiceBundle {
   lists: ListsService;
   links: LinksService;
   batchUrl: BatchUrlService;
+  userPrefs: UserPrefsService;
   askMaps: AskMapsService;
 }
 
@@ -133,7 +208,7 @@ export class LocationNamespace {
   }
 }
 
-/** Directions, matrix, elevation, transit, traffic. */
+/** Directions, matrix, elevation, transit, traffic, bikes, corridor search, tour optimization. */
 export class TravelNamespace {
   readonly directions: DirectionsService;
   readonly distanceMatrix: DistanceMatrixService;
@@ -142,6 +217,12 @@ export class TravelNamespace {
   readonly traffic: TrafficService;
   readonly parking: ParkingService;
   readonly ev: EvChargingService;
+  /** Live bike-share dock availability. */
+  readonly bikeShare: BikeShareService;
+  /** Corridor (search-along-route) queries. */
+  readonly searchAlongRoute: SearchAlongRouteService;
+  /** Multi-stop tour optimization over the directions-fan-out matrix. */
+  readonly waypointOptimizer: WaypointOptimizerService;
 
   constructor(s: ServiceBundle) {
     this.directions = s.directions;
@@ -151,6 +232,24 @@ export class TravelNamespace {
     this.traffic = s.traffic;
     this.parking = s.parking;
     this.ev = s.ev;
+    this.bikeShare = s.bikeShare;
+    this.searchAlongRoute = s.searchAlongRoute;
+    this.waypointOptimizer = s.waypointOptimizer;
+  }
+
+  /** Convenience passthrough to {@link BikeShareService.getAvailability}. */
+  bikeAvailability(options: GetBikeAvailabilityOptions) {
+    return this.bikeShare.getAvailability(options);
+  }
+
+  /** Convenience passthrough to {@link SearchAlongRouteService.find}. */
+  alongRoute(options: SearchAlongRouteOptions): Promise<SearchAlongRouteResult> {
+    return this.searchAlongRoute.find(options);
+  }
+
+  /** Convenience passthrough to {@link WaypointOptimizerService.optimize}. */
+  optimizeWaypoints(options: OptimizeWaypointsOptions): Promise<OptimizeWaypointsResult> {
+    return this.waypointOptimizer.optimize(options);
   }
 }
 
@@ -180,6 +279,8 @@ export class MetaNamespace {
   readonly lists: ListsService;
   readonly links: LinksService;
   readonly batchUrl: BatchUrlService;
+  /** Signed-in account preferences (units, home/work, region). */
+  readonly userPrefs: UserPrefsService;
 
   constructor(s: ServiceBundle) {
     this.categories = s.categories;
@@ -187,6 +288,7 @@ export class MetaNamespace {
     this.lists = s.lists;
     this.links = s.links;
     this.batchUrl = s.batchUrl;
+    this.userPrefs = s.userPrefs;
   }
 }
 
@@ -222,10 +324,12 @@ export class AgentNamespace {
 }
 
 export function createServiceBundle(http: HttpClient, config: GMapsConfig): ServiceBundle {
-  const directions = new DirectionsService(http, config);
   const geocode = new GeocodeService(http, config);
+  const directions = new DirectionsService(http, config);
+  const distanceMatrix = new DistanceMatrixService(directions, config);
+  const search = new SearchService(http, config);
   return {
-    search: new SearchService(http, config),
+    search,
     places: new PlacesService(http, config),
     reviews: new ReviewsService(http, config),
     suggest: new SuggestService(http, config),
@@ -239,12 +343,19 @@ export function createServiceBundle(http: HttpClient, config: GMapsConfig): Serv
     passiveAssist: new PassiveAssistService(http, config),
     context: new LocationContextService(http, config),
     directions,
-    distanceMatrix: new DistanceMatrixService(directions, config),
+    distanceMatrix,
     elevation: new ElevationService(http, directions, config),
     transit: new TransitService(http, config),
     traffic: new TrafficService(http, config),
     parking: new ParkingService(http, config),
     ev: new EvChargingService(http, config),
+    bikeShare: new BikeShareService(http, config),
+    searchAlongRoute: new SearchAlongRouteService(search, directions, geocode),
+    waypointOptimizer: new WaypointOptimizerService(
+      new DistanceMatrixService(directions, config),
+      directions,
+      geocode,
+    ),
     tiles: new TilesService(http, config),
     layers: new MapLayersService(http, config),
     staticMap: new StaticMapService(http, config),
@@ -256,6 +367,7 @@ export function createServiceBundle(http: HttpClient, config: GMapsConfig): Serv
     lists: new ListsService(http, config),
     links: new LinksService(http, config),
     batchUrl: new BatchUrlService(http, config),
+    userPrefs: new UserPrefsService(http, config),
     askMaps: new AskMapsService(http, config),
   };
 }
