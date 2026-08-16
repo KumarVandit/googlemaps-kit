@@ -31,15 +31,8 @@ import type {
   PopularTimesHour,
 } from '../types/place-extended.js';
 import type { PlaceDataNode, PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function asStr(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
+import { safeGet } from '../utils/payload.js';
+import { asNumber, asString as asStr } from './shared.js';
 
 /**
  * Parse one hourly entry.

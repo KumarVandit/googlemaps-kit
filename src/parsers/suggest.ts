@@ -1,7 +1,7 @@
 import { htmlToPlainText } from './shared.js';
 import type { SuggestResult, Suggestion, SuggestionKind } from '../types/suggest.js';
-import { parseGoogleResponse } from '../utils/response-parser.js';
-import { safeGet } from '../utils/safe-get.js';
+import { parseGoogleResponse } from '../utils/payload.js';
+import { safeGet } from '../utils/payload.js';
 
 type PbNode = unknown;
 

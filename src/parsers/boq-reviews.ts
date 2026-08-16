@@ -13,7 +13,7 @@ import type {
 import type { PbNode } from '../types/protobuf.js';
 import { asBoqRoot } from '../types/protobuf.js';
 import { normalizePhotoUrl } from '../utils/photo-url.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { htmlToPlainText } from './shared.js';
 import { buildReviewDetailedRating } from './place-extended.js';
 

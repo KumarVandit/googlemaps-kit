@@ -1,6 +1,8 @@
 import { buildThumbnailUrl } from '../rpc/panorama-pb.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
+import { asNumber, asString } from './shared.js';
 import type {
+  PanoramaDepthMap,
   PanoramaHistoricalCapture,
   PanoramaLink,
   PanoramaMetadata,
@@ -8,14 +10,6 @@ import type {
 } from '../types/panorama.js';
 
 type PbNode = unknown;
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
 
 function formatCaptureDate(year: unknown, month: unknown): string | undefined {
   if (typeof year !== 'number' || typeof month !== 'number') return undefined;
@@ -183,6 +177,57 @@ function parseTileSizes(data: unknown): Array<[number, number]> | undefined {
 }
 
 /** Parse full photometa payload; returns null for stub / not-found responses. */
+/** Address lines from `[1,0,3,2]` — `[["7th Ave","en"],["New York","en"]]`. */
+function parseAddressLines(data: unknown): string[] | undefined {
+  const rows = safeGet<PbNode[]>(data, 1, 0, 3, 2);
+  if (!Array.isArray(rows)) return undefined;
+  const lines = rows
+    .map((row) => asString(safeGet(row, 0)))
+    .filter((line): line is string => Boolean(line));
+  return lines.length > 0 ? lines : undefined;
+}
+
+/**
+ * Depth raster from `[1,0,20,0]`, present only when the request asked for
+ * photometa section 18.
+ *
+ * The payload is a WebP carried inside the JSON as one byte per code unit, so
+ * the caller must have parsed the response from latin1 rather than UTF-8 — a
+ * UTF-8 parse replaces every byte above 0x7f and destroys the image.
+ */
+function parseDepthMap(data: unknown): PanoramaDepthMap | undefined {
+  const encoded = asString(safeGet(data, 1, 0, 20, 0));
+  if (!encoded || !encoded.startsWith('RIFF')) return undefined;
+
+  const bytes = new Uint8Array(encoded.length);
+  for (let i = 0; i < encoded.length; i++) {
+    const code = encoded.charCodeAt(i);
+    // A code point above a byte means the response was decoded as UTF-8.
+    if (code > 0xff) return undefined;
+    bytes[i] = code;
+  }
+
+  const size = readVp8lSize(bytes);
+  if (!size) return undefined;
+  return { format: 'webp', width: size.width, height: size.height, bytes };
+}
+
+/** Read width/height out of a lossless WebP (VP8L) header. */
+function readVp8lSize(bytes: Uint8Array): { width: number; height: number } | undefined {
+  for (let i = 0; i + 13 <= bytes.length && i < 64; i++) {
+    if (bytes[i] !== 0x56 || bytes[i + 1] !== 0x50 || bytes[i + 2] !== 0x38 || bytes[i + 3] !== 0x4c) {
+      continue;
+    }
+    // "VP8L", 4-byte chunk length, 0x2f signature, then 14 bits width-1 and
+    // 14 bits height-1 packed little-endian.
+    if (bytes[i + 8] !== 0x2f) return undefined;
+    const bits =
+      bytes[i + 9]! | (bytes[i + 10]! << 8) | (bytes[i + 11]! << 16) | (bytes[i + 12]! << 24);
+    return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+  }
+  return undefined;
+}
+
 export function extractPanoramaMetadata(
   data: unknown,
   options?: { raw?: boolean },
@@ -213,6 +258,14 @@ export function extractPanoramaMetadata(
 
   const tileSizes = parseTileSizes(data);
 
+  // [1,0,5,0,1,1] is [seaLevel, null, ellipsoidal]. Verified 2026-08-23 against
+  // Denver (1598 m), Times Square (16.8 m) and Amsterdam (4.3 m); the third
+  // slot differs from the first by the local geoid offset.
+  const elevationMeters = asNumber(safeGet(data, 1, 0, 5, 0, 1, 1, 0));
+  const ellipsoidalHeightMeters = asNumber(safeGet(data, 1, 0, 5, 0, 1, 1, 2));
+  const addressLines = parseAddressLines(data);
+  const depthMap = parseDepthMap(data);
+
   const metadata: PanoramaMetadata = {
     panoId,
     lat: asNumber(safeGet(data, 1, 0, 5, 0, 1, 0, 2)),
@@ -223,7 +276,13 @@ export function extractPanoramaMetadata(
     ),
     copyright: asString(safeGet(data, 1, 0, 4, 0, 0, 0, 0)),
     attribution: asString(safeGet(data, 1, 0, 4, 1, 0, 0, 0)),
-    address: asString(safeGet(data, 1, 0, 3, 2, 0, 0)),
+    address: addressLines?.[0],
+    addressLines,
+    elevationMeters,
+    ellipsoidalHeightMeters,
+    imagerySource: asString(safeGet(data, 1, 0, 19, 0)),
+    imageKey: asString(safeGet(data, 1, 0, 19, 1)),
+    depthMap,
     heading,
     pitch,
     roll,

@@ -2,7 +2,7 @@ import { htmlToPlainText } from './shared.js';
 import { GMapsParseError } from '../types/common.js';
 import type { PlaceList, PlaceListEntry } from '../types/lists.js';
 import { toFeatureId } from '../utils/ids.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import type { PbNode } from '../types/protobuf.js';
 
 /** Known getlist error envelope codes returned with HTTP 200. */
@@ -232,12 +232,12 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
 
   const bundle = listBundleRoot(data);
   if (!bundle) {
-    return { listId: '', entries: [], raw: options?.raw ? data : undefined };
+    return { entries: [], raw: options?.raw ? data : undefined };
   }
 
   const listIdFromNested = safeGet<string>(bundle, 0, 0);
   const listIdDirect = Array.isArray(bundle) && typeof bundle[0] === 'string' ? bundle[0] : undefined;
-  const listId = listIdFromNested ?? listIdDirect ?? '';
+  const listId = listIdFromNested ?? listIdDirect;
 
   const title = safeGet<string>(bundle, 4);
   const ownerName = safeGet<string>(bundle, 3, 0);
@@ -257,8 +257,7 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
     }
   }
 
-  return {
-    listId,
+  const result: PlaceList = {
     title: typeof title === 'string' ? title : undefined,
     ownerName: typeof ownerName === 'string' ? ownerName : undefined,
     ownerAvatarUrl: typeof ownerAvatarUrl === 'string' ? ownerAvatarUrl : undefined,
@@ -267,4 +266,6 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
     entries,
     raw: options?.raw ? data : undefined,
   };
+  if (listId) result.listId = listId;
+  return result;
 }

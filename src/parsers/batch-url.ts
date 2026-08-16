@@ -1,6 +1,6 @@
 import type { CreateShortUrlResult, DecodedMapsUrl } from '../types/batch-url.js';
 import type { PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { parseBatchPayload } from '../rpc/batch-rpc.js';
 
 /**

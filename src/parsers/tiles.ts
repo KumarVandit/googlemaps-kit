@@ -76,7 +76,7 @@ export function isPngBytes(data: Uint8Array): boolean {
 }
 
 /** Locate the JPEG SOI marker inside a tile body. */
-export function findJpegOffset(data: Uint8Array): number {
+function findJpegOffset(data: Uint8Array): number {
   for (let i = 0; i <= data.length - JPEG_SOI.length; i++) {
     if (bytesEqual(data, i, JPEG_SOI)) return i;
   }
@@ -90,7 +90,7 @@ export function findJpegOffset(data: Uint8Array): number {
  * `image/jpeg`, not PNG. Slices from SOI through the EOI marker; falls back to
  * the tail of the buffer when EOI is absent.
  */
-export function unwrapTileJpeg(data: Uint8Array): Uint8Array | null {
+function unwrapTileJpeg(data: Uint8Array): Uint8Array | null {
   const start = findJpegOffset(data);
   if (start < 0) return null;
 

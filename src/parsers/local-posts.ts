@@ -1,6 +1,6 @@
 import type { LocalPost, LocalPostType } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 
 /** Promoted-pin ad payloads on `/maps/preview/lp` — not owner posts. */
 const AD_URL_MARKERS = ['simgad', 'googlesyndication.com', '/aclk', 'googleads', 'doubleclick.net'];

@@ -6,18 +6,11 @@ import type {
   PhotosListResult,
 } from '../types/photos.js';
 import type { PbNode } from '../types/protobuf.js';
-import { PHOTO_TAB_ID_LABELS } from '../rpc/photo-category-tokens.js';
+import { PHOTO_TAB_ID_LABELS } from '../rpc/photos-pb.js';
 import { normalizePhotoUrl } from '../utils/photo-url.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { extractPhotosDeep } from './place.js';
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
+import { asNumber, asString } from './shared.js';
 
 function captionFrom(value: unknown): string | undefined {
   if (Array.isArray(value)) {

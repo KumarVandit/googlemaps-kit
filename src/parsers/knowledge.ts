@@ -1,6 +1,6 @@
 import type { KnowledgeEntity, PlaceDetails } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 
 /** Parse `/maps/rpc/getknowledgeentity` response when available. */
 export function extractKnowledgeEntity(data: PbNode): KnowledgeEntity {

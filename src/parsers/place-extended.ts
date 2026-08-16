@@ -28,24 +28,13 @@ import type {
   ReviewTag,
   TableReservationProvider,
 } from '../types/place-extended.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { extractPopularTimes } from './popular-times.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function asStr(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function asNum(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
+import { asNumber as asNum, asString as asStr } from './shared.js';
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').trim();
 }
-
-// ─── Identifiers ──────────────────────────────────────────────────────────────
 
 /**
  * Extract cid (numeric content id) and kgmid (/g/… or /m/… knowledge entity id).
@@ -87,8 +76,6 @@ export function extractPlaceIdentifiers(placeData: PlaceDataNode): {
 
   return { cid: cidFallback, kgmid };
 }
-
-// ─── Address decomposition ────────────────────────────────────────────────────
 
 /**
  * Decompose address components from placeData[183] or placeData[2].
@@ -163,8 +150,6 @@ export function extractStructuredAddress(placeData: PlaceDataNode, formattedAddr
   return result;
 }
 
-// ─── Review Tags ──────────────────────────────────────────────────────────────
-
 /**
  * Extract review keyword/topic frequency tags from placeData.
  * These are the chips shown under the star histogram, e.g. "paneer dishes".
@@ -225,8 +210,6 @@ export function extractReviewTags(placeData: PlaceDataNode): ReviewTag[] {
   return tags;
 }
 
-// ─── People Also Search ───────────────────────────────────────────────────────
-
 /**
  * Extract "People also search for" cards from the place panel.
  * These are cross-sell recommendation cards shown at the bottom of the place card.
@@ -266,8 +249,6 @@ export function extractPeopleAlsoSearch(placeData: PlaceDataNode): PeopleAlsoSea
 
   return results;
 }
-
-// ─── Owner Updates ────────────────────────────────────────────────────────────
 
 /**
  * Extract owner-posted updates from placeData.
@@ -314,8 +295,6 @@ export function extractOwnerUpdates(placeData: PlaceDataNode): OwnerUpdate[] {
   return updates;
 }
 
-// ─── Gas Prices ───────────────────────────────────────────────────────────────
-
 /**
  * Extract gas station fuel prices from placeData.
  *
@@ -355,8 +334,6 @@ export function extractGasPrices(placeData: PlaceDataNode): GasPrice[] {
   return prices;
 }
 
-// ─── Hotel Data ───────────────────────────────────────────────────────────────
-
 /**
  * Extract hotel-specific data from placeData.
  *
@@ -366,10 +343,8 @@ export function extractGasPrices(placeData: PlaceDataNode): GasPrice[] {
  * Similar hotels: placeData[162][*] — name + rating + price.
  */
 export function extractHotelData(placeData: PlaceDataNode): HotelData | undefined {
-  // Stars
   let stars = asStr(safeGet<PbNode>(placeData, 141));
   if (!stars) stars = asStr(safeGet<PbNode>(placeData, 89));
-  // Filter out non-star strings
   if (stars && !stars.toLowerCase().includes('star') && !/^\d$/.test(stars)) {
     stars = undefined;
   }
@@ -451,8 +426,6 @@ export function extractHotelData(placeData: PlaceDataNode): HotelData | undefine
   };
 }
 
-// ─── Restaurant Data ──────────────────────────────────────────────────────────
-
 /**
  * Extract restaurant-specific data (reservation provider, order/booking links).
  *
@@ -461,7 +434,6 @@ export function extractHotelData(placeData: PlaceDataNode): HotelData | undefine
  * Order links: placeData[75][*] or placeData[71][*] — [provider, url].
  */
 export function extractRestaurantData(placeData: PlaceDataNode): RestaurantData | undefined {
-  // Reservation provider
   let reservationProvider: TableReservationProvider | undefined;
   const reserveBlock = safeGet<PbNode>(placeData, 25);
   if (Array.isArray(reserveBlock)) {
@@ -472,7 +444,6 @@ export function extractRestaurantData(placeData: PlaceDataNode): RestaurantData 
     }
   }
 
-  // Table reservation links
   const tableLinksBlock = safeGet<PbNode[]>(placeData, 66);
   const tableReservationLinks: Array<{ name: string; url: string }> = [];
   if (Array.isArray(tableLinksBlock)) {
@@ -484,7 +455,6 @@ export function extractRestaurantData(placeData: PlaceDataNode): RestaurantData 
     }
   }
 
-  // Order / delivery links
   const orderLinksBlock = safeGet<PbNode[]>(placeData, 71);
   const orderLinks: Array<{ name: string; url: string }> = [];
   if (Array.isArray(orderLinksBlock)) {
@@ -506,8 +476,6 @@ export function extractRestaurantData(placeData: PlaceDataNode): RestaurantData 
     orderLinks: orderLinks.length > 0 ? orderLinks : undefined,
   };
 }
-
-// ─── Menu ─────────────────────────────────────────────────────────────────────
 
 /**
  * Extract inline structured menu from placeData.
@@ -588,7 +556,7 @@ export function extractMenu(placeData: PlaceDataNode, menuUrl?: string): PlaceMe
       }
 
       if (items.length > 0) {
-        sections.push({ title: sectionTitle ?? '', items, raw: sectionEntry });
+        sections.push({ title: sectionTitle, items, raw: sectionEntry });
       }
     }
   }
@@ -601,8 +569,6 @@ export function extractMenu(placeData: PlaceDataNode, menuUrl?: string): PlaceMe
     allItems: allItems.length > 0 ? allItems : undefined,
   };
 }
-
-// ─── Q & A ────────────────────────────────────────────────────────────────────
 
 /**
  * Extract inline Q&A items embedded in place preview.
@@ -706,8 +672,6 @@ export function extractEmbeddedQA(placeData: PlaceDataNode): PlaceQAResult | und
   return { items, totalCount, raw: root };
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
 function findGoogleUserContentUrl(node: PbNode): string | undefined {
   if (typeof node === 'string' && node.includes('googleusercontent.com')) {
     return node.startsWith('//') ? `https:${node}` : node;
@@ -720,8 +684,6 @@ function findGoogleUserContentUrl(node: PbNode): string | undefined {
   }
   return undefined;
 }
-
-// ─── Master enrichment function ───────────────────────────────────────────────
 
 /**
  * Apply all extended field extractions to an already-parsed PlaceDetails object.
@@ -739,13 +701,11 @@ export function applyExtendedFields(
   placeData: PlaceDataNode,
   options?: { raw?: boolean; rawData?: unknown },
 ): PlaceDetails {
-  // Identifiers
   const { cid, kgmid, ownerId } = extractPlaceIdentifiers(placeData);
   if (cid) details.cid = details.cid ?? cid;
   if (kgmid) details.kgmid = details.kgmid ?? kgmid;
   if (ownerId) details.ownerId = details.ownerId ?? ownerId;
 
-  // Address decomposition
   const addr = extractStructuredAddress(placeData, details.address);
   if (addr.street && !details.street) details.street = addr.street;
   if (addr.neighborhood && !details.neighborhood) details.neighborhood = addr.neighborhood;
@@ -773,31 +733,24 @@ export function applyExtendedFields(
     details.isClaimed = true;
   }
 
-  // Popular times
   const popularTimes = extractPopularTimes(placeData);
   if (popularTimes) details.popularTimes = popularTimes;
 
-  // Review tags
   const reviewTags = extractReviewTags(placeData);
   if (reviewTags.length > 0) details.reviewTags = reviewTags;
 
-  // People also search
   const peopleAlsoSearch = extractPeopleAlsoSearch(placeData);
   if (peopleAlsoSearch.length > 0) details.peopleAlsoSearch = peopleAlsoSearch;
 
-  // Owner updates
   const ownerUpdates = extractOwnerUpdates(placeData);
   if (ownerUpdates.length > 0) details.ownerUpdates = ownerUpdates;
 
-  // Gas prices
   const gasPrices = extractGasPrices(placeData);
   if (gasPrices.length > 0) details.gasPrices = gasPrices;
 
-  // Hotel data
   const hotelData = extractHotelData(placeData);
   if (hotelData) details.hotelData = hotelData;
 
-  // Restaurant data
   const restaurantData = extractRestaurantData(placeData);
   if (restaurantData) details.restaurantData = restaurantData;
 
@@ -813,7 +766,6 @@ export function applyExtendedFields(
   const qa = extractEmbeddedQA(placeData);
   if (qa) details.qa = qa;
 
-  // Raw
   if (options?.raw && options.rawData !== undefined) {
     details.raw = options.rawData;
   }

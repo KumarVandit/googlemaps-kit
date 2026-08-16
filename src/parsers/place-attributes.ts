@@ -9,7 +9,7 @@ import type {
   WeekdayName,
 } from '../types/common.js';
 import type { PlaceDataNode, PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { collectHourDayEntries, normalizeHoursText, parseOpenStatus, type HourDayEntry } from './shared.js';
 
 const WEEKDAY_NAMES: WeekdayName[] = [
@@ -190,7 +190,7 @@ function parseNestedPaymentBrands(
   return attributes;
 }
 
-export function parseAttributeItem(
+function parseAttributeItem(
   groupId: string,
   groupTitle: string,
   item: PbNode,
@@ -312,7 +312,6 @@ export function extractPlaceAggregateAttributes(placeData: PlaceDataNode): {
   };
 }
 
-// ——— Attribute catalog views over a place's attribute groups ———
 import type { Attribute, AttributeCategory } from '../types/place-attributes.js';
 
 /**

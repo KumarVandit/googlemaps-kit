@@ -6,7 +6,7 @@ import type {
   SignedPlaceUrl,
 } from '../types/categories.js';
 import type { PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { parseBatchPayload } from '../rpc/batch-rpc.js';
 
 function parseCategoryNode(node: PbNode): CategoryNode | null {
@@ -114,9 +114,11 @@ export function extractPotentialDuplicates(data: unknown, options?: { raw?: bool
     if (!Array.isArray(item) || typeof item[0] !== 'string') continue;
     const hexId = item[0];
     if (!hexId.startsWith('0x')) continue;
+    const name = safeGet<string>(item, 1);
+    if (!name) continue;
     out.push({
       hexId,
-      name: safeGet<string>(item, 1) ?? '',
+      name,
       category: safeGet<string>(item, 2),
       address: safeGet<string>(item, 3),
       rating: safeGet<number>(item, 4, 0),

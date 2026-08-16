@@ -2,8 +2,8 @@ import type { BusinessHours, PlaceDetails, Review } from '../types/common.js';
 import type { MapsPreviewPlaceResponse, PlaceDataNode, PbNode } from '../types/protobuf.js';
 import { asPlaceDataNode, asPreviewResponse } from '../types/protobuf.js';
 import { dedupePhotos } from '../utils/photo-url.js';
-import { applyCoordAliases } from '../utils/coords.js';
-import { safeGet } from '../utils/safe-get.js';
+import { applyCoordAliases } from '../utils/place-ref.js';
+import { safeGet } from '../utils/payload.js';
 import { extractPlaceAggregateAttributes } from './place-attributes.js';
 import { applyExtendedFields } from './place-extended.js';
 import {
