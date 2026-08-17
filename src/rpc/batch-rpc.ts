@@ -6,7 +6,7 @@ import { cookiesToHeader } from '../auth/session.js';
 import type { HttpClient } from '../client/http-client.js';
 import type { GMapsConfig } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
-import { parseMapsPageTokens } from './app-options.js';
+import { parseMapsPageTokens } from './descriptors.js';
 import { GMapsRpcClient } from './rpc-client.js';
 
 /** Maps APP_OPTIONS psi session token shape (index 0 of context array). */

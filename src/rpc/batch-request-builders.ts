@@ -26,28 +26,88 @@ export function buildAreaTrafficArgs(params: {
   ];
 }
 
-export function buildViewportMetadataArgs(params: {
-  psi: string;
-  scale: number;
-  lng: number;
+/**
+ * Maps camera proto as a batchexecute arg array.
+ *
+ * `!1m3!1d{altitude}!2d{lng}!3d{lat}!2m3!1f{heading}!2f{tilt}!3f{roll}!3m2!1i{w}!2i{h}!4f{fov}`
+ * — the same camera the `/maps/@` URL carries. Altitude is the load-bearing
+ * field: the server derives zoom from it and rejects a camera without one.
+ */
+function buildCameraArgs(params: {
   lat: number;
+  lng: number;
+  altitude: number;
+  heading?: number;
+  tilt?: number;
+  roll?: number;
   width?: number;
   height?: number;
-  zoom?: number;
+  fov?: number;
 }): unknown[] {
-  const w = params.width ?? 1440;
-  const h = params.height ?? 757;
-  const zoom = params.zoom ?? 14;
   return [
-    [[params.scale, params.lng, params.lat], [0, 0, 0], [w, h], zoom],
-    null,
-    null,
-    null,
-    buildSessionContext(params.psi, [null, null, null, null, null, null, null, 312732]),
+    [params.altitude, params.lng, params.lat],
+    [params.heading ?? 0, params.tilt ?? 0, params.roll ?? 0],
+    [params.width ?? 1440, params.height ?? 757],
+    params.fov ?? 13.1,
   ];
 }
 
-export function buildMerchantStatusArgs(psi: string): unknown[] {
+/**
+ * Camera altitude that renders a given zoom level, inverting the Maps client's
+ * `zoom = log2((1 / tan(fov/2)) * (height/2) * 2π / (altitude / (R cos lat) * 256))`.
+ */
+function altitudeForZoom(params: {
+  zoom: number;
+  lat: number;
+  fov?: number;
+  height?: number;
+}): number {
+  const fov = params.fov ?? 13.1;
+  const height = params.height ?? 757;
+  const normalized =
+    ((1 / Math.tan(((Math.PI / 180) * fov) / 2)) * (height / 2) * (2 * Math.PI)) /
+    (Math.pow(2, params.zoom) * 256);
+  return normalized * 6_371_010 * Math.cos((Math.PI / 180) * params.lat);
+}
+
+/**
+ * MapsViewportService.GetViewportMetadata (rpcid T4jwAf).
+ *
+ * Request is `{1: Camera, 4: repeated int, 5: ClientRequestMetadata}`. Earlier
+ * probes failed because the camera carried no altitude — the server answers
+ * `[3]` for any camera it cannot derive a zoom from.
+ */
+export function buildViewportMetadataArgs(params: {
+  lat: number;
+  lng: number;
+  zoom?: number;
+  altitude?: number;
+  width?: number;
+  height?: number;
+  fov?: number;
+  psi?: string;
+}): unknown[] {
+  const width = params.width ?? 1440;
+  const height = params.height ?? 757;
+  const fov = params.fov ?? 13.1;
+  const altitude =
+    params.altitude ??
+    altitudeForZoom({ zoom: params.zoom ?? 14, lat: params.lat, fov, height });
+
+  const camera = buildCameraArgs({
+    lat: params.lat,
+    lng: params.lng,
+    altitude,
+    width,
+    height,
+    fov,
+  });
+
+  if (!params.psi) return [camera];
+  return [camera, null, null, null, buildSessionContext(params.psi)];
+}
+
+function buildMerchantStatusArgs(psi: string): unknown[] {
   return [null, buildSessionContext(psi)];
 }
 
@@ -178,22 +238,6 @@ export function buildListEntityPhotosBatchArgs(params: ListEntityPhotosBatchPara
       paginationTail,
     ],
   ];
-}
-
-export function buildKnowledgeEntityArgs(params: {
-  entityId: string;
-  type?: number;
-}): unknown[] {
-  return [params.type ?? 1, null, null, null, params.entityId];
-}
-
-export function buildListUgcPostsArgs(params: {
-  hexId: string;
-  psi: string;
-  limit?: number;
-}): unknown[] {
-  const limit = params.limit ?? 10;
-  return [null, null, params.hexId, [[1, 1, 0, null, null, null, limit]], buildSessionContext(params.psi), 1];
 }
 
 /**

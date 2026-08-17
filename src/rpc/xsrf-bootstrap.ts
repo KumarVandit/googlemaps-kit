@@ -5,7 +5,7 @@
  * the browser makes to obtain a session token when one is returned.
  */
 
-import { parseChunkedResponse } from '../utils/chunked-decoder.js';
+import { parseChunkedResponse } from '../utils/payload.js';
 import { RPC_INFRA } from './rpc-methods.js';
 import type { BatchExecuteConfig } from '../types/common.js';
 import { GMapsError } from '../types/common.js';
@@ -40,7 +40,7 @@ function extractTokenFromXsrfData(data: unknown): string | undefined {
 }
 
 /** Parse xsrf batchexecute response body (even when HTTP status is 400). */
-export function parseXsrfResponse(body: string): XsrfBootstrapResult {
+function parseXsrfResponse(body: string): XsrfBootstrapResult {
   const trimmed = body.trim();
   if (trimmed.includes('["er"')) {
     throw new GMapsError('xsrf batchexecute returned application error frame');

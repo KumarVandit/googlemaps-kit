@@ -9,7 +9,7 @@ import {
   extractModuleManifest,
   extractProtoServiceIds,
   parseMapsPageTokens,
-} from './app-options.js';
+} from './descriptors.js';
 import endpointRegistryJson from './maps-endpoint-registry.json' with { type: 'json' };
 import type { GMapsConfig, MapsEndpointRegistry, MapsPageTokens } from '../types/common.js';
 

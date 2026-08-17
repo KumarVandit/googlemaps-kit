@@ -7,7 +7,7 @@
 
 import { defaultViewportDist } from '../utils/geo.js';
 import type { TravelMode } from '../types/common.js';
-import type { DirectionsOptions, DirectionsWaypoint, TransitMode, TransitRoutingPreference } from '../types/directions.js';
+import type { DirectionsWaypoint, TransitMode, TransitRoutingPreference } from '../types/directions.js';
 
 export function buildSearchPb(params: {
   query: string;
@@ -320,7 +320,6 @@ function directionsModeBlock(
   const base = `!20m6!1e${DIRECTIONS_MODE_CODE[mode]}!2e3!5e2!6b1!8b1!14b1!46m1!1b0!96b1!99b1`;
   if (mode !== 'transit') return base;
 
-  // Append transit vehicle-type filters when specified
   const tmCodes = (opts?.transitModes ?? [])
     .map((m) => TRANSIT_MODE_FILTER[m])
     .filter((c): c is number => c != null);
@@ -328,7 +327,6 @@ function directionsModeBlock(
     ? `!30m${tmCodes.length}${tmCodes.map((c) => `!1e${c}`).join('')}`
     : '';
 
-  // Routing preference
   const prefPart = opts?.transitRoutingPreference != null
     ? `!31m1!1e${TRANSIT_PREF_CODE[opts.transitRoutingPreference]}`
     : '';

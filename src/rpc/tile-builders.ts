@@ -1,3 +1,5 @@
+
+
 /**
  * Tile URL builders for Google Maps tile services.
  * Constructs URLs for fetching various map tile types (raster, terrain, 3D, Earth).
@@ -150,57 +152,141 @@ export function lngLatToTile(
 }
 
 /**
- * Calculate lat/lng from Web Mercator tile coordinates.
- * Useful for converting tile indices back to geographic coordinates.
+ * Protobuf URL builders for Google Maps vector-tile endpoints.
+ *
+ * Pb slot semantics (verified against live probes + the Maps JS vt module):
+ *
+ * ```
+ * !1m5!1m4!1i{z}!2i{x}!3i{y}!4i{size}!2m3!1e{layerEnum}!2s{style}!3i{version}
+ * ```
+ *
+ * | Slot | Example | Meaning |
+ * |------|---------|---------|
+ * | `!1m5!1m4` | — | Outer tile-index wrapper (5-field group containing a 4-field coord block) |
+ * | `!1i{z}` | `!1i14` | Zoom level (Web Mercator pyramid) |
+ * | `!2i{x}` | `!2i9362` | Tile column (X index, increases eastward) |
+ * | `!3i{y}` | `!3i7623` | Tile row (Y index, increases southward) |
+ * | `!4i{size}` | `!4i256` | Requested tile edge length in pixels (512 returns HTTP 400) |
+ * | `!2m3` | — | Layer/style sub-message (3 fields) |
+ * | `!1e{layerEnum}` | `!1e0` | Layer type enum — `0` is the default basemap roadmap layer |
+ * | `!2s{style}` | `!2sm` | Style marker string — `m` is the default roadmap style in Maps JS |
+ * | `!3i{version}` | `!3i707476520` | Tileset version epoch; static in Maps JS, may drift on deploys |
+ *
+ * Adding a locale suffix (`!3m8!2s{hl}!3s{gl}!…`) after the version slot causes HTTP 400.
  */
-export function tileToLngLat(
-  x: number,
-  y: number,
-  zoom: number,
-): { lng: number; lat: number } {
-  const n = Math.pow(2, zoom);
-  const lng = (x / n) * 360 - 180;
-  const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
-  const lat = (latRad * 180) / Math.PI;
-  return { lng, lat };
+
+import type { MapTileEndpoint, MapTileFetchOptions, MapTileLayer, MapTileSize } from '../types/tiles.js';
+
+/** Default tileset version epoch observed in Maps JS (Jul 2026). */
+export const DEFAULT_MAP_TILE_VERSION = 707_476_520;
+
+const VT_BASE = 'https://www.google.com/maps/vt';
+
+/** Default POI pin icon from Maps JS (`RFjZgc.js` asset registry). */
+export const DEFAULT_POI_ICON =
+  'assets/icons/poi/tactile/pinlet-2-medium.png';
+
+interface LayerPbParts {
+  layerEnum: number;
+  styleMarker: string;
 }
 
-/**
- * Get tile bounds (NE and SW corners) for a given tile.
- */
-export function getTileBounds(
-  x: number,
-  y: number,
-  zoom: number,
-): { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } } {
-  const ne = tileToLngLat(x, y, zoom);
-  const sw = tileToLngLat(x + 1, y + 1, zoom);
-  return {
-    ne: { lat: ne.lat, lng: ne.lng },
-    sw: { lat: sw.lat, lng: sw.lng },
-  };
-}
-
-/**
- * Get all tiles needed to cover a bounding box at a given zoom level.
- */
-export function getTilesForBounds(
-  neLat: number,
-  neLng: number,
-  swLat: number,
-  swLng: number,
-  zoom: number,
-): Array<{ x: number; y: number; z: number }> {
-  const ne = lngLatToTile(neLng, neLat, zoom);
-  const sw = lngLatToTile(swLng, swLat, zoom);
-
-  const tiles: Array<{ x: number; y: number; z: number }> = [];
-
-  for (let x = ne.x; x <= sw.x; x++) {
-    for (let y = ne.y; y <= sw.y; y++) {
-      tiles.push({ x, y, z: zoom });
+function layerPbParts(layer: MapTileLayer): LayerPbParts {
+  switch (layer) {
+    case 'roadmap':
+      return { layerEnum: 0, styleMarker: 'm' };
+    default: {
+      const exhaustive: never = layer;
+      throw new Error(`Unhandled map tile layer: ${String(exhaustive)}`);
     }
   }
+}
 
-  return tiles;
+/** Build the pb string for a basemap tile request. */
+export function buildMapTilePb(params: {
+  z: number;
+  x: number;
+  y: number;
+  size?: MapTileSize;
+  layer?: MapTileLayer;
+  version?: number;
+}): string {
+  const size = params.size ?? 256;
+  const layer = params.layer ?? 'roadmap';
+  const version = params.version ?? DEFAULT_MAP_TILE_VERSION;
+  const { layerEnum, styleMarker } = layerPbParts(layer);
+
+  return (
+    `!1m5!1m4!1i${params.z}!2i${params.x}!3i${params.y}!4i${size}` +
+    `!2m3!1e${layerEnum}!2s${styleMarker}!3i${version}`
+  );
+}
+
+function vtPath(endpoint: MapTileEndpoint): string {
+  switch (endpoint) {
+    case 'proto':
+      return '/proto';
+    case 'stream':
+      return '/stream';
+    default: {
+      const exhaustive: never = endpoint;
+      throw new Error(`Unhandled map tile endpoint: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/** Full URL for a pb-wrapped vector/basemap tile from the proto or stream endpoints. */
+export function buildProtoTileUrl(options: MapTileFetchOptions): string {
+  const endpoint = options.endpoint ?? 'proto';
+  const pb = buildMapTilePb(options);
+  return `${VT_BASE}${vtPath(endpoint)}?pb=${encodeURIComponent(pb)}`;
+}
+
+/**
+ * Pb for a named overlay layer tile.
+ *
+ * The Maps JS layer descriptor (`_.er`) serialises into the `!2m` block as
+ * field 1 = type enum, field 2 = layer name string. Hillshade publishes as
+ * type 5 ("shading"), contour lines as type 6 ("contours") and the air
+ * quality heatmap as a named data layer of type 2.
+ */
+export function buildOverlayTilePb(params: {
+  z: number;
+  x: number;
+  y: number;
+  size?: number;
+  layer: 'hillshade' | 'contours' | 'airQualityHeatmap';
+}): string {
+  const size = params.size ?? 256;
+  const descriptor =
+    params.layer === 'hillshade'
+      ? '!1e5!2sshading'
+      : params.layer === 'contours'
+        ? '!1e6!2scontours'
+        : '!1e2!2sair-quality-heatmap';
+  return (
+    `!1m5!1m4!1i${params.z}!2i${params.x}!3i${params.y}!4i${size}` +
+    `!2m2${descriptor}`
+  );
+}
+
+/** Full URL for an overlay layer tile (no network I/O). */
+export function buildOverlayTileUrl(options: {
+  z: number;
+  x: number;
+  y: number;
+  size?: number;
+  layer: 'hillshade' | 'contours' | 'airQualityHeatmap';
+}): string {
+  const pb = buildOverlayTilePb(options);
+  return `${VT_BASE}/proto?pb=${encodeURIComponent(pb)}`;
+}
+
+/** Full URL for a POI icon asset (no network I/O). */
+export function buildIconUrl(params: {
+  name: string;
+  scale?: number;
+}): string {
+  const scale = params.scale ?? 2;
+  return `${VT_BASE}/icon/name=${params.name}?scale=${scale}`;
 }
