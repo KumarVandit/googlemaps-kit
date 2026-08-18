@@ -4,7 +4,7 @@ import { buildListTransitLinesArgs } from '../rpc/batch-request-builders.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient, isBatchErrorCode, parseBatchPayload } from '../rpc/batch-rpc.js';
 import { buildDirectionsUrls } from '../rpc/pb-builders.js';
-import { extractTransitRoutes } from '../parsers/transit-directions.js';
+import { extractTransitRoutes } from '../parsers/transit.js';
 import { DirectionsService } from './directions.js';
 import { GeocodeService } from './geocode.js';
 import { GMapsError } from '../types/common.js';
@@ -155,7 +155,7 @@ export class TransitService {
   }
 }
 
-export function extractTransitBoardFromPreview(data: MapsPreviewPlaceResponse): TransitStationBoard | undefined {
+function extractTransitBoardFromPreview(data: MapsPreviewPlaceResponse): TransitStationBoard | undefined {
   const placeData = data[6] as PlaceDataNode | undefined;
   if (!placeData) return undefined;
   return extractTransitStationBoard(placeData);

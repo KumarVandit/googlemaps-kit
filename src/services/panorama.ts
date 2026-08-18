@@ -20,15 +20,21 @@ import type {
   PanoramaMetadata,
   PanoramaRef,
   PanoramaSearchOptions,
-  PanoramaVideoOptions,
-  PanoramaVideoResult,
+  PanoramaTileGrid,
 } from '../types/panorama.js';
 import { haversineMeters, webMercatorTile } from '../utils/geo.js';
+import { parseGoogleResponse } from '../utils/payload.js';
 
 const DEFAULT_RADIUS_METERS = 300;
 
 /** Coverage tiles only answer at zoom 17 — zoom 18 returns HTTP 400. */
 const COVERAGE_ZOOM = 17;
+
+/** Observed default equirectangular pyramid when photometa omits tile geometry. */
+const DEFAULT_PANO_LEVELS = 4;
+const DEFAULT_PANO_MAX_WIDTH = 8192;
+const DEFAULT_PANO_MAX_HEIGHT = 4096;
+const DEFAULT_PANO_FACE = 512;
 
 /** A z17 tile spans roughly this far, so wider searches need the neighbouring tiles. */
 const COVERAGE_TILE_SPAN_METERS = 305;
@@ -187,15 +193,30 @@ export class PanoramaService {
     const hl = options?.hl ?? this.hl;
     const gl = options?.gl ?? this.gl;
 
-    const url = buildPhotometaUrl({ panoId, hl, gl });
+    const includeDepth = options?.includeDepth ?? false;
+    const url = buildPhotometaUrl({ panoId, hl, gl, includeDepth });
 
-    const data = await this.http.get<unknown>(url, {
+    // The depth raster rides inside the JSON as raw bytes, so that response has
+    // to be read as latin1; decoding it as UTF-8 replaces every byte above 0x7f
+    // and leaves an unreadable WebP.
+    const data = includeDepth
+      ? await this.getPhotometaAsBytes(url)
+      : await this.http.get<unknown>(url, {
+          referer: 'https://www.google.com/maps/',
+          includeOrigin: true,
+          allowShortBody: true,
+        });
+
+    return extractPanoramaMetadata(data, { raw: options?.raw });
+  }
+
+  private async getPhotometaAsBytes(url: string): Promise<unknown> {
+    const { bytes } = await this.http.getBytes(url, {
       referer: 'https://www.google.com/maps/',
       includeOrigin: true,
       allowShortBody: true,
     });
-
-    return extractPanoramaMetadata(data, { raw: options?.raw });
+    return parseGoogleResponse(Buffer.from(bytes).toString('latin1'));
   }
 
   /** Resolve the closest panorama near a point, then fetch its full metadata. */
@@ -227,36 +248,55 @@ export class PanoramaService {
   }
 
   /**
-   * Get panorama video stream.
-   * Returns video URL and metadata.
+   * Build the full equirectangular tile manifest for a panorama.
+   *
+   * Street View has no video stream — the web client renders by fetching these
+   * tiles, so this grid is the complete imagery contract. Geometry comes from
+   * photometa (`tileSizes` count, `maxTileDimensions`, `tileFaceSize`); pass
+   * previously fetched metadata to avoid a second request. Without it the
+   * observed default pyramid (4 levels, 8192×4096 top, 512px faces) is used.
    */
-  async getVideo(options: PanoramaVideoOptions): Promise<PanoramaVideoResult> {
-    const panoId = options.panoId ?? '';
-    const quality = options.quality ?? 'high';
-    const format = options.format ?? 'mp4';
-    const heading = options.heading ?? 0;
-    const pitch = options.pitch ?? 0;
-    const fov = options.fov ?? 90;
+  async getTileGrid(panoId: string, metadata?: PanoramaMetadata | null): Promise<PanoramaTileGrid> {
+    const levelCount = metadata?.tileSizes?.length ?? DEFAULT_PANO_LEVELS;
+    const [maxWidth, maxHeight] = metadata?.maxTileDimensions ?? [
+      DEFAULT_PANO_MAX_WIDTH,
+      DEFAULT_PANO_MAX_HEIGHT,
+    ];
+    const [faceWidth, faceHeight] = metadata?.tileFaceSize ?? [
+      DEFAULT_PANO_FACE,
+      DEFAULT_PANO_FACE,
+    ];
 
-    const params = new URLSearchParams();
-    params.append('panoId', panoId);
-    params.append('quality', quality);
-    params.append('format', format);
-    params.append('heading', String(heading));
-    params.append('pitch', String(pitch));
-    params.append('fov', String(fov));
-    params.append('hl', this.hl);
-    params.append('gl', this.gl);
+    const levels = [] as import('../types/panorama.js').PanoramaTileLevel[];
+    const urls: string[][][] = [];
 
-    const videoUrl = `https://maps.google.com/maps/api/js/video?${params.toString()}`;
+    for (let zoom = 0; zoom < levelCount; zoom++) {
+      const divisor = 2 ** (levelCount - 1 - zoom);
+      const width = Math.min(
+        maxWidth,
+        Math.max(faceWidth, Math.ceil(maxWidth / divisor)),
+      );
+      const height = Math.min(
+        maxHeight,
+        Math.max(faceHeight, Math.ceil(maxHeight / divisor)),
+      );
+      const cols = Math.max(1, Math.ceil(width / faceWidth));
+      const rows = Math.max(1, Math.ceil(height / faceHeight));
 
-    return {
-      videoUrl,
-      format,
-      duration: 0,
-      width: 1280,
-      height: 720,
-    };
+      levels.push({ zoom, cols, rows, width, height });
+
+      const gridRows: string[][] = [];
+      for (let y = 0; y < rows; y++) {
+        const row: string[] = [];
+        for (let x = 0; x < cols; x++) {
+          row.push(buildTileUrl({ panoId, x, y, zoom }));
+        }
+        gridRows.push(row);
+      }
+      urls.push(gridRows);
+    }
+
+    return { panoId, levels, urls };
   }
 
   /** Build a Street View thumbnail URL (no network I/O). */

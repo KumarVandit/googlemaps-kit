@@ -71,7 +71,8 @@ export interface PlaceListEntry {
 
 /** Parsed place list with metadata and lightweight place stubs. */
 export interface PlaceList {
-  listId: string;
+  /** List id when the response bundle carries one; absent (not empty string) on malformed payloads. */
+  listId?: string;
   title?: string;
   ownerName?: string;
   ownerAvatarUrl?: string;
@@ -95,7 +96,8 @@ export interface PlaceListSummary {
   title: string;
   description?: string;
   ownerName?: string;
-  itemCount: number;
+  /** Number of places in the list, when Google publishes it in the browse response. */
+  itemCount?: number;
   itemPreview?: Array<{ name: string; lat?: number; lng?: number }>;
   createdAt?: Date;
   lastModified?: Date;

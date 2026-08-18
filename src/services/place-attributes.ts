@@ -6,7 +6,7 @@ import {
   getAttributesByType,
   getCategoryAttributes,
 } from '../parsers/place-attributes.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import type { GMapsConfig } from '../types/common.js';
 import type { PlaceDataNode } from '../types/protobuf.js';
 import type { Attribute, AttributeCategory } from '../types/place-attributes.js';

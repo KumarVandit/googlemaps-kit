@@ -146,7 +146,7 @@ export interface MapsPageTokens {
   psi?: string;
 }
 
-/** Endpoint paths reverse-engineered from APP_OPTIONS + JS bundles. */
+/** Endpoint paths matching APP_OPTIONS and the Maps JS bundles. */
 export interface MapsEndpointRegistry {
   batchexecute: {
     appPath: string;
@@ -243,9 +243,8 @@ export interface SearchTextResult {
 }
 
 export interface SearchPageResult {
-  /** Prefer `places` in new code — same array. */
+  /** @deprecated Alias of `places` — use `places` in new code. Same array instance. */
   results: SearchResult[];
-  /** Alias of `results` (matches discover / searchText). */
   places: SearchResult[];
   pagination: {
     offset: number;
@@ -276,9 +275,9 @@ export interface SearchResult {
    */
   lat?: number;
   lng?: number;
-  /** Same as `lat` — both are set by parsers. */
+  /** @deprecated Alias of `lat` — use `lat`. Both are set by parsers. */
   latitude?: number;
-  /** Same as `lng` — both are set by parsers. */
+  /** @deprecated Alias of `lng` — use `lng`. */
   longitude?: number;
   phone?: string;
   /** E.164-style number from placeData[178] when Google provides one (e.g. "+91 …"). */
@@ -450,9 +449,9 @@ export interface PlaceDetails {
    */
   lat?: number;
   lng?: number;
-  /** Same as `lat` — both are set by parsers. */
+  /** @deprecated Alias of `lat` — use `lat`. Both are set by parsers. */
   latitude?: number;
-  /** Same as `lng` — both are set by parsers. */
+  /** @deprecated Alias of `lng` — use `lng`. */
   longitude?: number;
   phone?: string;
   /** E.164-style international phone number when available. */
@@ -485,7 +484,6 @@ export interface PlaceDetails {
   mapsUrl?: string;
   /** Highlight review snippets from place preview (always available). */
   reviewSnippets?: Review[];
-  // ── Extended fields ──────────────────────────────────────────────────────
   /** Neighbourhood / sub-locality from address decomposition. */
   neighborhood?: string;
   /** City / locality. */
@@ -602,17 +600,21 @@ export interface Review {
   raw?: unknown;
 }
 
-export interface ReviewRatingDistribution {
-  oneStar: number;
-  twoStar: number;
-  threeStar: number;
-  fourStar: number;
-  fiveStar: number;
-}
+/**
+ * Star histogram (1★–5★ review counts).
+ * Structurally identical to {@link PlaceReviewRatingDistribution} — kept as a
+ * separate name for API readability, single source of truth in `types/reviews.ts`.
+ */
+export type ReviewRatingDistribution = PlaceReviewRatingDistribution;
 
 export interface ReviewsResult {
   reviewCount: number;
   reviews: Review[];
+  /**
+   * Set when the fetch failed and a zero-review placeholder was returned instead
+   * of throwing — lets callers distinguish "no reviews" from "fetch error".
+   */
+  error?: string;
   nextPageToken?: string;
   /**
    * Total reviews for the place. Not present in GetLocalBoqProxy responses — it comes
@@ -880,7 +882,7 @@ export class GMapsCookiesExpiredError extends GMapsAuthError {
   }
 }
 
-/** Known internal Google Maps HTTP surfaces (reverse-engineered). */
+/** Known internal Google Maps HTTP surfaces. */
 export const ENDPOINTS = {
   /** Text/local search — returns protobuf-over-JSON */
   SEARCH: 'https://www.google.com/search',

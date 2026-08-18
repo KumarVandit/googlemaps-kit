@@ -8,11 +8,11 @@ import type {
   DistanceMatrixElementStatus,
   DistanceMatrixOptions,
   DistanceMatrixResult,
-} from '../types/distance-matrix.js';
+} from '../types/directions.js';
 import { DirectionsService } from './directions.js';
 import { parseDistanceToMeters, parseDurationToSeconds } from '../utils/directions-metrics.js';
 import { haversineMeters } from '../utils/geo.js';
-import { pooled } from '../utils/pooled.js';
+import { pooled } from '../utils/async.js';
 
 /** Match HttpClient default concurrency; no per-pair sleep — scheduler paces. */
 const DEFAULT_CONCURRENCY = 8;

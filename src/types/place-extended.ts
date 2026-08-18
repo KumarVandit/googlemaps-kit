@@ -15,8 +15,6 @@
  *  - Raw escape hatch on every entity
  */
 
-// ─── Address ──────────────────────────────────────────────────────────────────
-
 /** Fully decomposed address fields extracted from place preview node[18] and node[2]. */
 export interface StructuredAddress {
   /** Full formatted address string (e.g. "175 Main St, Staten Island, NY 10307"). */
@@ -37,8 +35,6 @@ export interface StructuredAddress {
   country?: string;
   raw?: unknown;
 }
-
-// ─── Popular Times ────────────────────────────────────────────────────────────
 
 /**
  * Hourly busyness entry for one hour of the day.
@@ -120,8 +116,6 @@ export interface PopularTimesData {
   typicalVisitMaxMinutes?: number;
 }
 
-// ─── Menu ─────────────────────────────────────────────────────────────────────
-
 /** A single menu item from the inline menu card Google serves for some restaurants. */
 export interface MenuItem {
   /** Display name of the item. */
@@ -139,8 +133,8 @@ export interface MenuItem {
 
 /** A section of a structured inline menu. */
 export interface MenuSection {
-  /** Section heading, e.g. "Appetizers". */
-  title: string;
+  /** Section heading, e.g. "Appetizers". Omitted when the section has no heading. */
+  title?: string;
   items: MenuItem[];
   raw?: unknown;
 }
@@ -155,8 +149,6 @@ export interface PlaceMenu {
   allItems?: MenuItem[];
   raw?: unknown;
 }
-
-// ─── Q & A ────────────────────────────────────────────────────────────────────
 
 /** A single answer to a place Q&A question. */
 export interface PlaceQAAnswer {
@@ -207,8 +199,6 @@ export interface PlaceQAResult {
   raw?: unknown;
 }
 
-// ─── Review Tags ──────────────────────────────────────────────────────────────
-
 /**
  * Keyword-frequency tag shown in the review summary section of a place card.
  * e.g. { text: "prices", count: 6, mentions: "Mentioned in 6 reviews" }
@@ -237,8 +227,6 @@ export interface ReviewTag {
   raw?: unknown;
 }
 
-// ─── People Also Search ───────────────────────────────────────────────────────
-
 /** A "people also search for" recommendation from a place card. */
 export interface PeopleAlsoSearch {
   /** Place name. */
@@ -252,8 +240,6 @@ export interface PeopleAlsoSearch {
   raw?: unknown;
 }
 
-// ─── Owner Updates ────────────────────────────────────────────────────────────
-
 /** A business-owner-posted update visible on the place card. */
 export interface OwnerUpdate {
   updateId?: string;
@@ -264,8 +250,6 @@ export interface OwnerUpdate {
   ctaUrl?: string;
   raw?: unknown;
 }
-
-// ─── Gas Prices ───────────────────────────────────────────────────────────────
 
 /** A single fuel grade price at a gas station. */
 export interface GasPrice {
@@ -281,8 +265,6 @@ export interface GasPrice {
   updatedAt?: string;
   raw?: unknown;
 }
-
-// ─── Hotel Data ───────────────────────────────────────────────────────────────
 
 /** A hotel booking offer shown on the place card. */
 export interface HotelBookingOffer {
@@ -328,8 +310,6 @@ export interface HotelData {
   raw?: unknown;
 }
 
-// ─── Restaurant Data ──────────────────────────────────────────────────────────
-
 /** Table reservation provider shown on a restaurant card. */
 export interface TableReservationProvider {
   name: string;
@@ -349,8 +329,6 @@ export interface RestaurantData {
   raw?: unknown;
 }
 
-// ─── Structured IDs ───────────────────────────────────────────────────────────
-
 /** All stable identifiers Google attaches to a place, gathered in one object. */
 export interface PlaceIdentifiers {
   /** Hex feature id "0x…:0x…" — most stable cross-session id. */
@@ -367,11 +345,7 @@ export interface PlaceIdentifiers {
   ftid?: string;
 }
 
-// ─── Business Status ──────────────────────────────────────────────────────────
-
 export type BusinessOperatingStatus = 'open' | 'closed' | 'permanently_closed' | 'temporarily_closed' | 'unknown';
-
-// ─── Enriched PlaceDetails extension ─────────────────────────────────────────
 
 /**
  * Extended place details with all structured fields.
@@ -418,8 +392,6 @@ export interface PlaceDetailsExtended {
    */
   raw?: unknown;
 }
-
-// ─── Search Result extension ──────────────────────────────────────────────────
 
 /**
  * Extension fields for SearchResult that are present in the search response

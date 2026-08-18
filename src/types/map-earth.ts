@@ -21,6 +21,7 @@ export interface EarthImageryOptions {
 
 export interface EarthImageryResult {
   imagery: Buffer;
-  resolution: string;
+  /** Resolution actually used for the mosaic (echoes the request, default `high`). */
+  resolution: 'low' | 'medium' | 'high';
   lastUpdated: Date;
 }

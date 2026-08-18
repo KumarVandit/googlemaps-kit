@@ -1,10 +1,7 @@
-import type { TravelMode } from './common.js';
+import type { Coordinates, TravelMode } from './common.js';
 
-/** Shared coordinate pair extracted from Maps URLs. */
-export interface MapsCoordinates {
-  lat: number;
-  lng: number;
-}
+/** Shared coordinate pair extracted from Maps URLs. Alias of {@link Coordinates}. */
+export type MapsCoordinates = Coordinates;
 
 /** Base fields present on every successfully classified parse result. */
 interface ParsedMapsUrlBase {

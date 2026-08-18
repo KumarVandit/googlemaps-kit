@@ -4,7 +4,7 @@ import { extractPlacePhotos, extractPlacePreviewPhotos, resizePhotoUrl } from '.
 import { buildPlaceUrl, type PlacePbMode } from '../rpc/pb-builders.js';
 import { buildPlacePhotosUrl } from '../rpc/photos-pb.js';
 import { buildListEntityPhotosBatchArgs } from '../rpc/batch-request-builders.js';
-import { filterPhotosByCategory } from '../rpc/photo-category-tokens.js';
+import { filterPhotosByCategory } from '../rpc/photos-pb.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient, fetchSessionPsi, isBatchErrorCode, parseBatchPayload } from '../rpc/batch-rpc.js';
 import type { GMapsConfig } from '../types/common.js';

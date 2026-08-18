@@ -79,3 +79,38 @@ export interface MapLayerTileOptions {
   layer: 'standard' | 'satellite' | 'hybrid' | 'terrain';
   scale?: 1 | 2;
 }
+
+/**
+ * Named `/maps/vt` overlay layers decoded from the Maps JS layer descriptors
+ * (`_.er` messages: field 1 = type enum, field 2 = layer name).
+ *
+ * Three answer real raster tiles anonymously:
+ * - `hillshade` (`shading`, type 5) — terrain hillshade, global from z8
+ * - `contours` (type 6) — elevation contour lines, observed band z13–15
+ * - `airQualityHeatmap` (`air-quality-heatmap`, type 2) — AQI heatmap, z5–15,
+ *   strongest over cities
+ *
+ * Every other named layer observed in the JS bundle — traffic, transit, bike,
+ * svv, air-quality, area-busyness, crisis2, hotel-categorical-search, indoor,
+ * lore-p13n, lore-rec, travel-map-reachability — renders only inside the full
+ * web client style context and returns empty placeholder tiles when probed
+ * directly.
+ */
+export type MapOverlayLayer = 'hillshade' | 'contours' | 'airQualityHeatmap';
+
+/** Options for fetching an overlay tile by Web Mercator indices. */
+export interface MapOverlayFetchOptions {
+  z: number;
+  x: number;
+  y: number;
+  /** Overlay layer (default `hillshade`). */
+  layer?: MapOverlayLayer;
+}
+
+/** Options for fetching an overlay tile by lat/lng. */
+export interface MapOverlayLatLngOptions {
+  lat: number;
+  lng: number;
+  zoom: number;
+  layer?: MapOverlayLayer;
+}

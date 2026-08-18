@@ -56,9 +56,9 @@ export type PlaceRef =
       name?: string;
       lat?: number;
       lng?: number;
-      /** Search-row alias for lat. */
+      /** @deprecated Search-row alias for `lat` — use `lat`. */
       latitude?: number;
-      /** Search-row alias for lng. */
+      /** @deprecated Search-row alias for `lng` — use `lng`. */
       longitude?: number;
       placeId?: string;
       ftid?: string;
@@ -93,11 +93,12 @@ export interface ClientCapabilities {
   askMapsHistory: boolean;
   privateLists: boolean;
   legacyRpc: boolean;
+  userPrefs: boolean;
 }
 
 export type AuthCapability = keyof Pick<
   ClientCapabilities,
-  'askMaps' | 'askMapsHistory' | 'reviewsRpc' | 'privateLists' | 'legacyRpc'
+  'askMaps' | 'askMapsHistory' | 'reviewsRpc' | 'privateLists' | 'legacyRpc' | 'userPrefs'
 >;
 
 /** Input for `maps.discover()`. */
@@ -242,7 +243,6 @@ export interface RouteOptions extends IntentCallOptions {
    */
   includeSteps?: boolean;
 
-  // ─── transit-specific options ──────────────────────────────────────────────
 
   /**
    * Desired departure time as a Unix timestamp (seconds). For `mode: 'transit'`.
@@ -348,5 +348,36 @@ export interface PipelinePlaceRow {
 export interface PipelineResult {
   places: PipelinePlaceRow[];
   discover: DiscoverResult;
+  timingMs: number;
+}
+
+/** Input for Intent `grid()` — area-coverage search. */
+export interface GridOptions extends Omit<
+  import('./grid-search.js').GridSearchOptions,
+  'bounds' | 'onProgress'
+> {
+  /** Area to cover — either explicit bounds or a centre + span. */
+  bounds?: import('./grid-search.js').GridSearchBounds;
+  /**
+   * Bias center (Intent spelling); with `spanKm` this derives a square bounds.
+   * Ignored when `bounds` is set.
+   */
+  near?: Coordinates;
+  /** Full width of the derived square box in km (default 3). */
+  spanKm?: number;
+  /** Progress per cell — `{ type: 'grid', index, total, loaded }`. */
+  onProgress?: import('./hooks.js').ProgressCallback;
+}
+
+/** Result for Intent `grid()`. */
+export interface GridResult {
+  places: SearchResult[];
+  /** Cells actually searched (may be below plan due to caps / early exit). */
+  cellsSearched: number;
+  /** Cells the area expands to at `cellZoom`. */
+  cellsTotal: number;
+  /** Total search requests spent, including per-cell pagination. */
+  requestsMade: number;
+  cellZoom: number;
   timingMs: number;
 }

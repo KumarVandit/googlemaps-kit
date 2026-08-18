@@ -1,4 +1,6 @@
 /** Area traffic report from GetAreaTraffic batchexecute RPC. */
+import type { Coordinates } from './common.js';
+
 export interface AreaTrafficReport {
   hasTraffic: boolean;
   /**
@@ -43,9 +45,13 @@ export interface TrafficIncident {
    * `critical` ≥ 20 min, `major` ≥ 10, `moderate` ≥ 5, otherwise `minor`.
    */
   severity: IncidentSeverity;
-  /** First point of {@link TrafficIncident.path}. */
-  lat: number;
-  lng: number;
+  /**
+   * Latitude of the first point of {@link TrafficIncident.path}.
+   * Omitted when Google publishes no decodable path for the incident.
+   */
+  lat?: number;
+  /** Longitude of the first path point. Omitted when there is no path. */
+  lng?: number;
   /** Headline, e.g. `"Slowdown on E 42nd St"`. */
   title: string;
   /** Delay blurb, e.g. `"14-min delay"`. */
@@ -56,7 +62,7 @@ export interface TrafficIncident {
   affectedRoads?: string[];
   delay?: { estimatedMinutes: number; seconds: number; text?: string };
   /** Affected stretch of road, decoded from the response's delta-encoded points. */
-  path?: Array<{ lat: number; lng: number }>;
+  path?: Coordinates[];
   /** {@link TrafficIncident.path} as an encoded polyline. */
   polyline?: string;
   /** Incident icon served by maps.gstatic.com. */

@@ -1,15 +1,15 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractBoqReviews } from '../parsers/boq-reviews.js';
-import { applyReviewClientFilters } from '../parsers/review-client-filters.js';
+import { applyReviewClientFilters } from '../parsers/reviews.js';
+import { UgcAggregatesService } from './meta.js';
 import {
   placeAggregatesToRatingDistribution,
   sumRatingDistribution,
-} from '../parsers/review-aggregates.js';
+} from '../parsers/reviews.js';
 import { extractEmbeddedReviews, extractPlaceDetails } from '../parsers/place.js';
 import { extractListUgcReviews } from '../parsers/reviews.js';
-import { buildBoqReviewsUrl } from '../rpc/boq-reviews.js';
+import { buildBoqReviewsUrl } from '../rpc/feature-rpc.js';
 import { buildPlaceUrl, buildReviewsUrl } from '../rpc/pb-builders.js';
-import { UgcAggregatesService } from './ugc-aggregates.js';
 import type { GMapsConfig, ReviewSortOrder, ReviewsResult } from '../types/common.js';
 import type { ReviewClientFilters } from '../types/reviews.js';
 import type { PbNode } from '../types/protobuf.js';
@@ -247,8 +247,8 @@ export class ReviewsService {
       const parsed = extractBoqReviews(data as PbNode, { raw: options.raw });
       const withAggregates = await this.attachAggregates(parsed, options);
       return applyReviewClientFilters(withAggregates, options.filters);
-    } catch {
-      return { reviewCount: 0, reviews: [] };
+    } catch (error) {
+      return { reviewCount: 0, reviews: [], error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -318,8 +318,8 @@ export class ReviewsService {
       }
       const withAggregates = await this.attachAggregates(result, options);
       return applyReviewClientFilters(withAggregates, options.filters);
-    } catch {
-      return { reviewCount: 0, reviews: [] };
+    } catch (error) {
+      return { reviewCount: 0, reviews: [], error: error instanceof Error ? error.message : String(error) };
     }
   }
 

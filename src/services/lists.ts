@@ -5,7 +5,7 @@ import {
   extractPlaceList,
   parseListIdFromInput,
 } from '../parsers/lists.js';
-import { buildGetListUrl } from '../rpc/lists-pb.js';
+import { buildGetListUrl } from '../rpc/feature-pb.js';
 import { createRpcClient } from '../rpc/batch-rpc.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { GMapsError, type GMapsConfig } from '../types/common.js';
@@ -16,6 +16,7 @@ import type {
   PlaceListSummary,
 } from '../types/lists.js';
 import type { PbNode } from '../types/protobuf.js';
+import { safeGet } from '../utils/payload.js';
 
 export class ListsService {
   private http: HttpClient;
@@ -32,45 +33,45 @@ export class ListsService {
 
   /**
    * Browse public lists (featured, trending, new).
-   * Returns list summaries with item count and previews.
+   * Returns list summaries; `itemCount` is included only when Google publishes it.
    */
   async list(options?: ListBrowseOptions): Promise<PlaceListSummary[]> {
     const psi = 'anonymous';
     const rpc = await createRpcClient(this.http, this.config);
+    const category = options?.category ?? 'featured';
+    const categoryCode = category === 'trending' ? 1 : category === 'new' ? 2 : 0;
 
-    try {
-      const category = options?.category ?? 'featured';
-      const categoryCode = category === 'trending' ? 1 : category === 'new' ? 2 : 0;
+    const data = await rpc.call(
+      '/MapsListsService.BrowseLists',
+      [
+        { psi },
+        [categoryCode],
+      ],
+    );
 
-      const data = await rpc.call(
-        '/MapsListsService.BrowseLists',
-        [
-          { psi },
-          [categoryCode],
-        ],
-      );
-
-      // Extract list summaries from response [1][*]
-      const results: PlaceListSummary[] = [];
-      const listsArray = Array.isArray(data) ? (data as any)[1] : null;
-      if (Array.isArray(listsArray)) {
-        for (const item of listsArray) {
-          if (!Array.isArray(item)) continue;
-          const summary: PlaceListSummary = {
-            id: (item as any)[0] ?? '',
-            title: (item as any)[1] ?? '',
-            itemCount: (item as any)[2] ?? 0,
-            ownerName: (item as any)[3],
-            isPublic: true,
-          };
-          if (summary.id) results.push(summary);
-        }
+    // Extract list summaries from response [1][*]: [id, title, itemCount?, ownerName?, …]
+    const results: PlaceListSummary[] = [];
+    const listsArray = safeGet<PbNode[]>(data, 1);
+    if (Array.isArray(listsArray)) {
+      for (const item of listsArray) {
+        if (!Array.isArray(item)) continue;
+        const id = safeGet<string>(item, 0);
+        const title = safeGet<string>(item, 1);
+        if (!id || !title) continue;
+        const summary: PlaceListSummary = {
+          id,
+          title,
+          isPublic: true,
+        };
+        const itemCount = safeGet<number>(item, 2);
+        if (typeof itemCount === 'number') summary.itemCount = itemCount;
+        const ownerName = safeGet<string>(item, 3);
+        if (ownerName) summary.ownerName = ownerName;
+        results.push(summary);
       }
-
-      return results;
-    } catch {
-      return [];
     }
+
+    return results;
   }
 
   /**

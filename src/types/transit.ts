@@ -1,4 +1,21 @@
 /** Transit station departure board embedded in place preview placeData[62]. */
+import type { Coordinates } from './common.js';
+import type { TransitMode } from './directions.js';
+
+/**
+ * Raw vehicle label from the transit feed.
+ * Known canonical values are suggested, but Google also emits locale display
+ * labels ("Tube", "Metro"), so any string is assignable.
+ */
+export type TransitVehicleType =
+  | 'SUBWAY'
+  | 'BUS'
+  | 'TRAM'
+  | 'RAIL'
+  | 'FERRY'
+  | 'CABLE_CAR'
+  | 'GONDOLA'
+  | (string & {});
 
 export interface TransitDeparture {
   headsign: string;
@@ -22,7 +39,7 @@ export interface TransitDeparture {
    * Known values: `"SUBWAY"`, `"BUS"`, `"TRAM"`, `"RAIL"`, `"FERRY"`, `"CABLE_CAR"`, `"GONDOLA"`.
    * May also be a display label like `"Tube"` or `"Metro"` depending on locale.
    */
-  vehicleType?: string;
+  vehicleType?: TransitVehicleType;
   vehicleIconUrl?: string;
   /** Short route identifier (e.g. "N1", "Jubilee") extracted from headsign or line name. */
   routeShortName?: string;
@@ -68,9 +85,11 @@ export interface ListTransitLinesOptions {
 }
 
 export interface TransitRouteOptions {
-  origin: { lat: number; lng: number } | string;
-  destination: { lat: number; lng: number } | string;
+  origin: Coordinates | string;
+  destination: Coordinates | string;
+  /** Desired departure (local timezone of the origin). */
   departureTime?: Date;
+  /** Desired arrival. Mutually exclusive with `departureTime`. */
   arrivalTime?: Date;
   preferences?: TransitPreference[];
   /** Restrict to these vehicle types. */
@@ -78,8 +97,12 @@ export interface TransitRouteOptions {
   language?: string;
 }
 
-/** Vehicle types accepted by the transit filter. */
-export type TransitVehicleFilter = 'bus' | 'subway' | 'train' | 'tram' | 'rail';
+/**
+ * Vehicle types accepted by the transit filter.
+ * Same value set as {@link TransitMode} — kept as an alias so both option
+ * spellings (`RouteOptions.transitModes`, `TransitRouteOptions.modes`) stay valid.
+ */
+export type TransitVehicleFilter = TransitMode;
 
 export type TransitPreference = 'avoidSurface' | 'preferRail' | 'fewerTransfers';
 
@@ -121,7 +144,7 @@ export interface TransitLine {
   /** Terminus shown on the vehicle, e.g. `"Far Rockaway-Mott Av"`. */
   headsign?: string;
   /** Vehicle label from the feed — `"Bus"`, `"Subway"`, `"Tram"`. */
-  vehicleType?: string;
+  vehicleType?: TransitVehicleType;
   /** Line/vehicle icon served by maps.gstatic.com. */
   iconUrl?: string;
 }
@@ -149,11 +172,17 @@ export interface TransitFare {
 export interface TransitLeg {
   /** `walking` for the connecting legs, `transit` when riding a vehicle. */
   mode: 'walking' | 'transit';
-  startStation: TransitStation;
-  endStation: TransitStation;
+  /**
+   * Boarding stop. Omitted when Google does not publish a station block
+   * (common on walking legs) — never a placeholder.
+   */
+  startStation?: TransitStation;
+  /** Alighting stop. Omitted when Google does not publish a station block. */
+  endStation?: TransitStation;
   departureTime?: Date;
   arrivalTime?: Date;
-  durationSeconds: number;
+  /** Leg duration in seconds. Omitted when the feed carries no duration node. */
+  durationSeconds?: number;
   /** Human-readable duration, e.g. `"14 min"`. */
   durationText?: string;
   /** Distance in metres — present on walking legs. */
@@ -173,7 +202,8 @@ export interface TransitLeg {
 
 export interface TransitRoute {
   legs: TransitLeg[];
-  durationSeconds: number;
+  /** Total trip duration in seconds. Omitted when the feed carries no duration node. */
+  durationSeconds?: number;
   durationText?: string;
   distanceMeters?: number;
   distanceText?: string;

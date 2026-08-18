@@ -25,7 +25,16 @@ import {
   type Coordinates,
   type GMapsConfig,
 } from '../types/common.js';
-import { safeGet } from '../utils/safe-get.js';
+import type { PlaceIdentifiers } from '../types/place-extended.js';
+import { safeGet } from '../utils/payload.js';
+
+/**
+ * Agent variants Maps offers, from the client's own model table.
+ *
+ * `mars` is what the web client sends by default. The two `-dev-` ids are
+ * flagged internal-only in that table and are listed for completeness.
+ */
+export type AskMapsModel = 'mars' | 'mars-p13n' | 'mars-p13n-dev-a' | 'mars-p13n-dev-b';
 
 export interface AskMapsOptions {
   /** Natural-language query, e.g. "best vegetarian restaurants near HSR". */
@@ -35,16 +44,13 @@ export interface AskMapsOptions {
   zoom?: number;
   /** Opaque conversation / thread id when continuing a chat. */
   threadId?: string;
+  /** Agent variant; defaults to `mars`, the web client's own default. */
+  model?: AskMapsModel;
 }
 
-export interface AskMapsPlaceRef {
+export interface AskMapsPlaceRef extends PlaceIdentifiers {
   name?: string;
-  hexId?: string;
-  placeId?: string;
-  cid?: string;
-  kgmid?: string;
   ownerId?: string;
-  ftid?: string;
   address?: string;
   neighborhood?: string;
   city?: string;
@@ -61,6 +67,10 @@ export interface AskMapsPlaceRef {
 }
 
 export interface AskMapsResult {
+  /** Conversation id, echoed as the first element of every streamed chunk. */
+  threadId?: string;
+  /** Status labels the agent emits while it works ("Thinking...", ...). */
+  progress: string[];
   /** Free-text answer chunks from the agent (when present). */
   text: string[];
   /** Places the agent cited, when parseable. */
@@ -162,23 +172,103 @@ export const MAPS_AI_CAPABILITIES: MapsAiCapability[] = [
 ];
 
 /**
- * Build CallAskMapsAgent args from the Maps JS `yXd` request layout:
- * R7b{1: context(81), 2: Q7b{2: P7b{1: [O7b{query}]}, 3?: viewport}}.
+ * Agent variant enum values, as the client's model table assigns them.
+ *
+ * The table pairs each id with the number it puts in the request's model
+ * field: `mars` is 4, `mars-p13n` is 3, and the two eval builds are 6 and 7.
+ */
+const ASK_MAPS_MODEL_IDS: Record<AskMapsModel, number> = {
+  mars: 4,
+  'mars-p13n': 3,
+  'mars-p13n-dev-a': 6,
+  'mars-p13n-dev-b': 7,
+};
+
+/**
+ * Build CallAskMapsAgent args.
+ *
+ * Mirrors the client's own request builder: a `ClientRequestMetadata` at
+ * field 1 tagged with client 81, then an input message at field 2 holding the
+ * query (field 2, first repeated turn), a context block carrying the camera
+ * (field 3), the model selection (field 4) and the same camera again at
+ * fields 7 and 9 — the agent reads viewport from all three.
  */
 export function buildAskMapsArgs(options: AskMapsOptions): unknown[] {
   const query = options.query.trim();
-  const o7b = [null, query];
-  const p7b = [null, [o7b]];
-  const viewport =
+  const modelId = ASK_MAPS_MODEL_IDS[options.model ?? 'mars'];
+
+  // r8b: repeated turn at field 1, each a oneof whose first slot is the text.
+  const turns = [[[query]]];
+
+  const camera =
     options.location != null
-      ? [null, null, [options.location.lat, options.location.lng, options.zoom ?? 14]]
+      ? [
+          [null, options.location.lng, options.location.lat],
+          [0, 0, 0],
+          [1440, 757],
+          options.zoom ?? 14,
+        ]
       : null;
-  const q7b = [null, null, p7b, viewport];
-  const r7b = [[null, 81], q7b];
+
+  const input: unknown[] = [
+    null,
+    turns,
+    camera ? [null, null, camera] : null,
+    [[modelId]],
+    null,
+    null,
+    camera ? [camera] : null,
+    null,
+    camera ? [camera] : null,
+  ];
+
+  const request: unknown[] = [[null, null, null, null, null, null, 81], input];
   if (options.threadId) {
-    return [[options.threadId, r7b]];
+    return [[options.threadId, request]];
   }
-  return [r7b];
+  return [request];
+}
+
+/**
+ * Pull the answer text out of a streamed Ask Maps chunk.
+ *
+ * Chunk shape, from the client's own recorded fixtures:
+ * `[[threadId, {"1000": [[[ …, [[[null,null,null,"text"]]] ]]] }]]` with the
+ * text at event slot 8 and progress labels at slot 21.
+ */
+export function extractStreamChunks(root: unknown): {
+  threadId?: string;
+  text: string[];
+  progress: string[];
+} {
+  const text: string[] = [];
+  const progress: string[] = [];
+  let threadId: string | undefined;
+
+  const chunks = Array.isArray(root) ? root : [];
+  for (const chunk of chunks) {
+    if (!Array.isArray(chunk)) continue;
+    const id = chunk[0];
+    if (typeof id === 'string' && !threadId) threadId = id;
+
+    const events = chunk[1];
+    if (!events || typeof events !== 'object') continue;
+    for (const group of Object.values(events as Record<string, unknown>)) {
+      if (!Array.isArray(group)) continue;
+      for (const outer of group) {
+        if (!Array.isArray(outer)) continue;
+        for (const event of outer) {
+          if (!Array.isArray(event)) continue;
+          const answer = safeGet<string>(event, 8, 0, 0, 3);
+          if (typeof answer === 'string' && answer.length > 0) text.push(answer);
+          const label = safeGet<string>(event, 21, 0, 0, 0);
+          if (typeof label === 'string' && label.length > 0) progress.push(label);
+        }
+      }
+    }
+  }
+
+  return { threadId, text, progress };
 }
 
 function extractAskText(root: unknown): string[] {
@@ -324,8 +414,13 @@ export class AskMapsService {
       throw new GMapsError(`Ask Maps batchexecute error [${String(code)}]`, 200);
     }
 
+    const stream = extractStreamChunks(root);
     return {
-      text: extractAskText(root),
+      threadId: stream.threadId,
+      progress: [...new Set(stream.progress)],
+      // The schema-aware read wins when the payload is a stream of chunks;
+      // otherwise fall back to scavenging long strings out of the tree.
+      text: stream.text.length > 0 ? stream.text : extractAskText(root),
       places: extractAskPlaces(root),
       raw: root,
       timingMs,

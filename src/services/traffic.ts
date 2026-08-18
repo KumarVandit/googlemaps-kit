@@ -1,6 +1,6 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractAreaTraffic } from '../parsers/traffic.js';
-import { extractTrafficIncidents } from '../parsers/traffic-incidents.js';
+import { extractTrafficIncidents } from '../parsers/traffic.js';
 import { buildAreaTrafficArgs } from '../rpc/batch-request-builders.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient, parseBatchPayload } from '../rpc/batch-rpc.js';
@@ -11,7 +11,7 @@ import type {
   TrafficIncident,
   TrafficIncidentsOptions,
 } from '../types/traffic.js';
-import { parseMapsPageTokens } from '../rpc/app-options.js';
+import { parseMapsPageTokens } from '../rpc/descriptors.js';
 import { cookiesToHeader } from '../auth/session.js';
 
 export class TrafficService {

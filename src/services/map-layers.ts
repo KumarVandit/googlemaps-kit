@@ -10,7 +10,12 @@ import type {
   LayerTileOptions,
   LayerTileResult,
   SchoolMarker,
+  ViewportCapabilities,
+  ViewportCapabilitiesOptions,
 } from '../types/map-layers.js';
+import { BATCH_SERVICES } from '../rpc/batch-services.js';
+import { buildViewportMetadataArgs } from '../rpc/batch-request-builders.js';
+import { createRpcClient, parseBatchPayload } from '../rpc/batch-rpc.js';
 
 type SchoolLevel = SchoolMarker['type'];
 
@@ -37,9 +42,11 @@ function classifySchool(row: SearchResult): SchoolLevel | undefined {
 export class MapLayersService {
   private http: HttpClient;
   private search: SearchService;
+  private config: GMapsConfig;
 
   constructor(http: HttpClient, config: GMapsConfig) {
     this.http = http;
+    this.config = config;
     this.search = new SearchService(http, config);
   }
 
@@ -184,6 +191,46 @@ export class MapLayersService {
       x: options.x,
       y: options.y,
     });
+  }
+
+  /**
+   * Which map capabilities Google reports for a viewport.
+   *
+   * `MapsViewportService.GetViewportMetadata` answers a bare list of capability
+   * ids for the camera you send. The camera must carry a real altitude — Google
+   * derives zoom from it and rejects a camera without one, which is why a
+   * lat/lng-only request answers `[3]`.
+   */
+  async getViewportCapabilities(
+    options: ViewportCapabilitiesOptions,
+  ): Promise<ViewportCapabilities> {
+    const zoom = options.zoom ?? 14;
+    const rpc = await createRpcClient(this.http, this.config);
+    const data = await rpc.call(
+      BATCH_SERVICES.VIEWPORT_METADATA,
+      buildViewportMetadataArgs({
+        lat: options.lat,
+        lng: options.lng,
+        zoom,
+        width: options.width,
+        height: options.height,
+      }),
+    );
+
+    const payload = parseBatchPayload(data);
+    const rows = Array.isArray(payload) && Array.isArray(payload[0]) ? payload[0] : [];
+    const capabilities = rows
+      .map((row) => (Array.isArray(row) && typeof row[0] === 'number' ? row[0] : null))
+      .filter((id): id is number => id !== null)
+      .sort((a, b) => a - b);
+
+    return {
+      lat: options.lat,
+      lng: options.lng,
+      zoom,
+      capabilities,
+      empty: capabilities.length === 0,
+    };
   }
 
   private decodeTile(
