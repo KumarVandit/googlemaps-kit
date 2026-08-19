@@ -11,22 +11,16 @@
 export { GMapsClient, sdk, GMaps } from './client/gmaps-client.js';
 export type { EnrichSearchOptions } from './client/gmaps-client.js';
 
-// ——— Transport ———
 export * from './advanced/http.js';
 
-// ——— Auth / session ———
 export * from './advanced/auth.js';
 
-// ——— Protobuf + RPC ———
 export * from './advanced/rpc.js';
 
-// ——— Parsers ———
 export * from './advanced/parsers.js';
 
-// ——— Service classes ———
 export * from './advanced/services.js';
 
-// ——— Helpers + errors ———
 export * from './advanced/utils.js';
 
 // ——— Shareable Maps links (distinct from wire build*Url helpers) ———
@@ -53,14 +47,14 @@ export type {
 } from './types/maps-urls.js';
 
 // ——— Product types re-exported for probe scripts ———
-export type { RevealPlaceOptions, RevealedPlace, RevealPlaceResult } from './types/reveal.js';
+export type { RevealPlaceOptions, RevealedPlace, RevealPlaceResult } from './types/viewport.js';
 export type {
   MintedViewportPsi,
   PassiveAssistChip,
   PassiveAssistOptions,
   PassiveAssistPsiContext,
   PassiveAssistResult,
-} from './types/passiveassist.js';
+} from './types/viewport.js';
 export type {
   GetStationDeparturesOptions,
   ListTransitLinesOptions,
@@ -87,14 +81,14 @@ export type {
   DistanceMatrixOptions,
   DistanceMatrixResult,
   DistanceMatrixCell,
-} from './types/distance-matrix.js';
+} from './types/directions.js';
 export type {
   ElevationPointOptions,
   ElevationPointResult,
   ElevationPathOptions,
   ElevationPathResult,
-} from './types/elevation.js';
-export type { TimezoneOptions, TimezoneResult } from './types/timezone.js';
+} from './types/directions.js';
+export type { TimezoneOptions, TimezoneResult } from './types/geocode.js';
 export type {
   DirectionsRoute,
   DirectionsWaypoint,
@@ -103,6 +97,7 @@ export type {
   StepManeuver,
   DirectionsUnits,
   DirectionsAvoid,
+  TransitMode,
 } from './types/directions.js';
 export type { AreaTrafficReport, GetAreaTrafficOptions } from './types/traffic.js';
 export type {
@@ -113,7 +108,7 @@ export type {
   PlaceInfoResult,
   SignedPlaceUrl,
 } from './types/categories.js';
-export type { PlaceUgcAggregates, GetPlaceUgcAggregatesOptions } from './types/ugc-aggregates.js';
+export type { PlaceUgcAggregates, GetPlaceUgcAggregatesOptions } from './types/reviews.js';
 export type { DecodedMapsUrl, DecodeUrlOptions } from './types/batch-url.js';
 export type {
   SuggestOptions,
@@ -261,13 +256,13 @@ export type {
 export type {
   DistanceMatrixElementStatus,
   DistanceMatrixLocation,
-} from './types/distance-matrix.js';
+} from './types/directions.js';
 export type {
   ElevationProfileSample,
   ElevationStatus,
   ElevationSummary,
-} from './types/elevation.js';
-export type { TimezoneIdSource, TimezoneOffsetSource } from './types/timezone.js';
+} from './types/directions.js';
+export type { TimezoneIdSource, TimezoneOffsetSource } from './types/geocode.js';
 export type {
   TransitPreference,
   TransitRoute,
@@ -296,21 +291,21 @@ export type {
   EvChargingSearchOptions,
   ConnectorType,
   ChargerStatus,
-} from './types/ev-charging.js';
+} from './types/mobility.js';
 export type {
   Parking,
   ParkingAvailability,
   ParkingPrice,
   ParkingSearchOptions,
   ParkingType,
-} from './types/parking.js';
+} from './types/mobility.js';
 export type {
   NearbyAreasOptions,
   GeoArea,
   AdminRegion,
   AdminLevel,
   AreaType,
-} from './types/location-context.js';
+} from './types/viewport.js';
 export type { Attribute, AttributeCategory } from './types/place-attributes.js';
 export type {
   LayerTileOptions,
@@ -323,6 +318,13 @@ export type {
   Building3d,
   Map3dTerrainOptions,
   Terrain3dResult,
+  Terrain3dGrid,
+  Map3dMeshOptions,
+  Map3dMeshResult,
+  Map3dTile,
+  Map3dVertex,
+  Map3dDetail,
+  Map3dBounds,
 } from './types/map-3d.js';
 export type {
   EarthTileOptions,
@@ -336,10 +338,28 @@ export type {
   IncidentType,
   IncidentSeverity,
 } from './types/traffic.js';
-export type { MapLayerTileOptions } from './types/tiles.js';
+export type { MapLayerTileOptions, MapOverlayLayer, MapOverlayFetchOptions, MapOverlayLatLngOptions } from './types/tiles.js';
 export type { ListBrowseOptions, PlaceListSummary } from './types/lists.js';
-export type { PanoramaVideoOptions, PanoramaVideoResult } from './types/panorama.js';
+export type { PanoramaTileLevel, PanoramaTileGrid } from './types/panorama.js';
 export type { TransitRoutingPreference } from './types/directions.js';
+export type { UserPrefs } from './services/meta.js';
+export { BikeShareService } from './services/mobility.js';
+export type {
+  BikeShareAvailability,
+  GetBikeAvailabilityOptions,
+} from './types/mobility.js';
+export { SearchAlongRouteService, sampleRoutePath } from './services/search-along-route.js';
+export type {
+  SearchAlongRouteOptions,
+  SearchAlongRouteResult,
+  RouteSearchHit,
+} from './types/search-along-route.js';
+export { WaypointOptimizerService } from './services/waypoint-optimizer.js';
+export type {
+  OptimizeWaypointsOptions,
+  OptimizeWaypointsResult,
+  OptimizedLeg,
+} from './types/route-optimization.js';
 
 // ——— Abort scope for direct service calls ———
 export {
@@ -347,11 +367,11 @@ export {
   runWithRequestContext,
   getRequestSignal,
   type RequestContext,
-} from './utils/request-context.js';
+} from './utils/async.js';
 
 // ——— Transit + traffic parsing internals ———
-export { extractTransitRoutes } from './parsers/transit-directions.js';
-export { extractTrafficIncidents, decodeIncidentPath } from './parsers/traffic-incidents.js';
+export { extractTransitRoutes } from './parsers/transit.js';
+export { extractTrafficIncidents, decodeIncidentPath } from './parsers/traffic.js';
 export { directionsSessionBlock } from './rpc/pb-builders.js';
 export type {
   TransitAgency,

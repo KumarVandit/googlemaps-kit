@@ -9,8 +9,8 @@ export {
   buildListEntityPhotosBatchArgs,
 } from '../rpc/batch-request-builders.js';
 
-export { buildSuggestCameraPb, buildSuggestUrl } from '../rpc/suggest-pb.js';
-export { buildRevealPb, buildRevealUrl, normalizeRevealFtid } from '../rpc/reveal-pb.js';
+export { buildSuggestCameraPb, buildSuggestUrl } from '../rpc/feature-pb.js';
+export { buildRevealPb, buildRevealUrl, normalizeRevealFtid } from '../rpc/feature-pb.js';
 export {
   buildListEntityPhotosPb,
   buildListEntityPhotosUrl,
@@ -24,11 +24,12 @@ export {
 export {
   buildMapTilePb,
   buildMapTileUrl,
+  buildProtoTileUrl,
   buildIconUrl,
   DEFAULT_MAP_TILE_VERSION,
   DEFAULT_POI_ICON,
-} from '../rpc/tiles-pb.js';
-export { buildGetListPb, buildGetListUrl } from '../rpc/lists-pb.js';
+} from '../rpc/tile-builders.js';
+export { buildGetListPb, buildGetListUrl } from '../rpc/feature-pb.js';
 export { buildPlacePhotosPb, buildPlacePhotosUrl } from '../rpc/photos-pb.js';
 export {
   CAPTURED_FOOD_CATEGORY_TOKEN,
@@ -37,7 +38,7 @@ export {
   filterPhotosByCategory,
   isClientFilterableCategory,
   PHOTO_TAB_ID_LABELS,
-} from '../rpc/photo-category-tokens.js';
+} from '../rpc/photos-pb.js';
 
 export {
   buildSearchPb,
@@ -69,7 +70,7 @@ export {
   extractProtoServiceIds,
   parseMapsPageTokens,
   extractAppOptionsPsi,
-} from '../rpc/app-options.js';
+} from '../rpc/descriptors.js';
 export {
   MAPS_WIZ_UI_APP,
   MAPS_WIZ_UI_PATH,
@@ -83,10 +84,9 @@ export {
   SERVICE_GET_LOCAL_BOQ_PROXY,
   BOQ_PROXY_MSC,
   REVIEW_SORT,
-  PROTO_SERVICE_IDS,
   INITIAL_MODULES,
 } from '../rpc/rpc-methods.js';
-export { encodeRpcId, decodeRpcId, isNxaRpcId } from '../rpc/nxa.js';
+export { encodeRpcId, decodeRpcId, isNxaRpcId } from '../rpc/descriptors.js';
 export {
   getDescriptorRegistry,
   getRpcMethodById,
@@ -96,13 +96,13 @@ export {
   listMapsAiAgentRpcIds,
   resolveSemanticSurface,
   describeRpcId,
-} from '../rpc/descriptor-registry.js';
+} from '../rpc/descriptors.js';
 export type {
   RpcMethodDescriptor,
   FeatureServiceDescriptor,
   DescriptorRegistry,
-} from '../rpc/descriptor-registry.js';
+} from '../rpc/descriptors.js';
 export { FeatureRpcService, createFeatureRpcService } from '../rpc/feature-rpc.js';
 export type { FeatureRpcName, FeatureRpcCallOptions } from '../rpc/feature-rpc.js';
-export { buildBoqReviewsPayload, buildBoqReviewsUrl } from '../rpc/boq-reviews.js';
-export type { BoqReviewsRequest } from '../rpc/boq-reviews.js';
+export { buildBoqReviewsPayload, buildBoqReviewsUrl } from '../rpc/feature-rpc.js';
+export type { BoqReviewsRequest } from '../rpc/feature-rpc.js';

@@ -9,9 +9,9 @@ export {
   haversineMeters,
 } from '../utils/geo.js';
 export { dedupePhotos, normalizePhotoUrl } from '../utils/photo-url.js';
-export { loadProjectEnv } from '../utils/load-env.js';
-export { safeGet } from '../utils/safe-get.js';
-export { parseReviewCountLabel } from '../utils/feature-id.js';
+export { loadProjectEnv } from '../utils/env.js';
+export { safeGet } from '../utils/payload.js';
+export { parseReviewCountLabel } from '../utils/ids.js';
 export {
   parseFeatureId,
   toFeatureId,

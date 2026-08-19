@@ -3,7 +3,7 @@
  */
 
 import { buildBrowserHeaders } from './session.js';
-import { parseMapsPageTokens } from '../rpc/app-options.js';
+import { parseMapsPageTokens } from '../rpc/descriptors.js';
 import type { MapsPageTokens } from '../types/common.js';
 
 export async function extractMapsPageTokens(

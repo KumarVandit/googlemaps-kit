@@ -3,12 +3,12 @@
  */
 export { HttpClient } from '../client/http-client.js';
 export type { HttpClientStats } from '../client/http-client.js';
-export { RequestScheduler } from '../utils/request-scheduler.js';
-export { parseGoogleResponse, isValidResponseBody } from '../utils/response-parser.js';
+export { RequestScheduler } from '../utils/net.js';
+export { parseGoogleResponse, isValidResponseBody } from '../utils/payload.js';
 export {
   isListUgcUnauthenticatedStub,
   isBatchAuthStub,
   isEmptySuccessPayload,
   classifyThrottleFailure,
-} from '../utils/throttle-detection.js';
-export { backoffWithJitter, parseRetryAfterMs } from '../utils/retry-backoff.js';
+} from '../utils/net.js';
+export { backoffWithJitter, parseRetryAfterMs } from '../utils/net.js';

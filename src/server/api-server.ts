@@ -7,11 +7,11 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { loadProjectEnv } from '../utils/load-env.js';
+import { loadProjectEnv } from '../utils/env.js';
 import { sdk } from '../client/gmaps-client.js';
 import type { Coordinates, TravelMode } from '../types/common.js';
 import { GMapsError, GMapsAuthError, GMapsThrottleError } from '../types/common.js';
-import { getPackageVersion } from '../utils/version.js';
+import { getPackageVersion } from '../utils/env.js';
 
 loadProjectEnv();
 

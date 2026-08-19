@@ -1,15 +1,29 @@
-import { Style, BrightWhite, BrightBlack, Cyan, Yellow, Green, Red } from '@oakoliver/lipgloss';
+import {
+  Style,
+  BrightWhite,
+  BrightBlack,
+  Cyan,
+  Yellow,
+  Green,
+  Red,
+  NO_COLOR,
+} from '@oakoliver/lipgloss';
+import { isPlainOutput, rule } from '../output.js';
 
-export const title = new Style().bold(true).foreground(BrightWhite);
-export const muted = new Style().foreground(BrightBlack);
-export const accent = new Style().foreground(Cyan).bold(true);
-export const warn = new Style().foreground(Yellow);
-export const ok = new Style().foreground(Green);
-export const err = new Style().foreground(Red);
-export const selected = new Style().foreground(Cyan).bold(true);
-export const border = new Style().foreground(BrightBlack);
+const plain = isPlainOutput();
+
+const fg = (c: number) => (plain ? NO_COLOR : c);
+
+export const title = new Style().bold(true).foreground(fg(BrightWhite));
+export const muted = new Style().foreground(fg(BrightBlack));
+export const accent = new Style().bold(true).foreground(fg(Cyan));
+export const warn = new Style().foreground(fg(Yellow));
+export const ok = new Style().foreground(fg(Green));
+export const err = new Style().foreground(fg(Red));
+export const selected = new Style().bold(true).foreground(fg(Cyan));
+export const border = new Style().foreground(fg(BrightBlack));
 
 export function frame(body: string, width = 72): string {
-  const line = '─'.repeat(Math.min(width, 72));
+  const line = rule(Math.min(width, 72));
   return `${border.render(line)}\n${body}\n${border.render(line)}`;
 }

@@ -31,6 +31,7 @@ export {
   extractPhotosDeep,
 } from '../parsers/place.js';
 export type { ExtractPlaceDetailsOptions } from '../parsers/place.js';
+export { extractBikeAvailability, requireBikeAvailability } from '../parsers/mobility.js';
 export {
   applyExtendedFields,
   extractPlaceIdentifiers,
@@ -58,16 +59,16 @@ export {
 } from '../parsers/place-attributes.js';
 export { extractListUgcReviews } from '../parsers/reviews.js';
 export { extractBoqReviews } from '../parsers/boq-reviews.js';
-export { applyReviewClientFilters } from '../parsers/review-client-filters.js';
+export { applyReviewClientFilters } from '../parsers/reviews.js';
 export {
   placeAggregatesToRatingDistribution,
   sumRatingDistribution,
-} from '../parsers/review-aggregates.js';
+} from '../parsers/reviews.js';
 export { extractLocalPosts } from '../parsers/local-posts.js';
 export { extractKnowledgeEntity, extractKnowledgeFromPlaceDetails } from '../parsers/knowledge.js';
 export { extractDirections } from '../parsers/directions.js';
-export { extractSearchPagination } from '../parsers/search-pagination.js';
-export type { SearchPaginationMeta } from '../parsers/search-pagination.js';
+export { extractSearchPagination } from '../parsers/search.js';
+export type { SearchPaginationMeta } from '../parsers/search.js';
 export {
   parseReviewCount,
   parseReviewCountFromBlock,

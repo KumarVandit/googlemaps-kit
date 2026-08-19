@@ -1,32 +1,29 @@
 #!/usr/bin/env node
 /**
- * googlemaps-kit CLI + TUI
- *
- * Interactive (Bubble Tea):
- *   npx googlemaps-kit
- *   npx googlemaps-kit tui
- *
- * Scripted:
- *   npx googlemaps-kit discover "cafes" --near 12.98,77.64
- *   npx googlemaps-kit resolve --query "Cubbon Park Bangalore"
- *   …
+ * googlemaps-kit CLI + TUI. Run with --help for the command reference.
  */
 
 import { sdk } from './client/gmaps-client.js';
-import { flag, has, positional, resolveFormat } from './cli/args.js';
+import { flag, has, numberFlag, positional, resolveFormat } from './cli/args.js';
 import {
   emit,
+  parseBounds,
   runCapabilities,
   runDiscover,
+  runGeocode,
+  runGrid,
   runMedia,
   runOpinions,
   runPipeline,
   runProfile,
   runResolve,
   runRoute,
+  runStreetView,
+  runSurfaces,
+  runTerrain,
 } from './cli/run.js';
 import { runTui } from './cli/tui/app.js';
-import { getPackageVersion } from './utils/version.js';
+import { getPackageVersion } from './utils/env.js';
 
 function usage(exit = 1): never {
   console.error(`googlemaps-kit — Intent CLI + TUI
@@ -36,21 +33,36 @@ Interactive:
   googlemaps-kit tui             launch TUI
 
 Commands:
-  googlemaps-kit discover <query> --near <lat,lng> [options]
-  googlemaps-kit resolve --query <text> [--near <lat,lng>] | --url <maps-url>
-  googlemaps-kit profile <hexId> | --query <text> --near <lat,lng> [--depth card|full|complete]
-  googlemaps-kit route --from <address|lat,lng> --to <address|lat,lng> [--mode driving|walking|…]
-  googlemaps-kit opinions <hexId> | --query <text> --near <lat,lng> [--pages N] [--limit N]
-  googlemaps-kit media <hexId> | --query <text> [--near <lat,lng>] [--limit N]
-  googlemaps-kit pipeline <query> --near <lat,lng> [--max N] [--profile card|full|false] [--opinions]
+  googlemaps-kit discover <query> --near <lat,lng> [--mode fast|full] [--limit N]
+  googlemaps-kit grid <query> (--bounds <N,S,E,W> | --near <lat,lng> [--span km]) [options]
+  googlemaps-kit resolve (--query <text> | --url <maps-url>) [--near <lat,lng>]
+  googlemaps-kit profile (<hexId> | --query <text> --near <lat,lng>) [--name <text>] [--depth card|full|complete]
+  googlemaps-kit route --from <address|lat,lng> --to <address|lat,lng> [--mode driving|walking|bicycling|transit]
+  googlemaps-kit opinions (<hexId> | --query <text> --near <lat,lng>) [--pages N] [--limit N] [--aggregates]
+  googlemaps-kit media (<hexId> | --query <text> [--near <lat,lng>]) [--limit N]
+  googlemaps-kit geocode <address> | geocode --reverse <lat,lng>
+  googlemaps-kit streetview (--at <lat,lng> | "<place name>") [--radius-meters M]
+  googlemaps-kit terrain|map3d --bounds <N,S,E,W> [--planet earth|mars|moon] [--resolution low|medium|high] [--detail low|medium|high|max] [--out file.obj]
+  googlemaps-kit surfaces [--status working|auth-required|blocked|…]
+  googlemaps-kit pipeline <query> --near <lat,lng> [--max N] [--profile card|full|complete|false] [--opinions]
   googlemaps-kit capabilities
   googlemaps-kit version                 print the installed version
+
+grid options:
+  --cell-zoom 10..18   grid density: 14 districts · 15 ~2km cells · 17 blocks (default 15)
+  --max-results N      stop once N unique results are collected
+  --max-cells N        safety cap on cells searched
+  --pages-per-cell N   paginate within each cell (default 1)
 
 Global:
   --format table|pretty|json|csv|geojson   (default: table/pretty on TTY, json when piped)
   --json                                  shorthand for --format json
+  --no-anim                               disable TUI animations (auto-off with NO_COLOR / TERM=dumb)
   --hl <lang>  --gl <region>              locale (or GMAPS_HL / GMAPS_GL)
+  -h, --help                              show this help
+  -v, --version                           print the installed version
 
+Piping sends JSON by default — safe to feed straight into jq or an agent.
 TUI built with Bubble Tea (charmbracelet) via @oakoliver/bubbletea.
 `);
   process.exit(exit);
@@ -66,13 +78,12 @@ async function main(): Promise<void> {
 
   if (has(argv, '-h') || has(argv, '--help')) usage(0);
 
-  // Bare invocation or explicit tui → interactive
   if (argv.length === 0 || argv[0] === 'tui' || argv[0] === 'ui') {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
       console.error('TUI requires an interactive terminal. Use a subcommand or --help.');
       process.exit(1);
     }
-    await runTui();
+    await runTui(undefined, { anim: !has(argv, '--no-anim') });
     return;
   }
 
@@ -100,10 +111,10 @@ async function main(): Promise<void> {
       query,
       near,
       mode: (flag(rest, '--mode') as 'fast' | 'full' | undefined) ?? 'fast',
-      limit: flag(rest, '--limit') ? Number(flag(rest, '--limit')) : undefined,
+      limit: numberFlag(rest, '--limit'),
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -118,7 +129,7 @@ async function main(): Promise<void> {
       near: flag(rest, '--near'),
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -136,7 +147,7 @@ async function main(): Promise<void> {
       depth,
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -151,7 +162,7 @@ async function main(): Promise<void> {
       mode: flag(rest, '--mode') as 'driving' | 'walking' | 'bicycling' | 'transit' | undefined,
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -163,12 +174,12 @@ async function main(): Promise<void> {
       hexId: query ? undefined : hexId,
       query,
       near: flag(rest, '--near'),
-      pages: flag(rest, '--pages') ? Number(flag(rest, '--pages')) : 1,
-      limit: flag(rest, '--limit') ? Number(flag(rest, '--limit')) : 5,
+      pages: numberFlag(rest, '--pages') ?? 1,
+      limit: numberFlag(rest, '--limit') ?? 5,
       aggregates: has(rest, '--aggregates'),
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -180,10 +191,10 @@ async function main(): Promise<void> {
       hexId: query ? undefined : hexId,
       query,
       near: flag(rest, '--near'),
-      limit: flag(rest, '--limit') ? Number(flag(rest, '--limit')) : 8,
+      limit: numberFlag(rest, '--limit') ?? 8,
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
@@ -200,20 +211,93 @@ async function main(): Promise<void> {
     const text = await runPipeline(maps, {
       query,
       near,
-      max: flag(rest, '--max') ? Number(flag(rest, '--max')) : 3,
+      max: numberFlag(rest, '--max') ?? 3,
       profile:
         profileFlag === 'false' ? false : (profileFlag as 'card' | 'full' | 'complete'),
       opinions: has(rest, '--opinions'),
       format,
     });
-    emit(text, format);
+    emit(text);
     return;
   }
 
   if (cmd === 'capabilities') {
     const format = resolveFormat(rest, 'card', tty);
     const text = await runCapabilities(maps, { format });
-    emit(text, format);
+    emit(text);
+    return;
+  }
+
+  if (cmd === 'grid') {
+    const query = positional(rest);
+    if (!query) usage();
+    const near = flag(rest, '--near');
+    const boundsRaw = flag(rest, '--bounds');
+    if (!near && !boundsRaw) {
+      console.error('grid requires --bounds "N,S,E,W" or --near lat,lng');
+      usage();
+    }
+    const format = resolveFormat(rest, 'rows', tty);
+    const text = await runGrid(maps, {
+      query,
+      near: near ?? undefined,
+      spanKm: numberFlag(rest, '--span'),
+      bounds: parseBounds(boundsRaw),
+      cellZoom: numberFlag(rest, '--cell-zoom'),
+      maxResults: numberFlag(rest, '--max-results'),
+      maxCells: numberFlag(rest, '--max-cells'),
+      pagesPerCell: numberFlag(rest, '--pages-per-cell'),
+      format,
+    });
+    emit(text);
+    return;
+  }
+
+  if (cmd === 'geocode') {
+    const query = positional(rest);
+    const reverse = flag(rest, '--reverse');
+    if (!query && !reverse) usage();
+    const format = resolveFormat(rest, 'card', tty);
+    const text = await runGeocode(maps, { query, reverse, format });
+    emit(text);
+    return;
+  }
+
+  if (cmd === 'streetview') {
+    const at = flag(rest, '--at');
+    const place = positional(rest);
+    if (!at && !place) usage();
+    const format = resolveFormat(rest, 'card', tty);
+    const text = await runStreetView(maps, {
+      at: at ?? undefined,
+      query: at ? undefined : place,
+      radiusMeters: numberFlag(rest, '--radius-meters'),
+      format,
+    });
+    emit(text);
+    return;
+  }
+
+  if (cmd === 'terrain' || cmd === 'map3d') {
+    const boundsRaw = flag(rest, '--bounds');
+    if (!boundsRaw) usage();
+    const format = resolveFormat(rest, 'card', tty);
+    const text = await runTerrain(maps, {
+      bounds: parseBounds(boundsRaw),
+      planet: flag(rest, '--planet') as 'earth' | 'mars' | 'moon' | undefined,
+      resolution: flag(rest, '--resolution') as 'low' | 'medium' | 'high' | undefined,
+      detail: flag(rest, '--detail') as 'low' | 'medium' | 'high' | 'max' | undefined,
+      out: flag(rest, '--out'),
+      format,
+    });
+    emit(text);
+    return;
+  }
+
+  if (cmd === 'surfaces') {
+    const format = resolveFormat(rest, 'rows', tty);
+    const text = await runSurfaces(maps, { status: flag(rest, '--status'), format });
+    emit(text);
     return;
   }
 

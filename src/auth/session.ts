@@ -27,9 +27,10 @@ let cachedSession: CookieJarState | null = null;
 
 function parseSetCookieHeader(setCookie: string): { name: string; value: string } | null {
   const part = setCookie.split(';')[0];
-  const eq = part?.indexOf('=');
+  if (part === undefined) return null;
+  const eq = part.indexOf('=');
   if (!eq || eq <= 0) return null;
-  return { name: part!.slice(0, eq), value: part!.slice(eq + 1) };
+  return { name: part.slice(0, eq), value: part.slice(eq + 1) };
 }
 
 function mergeSetCookies(jar: Record<string, string>, headers: Headers): void {

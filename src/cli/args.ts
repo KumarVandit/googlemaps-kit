@@ -12,6 +12,16 @@ export function has(args: string[], name: string): boolean {
   return args.includes(name);
 }
 
+export function numberFlag(args: string[], name: string): number | undefined {
+  const raw = flag(args, name);
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (Number.isNaN(n)) {
+    throw new Error(`Invalid ${name} "${raw}" (expected a number)`);
+  }
+  return n;
+}
+
 export const VALUE_FLAGS = new Set([
   '--near',
   '--from',
@@ -28,6 +38,20 @@ export const VALUE_FLAGS = new Set([
   '--profile',
   '--hl',
   '--gl',
+  '--bounds',
+  '--span',
+  '--cell-zoom',
+  '--max-results',
+  '--max-cells',
+  '--pages-per-cell',
+  '--reverse',
+  '--at',
+  '--radius-meters',
+  '--planet',
+  '--resolution',
+  '--detail',
+  '--out',
+  '--status',
 ]);
 
 /** First non-flag token that is not a value for a preceding option. */
