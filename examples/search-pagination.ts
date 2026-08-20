@@ -3,7 +3,7 @@
  *
  * Run: npm run example:pagination
  */
-import { createExampleClient, HSR_CENTER } from './shared.js';
+import { run, createExampleClient, HSR_CENTER } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -38,7 +38,4 @@ async function main() {
   console.log('  same first row as page 1:', overlap ? 'yes' : 'no');
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

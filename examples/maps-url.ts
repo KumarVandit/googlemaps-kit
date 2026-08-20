@@ -3,8 +3,8 @@
  *
  * Run: npm run example:maps-url
  */
-import { buildPlaceLink, parseMapsUrl } from '../dist/index.js';
-import { CEVI } from './shared.js';
+import { buildPlaceLink, parseMapsUrl } from 'googlemaps-kit';
+import { CEVI, run } from './shared.js';
 
 async function main() {
   const url = buildPlaceLink({

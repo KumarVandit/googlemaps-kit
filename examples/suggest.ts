@@ -3,7 +3,7 @@
  *
  * Run: npm run example:suggest
  */
-import { assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
+import { run, assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -22,7 +22,4 @@ async function main() {
   assertDefined(suggestions[0]?.text, 'first suggestion text');
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

@@ -3,7 +3,7 @@
  *
  * Run: npm run example:directions
  */
-import { assertDefined, createExampleClient, HSR_CENTER, KORAMANGALA } from './shared.js';
+import { run, assertDefined, createExampleClient, HSR_CENTER, KORAMANGALA } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -25,7 +25,4 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

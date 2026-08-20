@@ -3,7 +3,7 @@
  *
  * Run: npm run example:place
  */
-import { assertDefined, CEVI, createExampleClient } from './shared.js';
+import { run, assertDefined, CEVI, createExampleClient } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -30,7 +30,4 @@ async function main() {
   console.log('Attribute groups:', place.attributeGroups?.length ?? 0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);
