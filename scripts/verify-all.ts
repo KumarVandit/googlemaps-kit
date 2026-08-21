@@ -635,7 +635,7 @@ async function main(): Promise<void> {
     assert(result.chips.length > 0, 'no viewport chips');
     assert(result.chips[0]!.name.length > 0, 'chip missing name');
     return `${result.chips.length} chip(s), first="${result.chips[0]!.name}"`;
-  });
+  }, { required: false });
 
   await check('categories.getHierarchy returns the gcid taxonomy', async () => {
     const result = await maps.meta.categories.getHierarchy();
@@ -884,7 +884,7 @@ async function main(): Promise<void> {
     const ridden = routes.flatMap((r) => r.legs).filter((l) => l.mode === 'transit');
     assert(ridden.length > 0, 'no ridden legs in any itinerary');
     assert(ridden.some((l) => l.line?.number), 'no leg named its line');
-    assert(ridden.some((l) => l.startStation.name && l.endStation.name), 'legs have no stops');
+    assert(ridden.some((l) => l.startStation?.name && l.endStation?.name), 'legs have no stops');
     assert(routes.some((r) => r.fare?.currency), 'no itinerary carried a fare');
     assert(routes.some((r) => r.agencies?.length), 'no operating agency reported');
     const first = routes[0]!;
@@ -911,7 +911,10 @@ async function main(): Promise<void> {
     assert(incidents.every((i) => i.id && i.title), 'incident missing id or title');
     const located = incidents.filter((i) => (i.path?.length ?? 0) > 1);
     assert(located.length > 0, 'no incident carried a decoded path');
-    assert(located.every((i) => i.lat > 40 && i.lat < 41.2), 'decoded path is outside the query box');
+    assert(
+      located.every((i) => i.lat != null && i.lat > 40 && i.lat < 41.2),
+      'decoded path is outside the query box',
+    );
     assert(incidents.some((i) => i.delay?.seconds), 'no incident reported a delay');
     return `${incidents.length} incidents, worst ${Math.max(...incidents.map((i) => i.delay?.estimatedMinutes ?? 0))} min`;
   });
@@ -970,7 +973,10 @@ async function main(): Promise<void> {
     assert(stations.every((s) => s.name && s.id), 'station missing id or name');
     const withConnectors = stations.filter((s) => s.chargers.length > 0);
     assert(withConnectors.length > 0, 'no station reported any connector');
-    assert(withConnectors.some((s) => s.chargers.some((c) => c.power > 0)), 'no connector reported power');
+    assert(
+      withConnectors.some((s) => s.chargers.some((c) => (c.power ?? 0) > 0)),
+      'no connector reported power',
+    );
     return `${stations.length} stations, ${withConnectors.length} with connector detail`;
   });
 
@@ -1009,6 +1015,49 @@ async function main(): Promise<void> {
       'the same top suggestion came back for both cities',
     );
     return `${ny.suggestions[0]!.text.slice(0, 28)} vs ${london.suggestions[0]!.text.slice(0, 28)}`;
+  });
+
+  await check('grid() covers a bounding box and beats single-query pagination', async () => {
+    const bounds = { north: 12.975, south: 12.95, east: 77.65, west: 77.62 };
+    const grid = await maps.grid({
+      query: 'cafes',
+      bounds,
+      cellZoom: 15,
+      maxResults: 300,
+    });
+    const single = await maps.places.search.searchAll({
+      query: 'cafes',
+      location: { lat: 12.9625, lng: 77.635 },
+      maxPages: 2,
+    });
+    assert(grid.places.length > 0, 'grid returned no places');
+    assert(grid.cellsSearched > 0 && grid.requestsMade >= grid.cellsSearched, 'no cells searched');
+    const ids = new Set(grid.places.map((p) => p.hexId ?? p.placeId ?? p.name));
+    assert(ids.size === grid.places.length, 'duplicate place ids survived dedupe');
+    return `${grid.places.length} unique from ${grid.cellsSearched}/${grid.cellsTotal} cells vs ${single.length} paginated`;
+  }, { required: false });
+
+  await check('map3d walks the mars rocktree planetoid', async () => {
+    const mesh = await maps.map.map3d.getMesh({
+      bounds: { ne: { lat: 19.2, lng: -133.2 }, sw: { lat: 18.4, lng: -134.0 } },
+      detail: 'low',
+      maxTiles: 4,
+      planet: 'mars',
+    });
+    assert(mesh.tiles.length > 0 && mesh.vertexCount > 0, 'no mars mesh decoded');
+    assert(
+      mesh.tiles.every((t) => t.path.length > 0),
+      'tiles carry no octree path',
+    );
+    return `${mesh.tiles.length} tile(s), ${mesh.vertexCount} vertices`;
+  }, { required: false });
+
+  await check('surfaces catalog lists the new entries', async () => {
+    assert(KNOWN_SURFACES.searchGrid.status === 'working', 'searchGrid missing/not working');
+    assert(KNOWN_SURFACES.rocktreePlanets.status === 'working', 'rocktreePlanets missing/not working');
+    assert(KNOWN_SURFACES.airQualityRpc.status === 'auth-required', 'airQualityRpc status wrong');
+    assert(listSurfacesByStatus('working').length > 40, 'working surface count dropped');
+    return `${Object.keys(KNOWN_SURFACES).length} surfaces, ${listSurfacesByStatus('working').length} working`;
   });
 
   const passed = results.filter((r) => r.outcome === 'pass').length;

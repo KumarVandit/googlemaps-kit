@@ -1,5 +1,5 @@
 /**
- * Live route test: "University Trails Ann Arbor" → "School of Engineering, University of Michigan"
+ * Live route test: "Michigan Union, Ann Arbor" → "College of Engineering, University of Michigan"
  *
  * Tests:
  *  1. maps.route() for all four TravelModes — shows decoded metres/seconds + humanPath
@@ -20,7 +20,7 @@ import {
   summarizePolyline,
 } from '../dist/index.js';
 
-const ORIGIN      = 'University Trails Apartments, Ann Arbor, MI';
+const ORIGIN      = 'Michigan Union, 530 S State St, Ann Arbor, MI';
 const DESTINATION = 'College of Engineering, University of Michigan, Ann Arbor, MI';
 const MODES       = ['driving', 'walking', 'bicycling', 'transit'];
 
