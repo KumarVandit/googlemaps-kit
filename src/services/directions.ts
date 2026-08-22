@@ -5,6 +5,7 @@ import type { Coordinates, DirectionsResult, GMapsConfig } from '../types/common
 import type { DirectionsOptions } from '../types/directions.js';
 import type { PbNode } from '../types/protobuf.js';
 import { resolveDirectionsEndpoints } from '../utils/place-ref.js';
+import { fetchSessionPsi } from '../rpc/batch-rpc.js';
 
 export interface DirectionsGetOptions extends DirectionsOptions {}
 
@@ -48,6 +49,20 @@ export class DirectionsService {
   }
 
   /**
+   * Page `ei` token for the directions pb.
+   *
+   * Transit routes are gated on it; the other modes ignore it. Failure to mint
+   * one is not fatal — the request still returns non-transit routes.
+   */
+  async sessionToken(anchor?: Coordinates): Promise<string | undefined> {
+    try {
+      return await fetchSessionPsi(this.http, anchor ? { lat: anchor.lat, lng: anchor.lng } : {});
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Fetch driving/walking directions via `/maps/preview/directions`.
    * Coordinates resolve in one round trip; address strings may need an extra resolve step.
    * Pass `includeSteps: true` for turn-by-turn steps when they are not in the preview payload.
@@ -61,6 +76,9 @@ export class DirectionsService {
     };
     let best: DirectionsResult = { legs: [] };
     const wantSteps = normalized.includeSteps === true;
+    const sessionToken = await this.sessionToken(
+      typeof origin === 'object' ? origin : undefined,
+    );
 
     const tryUrl = async (url: string): Promise<DirectionsResult | null> => {
       try {
@@ -85,6 +103,7 @@ export class DirectionsService {
       arrivalTime: normalized.arrivalTime,
       transitModes: normalized.transitModes,
       transitRoutingPreference: normalized.transitRoutingPreference,
+      sessionToken,
     })) {
       const parsed = await tryUrl(url);
       if (!parsed) continue;

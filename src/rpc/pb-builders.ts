@@ -423,6 +423,18 @@ function buildTransitTimePart(opts?: {
   return '';
 }
 
+/**
+ * Session block the Maps web client appends to every directions request.
+ *
+ * `1s` carries the page's `ei` / `kEI` event id. Transit is gated on it: without
+ * this block `/maps/preview/directions` answers with the travel-mode summary
+ * chips and no transit routes at all. Driving, walking and cycling are
+ * unaffected either way.
+ */
+export function directionsSessionBlock(sessionToken: string): string {
+  return `!15m3!1s${sessionToken}!7e81!15i10142`;
+}
+
 export function buildDirectionsPb(params: {
   origin: string | { lat: number; lng: number };
   destination: string | { lat: number; lng: number };
@@ -432,6 +444,8 @@ export function buildDirectionsPb(params: {
   arrivalTime?: number;
   transitModes?: TransitMode[];
   transitRoutingPreference?: TransitRoutingPreference;
+  /** Page `ei` token — required for transit routes, see {@link directionsSessionBlock}. */
+  sessionToken?: string;
 }): string {
   const mode = params.mode ?? 'driving';
   const modeBlock = directionsModeBlock(mode, {
@@ -450,7 +464,11 @@ export function buildDirectionsPb(params: {
     arrivalTime: params.arrivalTime,
   });
 
-  return chain + viewport + DIRECTIONS_COMMON_SUFFIX + modeBlock + timePart + DIRECTIONS_PANEL_SUFFIX;
+  const session = params.sessionToken ? directionsSessionBlock(params.sessionToken) : '';
+
+  return (
+    chain + viewport + DIRECTIONS_COMMON_SUFFIX + modeBlock + timePart + session + DIRECTIONS_PANEL_SUFFIX
+  );
 }
 
 export function buildDirectionsUrls(params: {
@@ -464,6 +482,7 @@ export function buildDirectionsUrls(params: {
   arrivalTime?: number;
   transitModes?: TransitMode[];
   transitRoutingPreference?: TransitRoutingPreference;
+  sessionToken?: string;
 }): string[] {
   return [
     `https://www.google.com/maps/preview/directions` +

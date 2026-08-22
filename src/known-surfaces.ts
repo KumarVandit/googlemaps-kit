@@ -368,11 +368,11 @@ export const KNOWN_SURFACES = {
       'Not a real service path — batchexecute answers 400. 3D geometry is streamed as binary vector tiles to the WebGL renderer; use the paid Photorealistic 3D Tiles API.',
   },
   transitRouting: {
-    status: 'fallback',
+    status: 'working',
     method: 'GET',
-    path: '/maps/preview/directions?mode=transit',
+    path: '/maps/preview/directions (mode=transit + session block)',
     notes:
-      'No transit routing RPC exists (/MapsApi.GetTransitDirections answers 400). Transit routes come from the directions surface with mode=transit.',
+      'Gated on the page session block !15m3!1s{ei}!7e81!15i10142 — without it Google answers with travel-time chips and no routes. With it: full itineraries, legs, lines and colours, boarding/alighting and intermediate stops, fares, agencies, frequency and service alerts. Verified in London, New York and Tokyo.',
   },
 } as const satisfies Record<string, SurfaceInfo>;
 

@@ -73,42 +73,123 @@ export interface TransitRouteOptions {
   departureTime?: Date;
   arrivalTime?: Date;
   preferences?: TransitPreference[];
+  /** Restrict to these vehicle types. */
+  modes?: TransitVehicleFilter[];
   language?: string;
 }
 
+/** Vehicle types accepted by the transit filter. */
+export type TransitVehicleFilter = 'bus' | 'subway' | 'train' | 'tram' | 'rail';
+
 export type TransitPreference = 'avoidSurface' | 'preferRail' | 'fewerTransfers';
 
+/** A point in space and time on a transit trip. */
 export interface TransitStation {
   name: string;
+  /** Feed stop id (GTFS stop code) when Google publishes one. */
   code?: string;
   lat: number;
   lng: number;
+  /** Maps feature id (`0x…:0x…`) for the stop, when present. */
+  hexId?: string;
+  /** Scheduled departure from this stop. */
+  departureTime?: Date;
+  /** Scheduled arrival at this stop. */
+  arrivalTime?: Date;
+}
+
+/** Operator running a transit leg. */
+export interface TransitAgency {
+  name: string;
+  id?: string;
+  url?: string;
+  phone?: string;
 }
 
 export interface TransitLine {
+  /** Short name riders use — `"176"`, `"A Line"`, `"Northern"`. */
   number?: string;
+  /** Long display name when it differs from {@link number}. */
+  name?: string;
+  /** Line colour as `#rrggbb`. */
   color?: string;
+  /** Contrasting text colour for {@link color}. */
+  textColor?: string;
   agency?: string;
+  /** Full operator record. */
+  agencyDetails?: TransitAgency;
+  /** Terminus shown on the vehicle, e.g. `"Far Rockaway-Mott Av"`. */
+  headsign?: string;
+  /** Vehicle label from the feed — `"Bus"`, `"Subway"`, `"Tram"`. */
+  vehicleType?: string;
+  /** Line/vehicle icon served by maps.gstatic.com. */
+  iconUrl?: string;
+}
+
+/** Service advisory attached to a route or leg. */
+export interface TransitAlert {
+  /** Short label, e.g. `"Modified schedule"`. */
+  headline?: string;
+  /** Severity label Google renders, e.g. `"Information"`. */
+  severity?: string;
+  /** Full advisory text. */
+  description?: string;
+}
+
+/** Fare for a route or leg, as published by the operator. */
+export interface TransitFare {
+  /** Numeric amount in {@link currency}. */
+  amount: number;
+  /** Localised amount, e.g. `"£1.75"`. */
+  text: string;
+  /** ISO 4217 code. */
+  currency: string;
 }
 
 export interface TransitLeg {
-  mode: string;
+  /** `walking` for the connecting legs, `transit` when riding a vehicle. */
+  mode: 'walking' | 'transit';
   startStation: TransitStation;
   endStation: TransitStation;
-  departureTime: Date;
-  arrivalTime: Date;
+  departureTime?: Date;
+  arrivalTime?: Date;
   durationSeconds: number;
+  /** Human-readable duration, e.g. `"14 min"`. */
+  durationText?: string;
+  /** Distance in metres — present on walking legs. */
+  distanceMeters?: number;
+  distanceText?: string;
   line?: TransitLine;
-  instructions?: string;
+  /** Turn-by-turn text for walking legs. */
+  instructions?: string[];
+  /** Stops between {@link startStation} and {@link endStation}. */
   stops?: TransitStation[];
+  /** Number of stops ridden, as Google counts them. */
+  stopCount?: number;
+  /** Advisories scoped to this leg. */
+  alerts?: TransitAlert[];
+  fare?: TransitFare;
 }
 
 export interface TransitRoute {
   legs: TransitLeg[];
   durationSeconds: number;
+  durationText?: string;
+  distanceMeters?: number;
+  distanceText?: string;
   arrivalTime?: Date;
   departureTime?: Date;
+  /** IANA timezone the times are expressed in. */
+  timezone?: string;
+  /** Vehicle boardings on this route (walking legs excluded). */
   transfers: number;
+  /** Service frequency blurb, e.g. `"every 10 min"`. */
+  frequency?: string;
+  /** Total walking time across the route. */
+  walkingSeconds?: number;
+  fare?: TransitFare;
+  agencies?: TransitAgency[];
+  alerts?: TransitAlert[];
   summary?: string;
 }
 
