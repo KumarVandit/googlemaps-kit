@@ -1,5 +1,7 @@
 import { HttpClient } from '../client/http-client.js';
-import { GMapsError, GMapsParseError } from '../types/common.js';
+import { GMapsParseError } from '../types/common.js';
+import { SearchService } from './search.js';
+import type { SearchResult } from '../types/common.js';
 import { buildTerrainTileUrl, buildTrafficTileUrl, buildTransitTileUrl, buildMapTileUrl } from '../rpc/tile-builders.js';
 import { unwrapTileImage } from '../parsers/tiles.js';
 import type { GMapsConfig } from '../types/common.js';
@@ -10,11 +12,35 @@ import type {
   SchoolMarker,
 } from '../types/map-layers.js';
 
+type SchoolLevel = SchoolMarker['type'];
+
+const SCHOOL_LEVELS: SchoolLevel[] = ['elementary', 'middle', 'high', 'college'];
+
+/** Category queries mirroring the school chips in the Maps UI. */
+const SCHOOL_QUERIES: Record<SchoolLevel, string> = {
+  elementary: 'elementary school',
+  middle: 'middle school',
+  high: 'high school',
+  college: 'college',
+};
+
+/** School level from Google's own category labels, when they say. */
+function classifySchool(row: SearchResult): SchoolLevel | undefined {
+  const label = `${row.category ?? ''} ${row.categories?.join(' ') ?? ''} ${row.name}`.toLowerCase();
+  if (label.includes('college') || label.includes('university')) return 'college';
+  if (label.includes('high school') || label.includes('secondary')) return 'high';
+  if (label.includes('middle school') || label.includes('junior high')) return 'middle';
+  if (label.includes('elementary') || label.includes('primary')) return 'elementary';
+  return undefined;
+}
+
 export class MapLayersService {
   private http: HttpClient;
+  private search: SearchService;
 
-  constructor(http: HttpClient, _config: GMapsConfig) {
+  constructor(http: HttpClient, config: GMapsConfig) {
     this.http = http;
+    this.search = new SearchService(http, config);
   }
 
   async getTerrain(options: LayerTileOptions): Promise<LayerTileResult> {
@@ -81,18 +107,61 @@ export class MapLayersService {
   }
 
   /**
-   * Not available.
+   * Schools inside a bounding box.
    *
-   * The Maps schools layer is drawn from vector tiles; there is no queryable
-   * marker service. Use `places.search` with a school query for POI rows.
-   *
-   * @throws {GMapsError} always
+   * The rendered schools layer comes from vector tiles with no queryable marker
+   * service, so this runs the categorical place searches the Maps UI uses and
+   * keeps the hits that fall inside `bounds`. Pass `type` to search a single
+   * level; otherwise all four are searched and merged.
    */
-  async getSchools(_options: LayerSearchOptions): Promise<SchoolMarker[]> {
-    throw new GMapsError(
-      'The schools layer is not exposed as a queryable service — ' +
-        "search for schools with places.search.searchText({ query: 'school', … }) instead.",
+  async getSchools(options: LayerSearchOptions): Promise<SchoolMarker[]> {
+    const levels: SchoolLevel[] = options.type ? [options.type] : SCHOOL_LEVELS;
+    const center = {
+      lat: (options.bounds.ne.lat + options.bounds.sw.lat) / 2,
+      lng: (options.bounds.ne.lng + options.bounds.sw.lng) / 2,
+    };
+
+    const batches = await Promise.all(
+      levels.map((level) =>
+        this.search
+          .searchText({ query: SCHOOL_QUERIES[level], location: center, limit: 20, fieldMask: 'enterprise' })
+          .then((r) => ({ level, places: r.places }))
+          .catch(() => ({ level, places: [] })),
+      ),
     );
+
+    const seen = new Set<string>();
+    const markers: SchoolMarker[] = [];
+
+    for (const { level, places } of batches) {
+      for (const row of places) {
+        const id = row.hexId ?? row.placeId;
+        const lat = row.lat ?? row.latitude;
+        const lng = row.lng ?? row.longitude;
+        if (!id || lat == null || lng == null || seen.has(id)) continue;
+        if (
+          lat > options.bounds.ne.lat ||
+          lat < options.bounds.sw.lat ||
+          lng > options.bounds.ne.lng ||
+          lng < options.bounds.sw.lng
+        ) {
+          continue;
+        }
+        seen.add(id);
+        markers.push({
+          id,
+          name: row.name,
+          // Prefer what Google calls the place; fall back to the query that found it.
+          type: classifySchool(row) ?? level,
+          lat,
+          lng,
+          rating: row.rating,
+          reviews: row.reviewCount,
+        });
+      }
+    }
+
+    return markers;
   }
 
   async getBuildings(options: LayerTileOptions): Promise<LayerTileResult> {

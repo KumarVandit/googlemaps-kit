@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MapLayersService } from '../src/services/map-layers.js';
 import { HttpClient } from '../src/client/http-client.js';
-import { GMapsError } from '../src/types/common.js';
 import type { LayerTileResult } from '../src/types/map-layers.js';
 
 describe('MapLayersService', () => {
@@ -16,14 +15,31 @@ describe('MapLayersService', () => {
   const tileOptions = { zoom: 15, x: 1, y: 1 };
 
   describe('getSchools', () => {
-    // /MapsLayersService.GetSchools is not a real batchexecute service — it
-    // answers 400 exactly like an unknown rpcid.
-    it('rejects rather than returning an empty marker list', async () => {
-      await expect(service.getSchools({ bounds: sanFranciscoBounds })).rejects.toThrow(GMapsError);
+    // The rendered schools layer is vector-tile only, so this runs the
+    // categorical searches the Maps UI uses and clips to the bounds.
+    it('returns markers inside the requested bounds', async () => {
+      const schools = await service.getSchools({ bounds: sanFranciscoBounds });
+      expect(Array.isArray(schools)).toBe(true);
+      for (const s of schools) {
+        expect(s.lat).toBeLessThanOrEqual(sanFranciscoBounds.ne.lat);
+        expect(s.lat).toBeGreaterThanOrEqual(sanFranciscoBounds.sw.lat);
+        expect(s.lng).toBeLessThanOrEqual(sanFranciscoBounds.ne.lng);
+        expect(s.lng).toBeGreaterThanOrEqual(sanFranciscoBounds.sw.lng);
+      }
     });
 
-    it('points callers at place search', async () => {
-      await expect(service.getSchools({ bounds: sanFranciscoBounds })).rejects.toThrow(/places\.search/);
+    it('gives every marker an id, name and level', async () => {
+      const schools = await service.getSchools({ bounds: sanFranciscoBounds });
+      for (const s of schools) {
+        expect(s.id).toBeTruthy();
+        expect(s.name).toBeTruthy();
+        expect(['elementary', 'middle', 'high', 'college']).toContain(s.type);
+      }
+    });
+
+    it('deduplicates places found by more than one level query', async () => {
+      const schools = await service.getSchools({ bounds: sanFranciscoBounds });
+      expect(new Set(schools.map((s) => s.id)).size).toBe(schools.length);
     });
   });
 

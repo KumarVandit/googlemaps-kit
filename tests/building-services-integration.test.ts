@@ -131,10 +131,13 @@ describe('Building & Map Layer Services - Integration', () => {
       }
     });
 
-    it('rejects getSchools — the schools layer has no queryable surface', async () => {
-      await expect(
-        client.map.layers.getSchools({ bounds: sanFranciscoBounds }),
-      ).rejects.toThrow(GMapsError);
+    it('returns school markers clipped to the bounds', async () => {
+      const schools = await client.map.layers.getSchools({ bounds: sanFranciscoBounds });
+      expect(Array.isArray(schools)).toBe(true);
+      for (const s of schools) {
+        expect(s.lat).toBeLessThanOrEqual(sanFranciscoBounds.ne.lat);
+        expect(s.lat).toBeGreaterThanOrEqual(sanFranciscoBounds.sw.lat);
+      }
     });
   });
 

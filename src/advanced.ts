@@ -348,3 +348,15 @@ export {
   getRequestSignal,
   type RequestContext,
 } from './utils/request-context.js';
+
+// ——— Transit + traffic parsing internals ———
+export { extractTransitRoutes } from './parsers/transit-directions.js';
+export { extractTrafficIncidents, decodeIncidentPath } from './parsers/traffic-incidents.js';
+export { directionsSessionBlock } from './rpc/pb-builders.js';
+export type {
+  TransitAgency,
+  TransitAlert,
+  TransitFare,
+  TransitVehicleFilter,
+} from './types/transit.js';
+export type { PlaceAttributesTarget } from './services/place-attributes.js';

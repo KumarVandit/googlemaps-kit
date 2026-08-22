@@ -428,3 +428,11 @@ export type {
 
 /** Make direct service calls abortable (Intent methods take `signal` directly). */
 export { withAbortSignal } from './utils/request-context.js';
+
+/** Transit itineraries, service alerts, fares, and operating agencies. */
+export type {
+  TransitAgency,
+  TransitAlert,
+  TransitFare,
+  TransitVehicleFilter,
+} from './types/transit.js';

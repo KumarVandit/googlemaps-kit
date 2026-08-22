@@ -1,7 +1,4 @@
-import type {
-  AreaTrafficReport,
-  TrafficIncident,
-} from '../types/traffic.js';
+import type { AreaTrafficReport } from '../types/traffic.js';
 import type { PbNode } from '../types/protobuf.js';
 import { safeGet } from '../utils/safe-get.js';
 import { parseBatchPayload } from '../rpc/batch-rpc.js';

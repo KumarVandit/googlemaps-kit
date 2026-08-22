@@ -348,24 +348,25 @@ export const KNOWN_SURFACES = {
       'Amenity / accessibility / payment attributes are per place. Maps publishes no global attribute catalog.',
   },
   trafficIncidents: {
-    status: 'blocked',
+    status: 'working',
     method: 'POST',
-    path: '/MapsTrafficService.GetIncidents',
+    path: '/MapsTrafficService.GetAreaTraffic (root[2])',
     notes:
-      'Not a real service path — batchexecute answers 400, identical to an unknown rpcid. Incident pins come from vector tiles. getAreaTraffic (EvxQ3b) is the working traffic surface.',
+      'Incidents ride along with the area summary in the EvxQ3b response — there is no separate incident service. Each carries a headline, road name, delay in seconds and the affected stretch as cumulative 1e7 deltas. Severity is derived from the delay, not reported.',
   },
   schoolsLayer: {
-    status: 'blocked',
-    method: 'POST',
-    path: '/MapsLayersService.GetSchools',
-    notes: 'Not a real service path — batchexecute answers 400. The schools layer is drawn from vector tiles.',
+    status: 'fallback',
+    method: 'GET',
+    path: '/search?tbm=map',
+    notes:
+      'The rendered layer is vector-tile only and has no marker service, so schools come from the categorical searches the UI uses, clipped to the requested bounds.',
   },
   buildings3d: {
     status: 'blocked',
     method: 'POST',
-    path: '/MapsLayersService.Get3dBuildings',
+    path: '(none)',
     notes:
-      'Not a real service path — batchexecute answers 400. 3D geometry is streamed as binary vector tiles to the WebGL renderer; use the paid Photorealistic 3D Tiles API.',
+      'No queryable surface. Every /maps/vt dataset answers raster PNG/JPEG; the 3D geometry reaches the renderer through the mapcore WASM binary stream. Use the paid Photorealistic 3D Tiles API.',
   },
   transitRouting: {
     status: 'working',

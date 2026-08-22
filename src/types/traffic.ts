@@ -35,18 +35,32 @@ export type IncidentType = 'accident' | 'roadClosure' | 'roadWork' | 'congestion
 export type IncidentSeverity = 'critical' | 'major' | 'moderate' | 'minor';
 
 export interface TrafficIncident {
+  /** Google's incident id. */
   id: string;
   type: IncidentType;
+  /**
+   * Derived from {@link TrafficIncident.delay}, not reported by Google:
+   * `critical` ≥ 20 min, `major` ≥ 10, `moderate` ≥ 5, otherwise `minor`.
+   */
   severity: IncidentSeverity;
+  /** First point of {@link TrafficIncident.path}. */
   lat: number;
   lng: number;
+  /** Headline, e.g. `"Slowdown on E 42nd St"`. */
   title: string;
+  /** Delay blurb, e.g. `"14-min delay"`. */
   description?: string;
   startTime?: Date;
   endTime?: Date;
+  /** Road names the incident sits on. */
   affectedRoads?: string[];
-  delay?: { estimatedMinutes: number };
+  delay?: { estimatedMinutes: number; seconds: number; text?: string };
+  /** Affected stretch of road, decoded from the response's delta-encoded points. */
+  path?: Array<{ lat: number; lng: number }>;
+  /** {@link TrafficIncident.path} as an encoded polyline. */
   polyline?: string;
+  /** Incident icon served by maps.gstatic.com. */
+  iconUrl?: string;
   source?: string;
 }
 
