@@ -21,6 +21,8 @@ const LNG = 77.6499775;
 const FTID = '/g/11x8fq7n_z';
 const HSR = { lat: 12.9168407, lng: 77.6450439 };
 const KORAMANGALA = { lat: 12.9352, lng: 77.6245 };
+const LONDON_A = { lat: 51.5081, lng: -0.1281 };
+const LONDON_B = { lat: 51.5194, lng: -0.127 };
 const AMSTERDAM_A = { lat: 52.3702, lng: 4.8952 };
 const AMSTERDAM_B = { lat: 52.36, lng: 4.8852 };
 
@@ -870,6 +872,144 @@ async function main(): Promise<void> {
     },
     { expectBlocked: true, required: false },
   );
+
+  // ——— Transit routing, traffic incidents, layers, imagery ———
+
+  await check('transit.getRoute returns itineraries with lines and fares', async () => {
+    const { routes } = await maps.travel.transit.getRoute({
+      origin: LONDON_A,
+      destination: LONDON_B,
+    });
+    assert(routes.length > 0, 'no transit itineraries returned');
+    const ridden = routes.flatMap((r) => r.legs).filter((l) => l.mode === 'transit');
+    assert(ridden.length > 0, 'no ridden legs in any itinerary');
+    assert(ridden.some((l) => l.line?.number), 'no leg named its line');
+    assert(ridden.some((l) => l.startStation.name && l.endStation.name), 'legs have no stops');
+    assert(routes.some((r) => r.fare?.currency), 'no itinerary carried a fare');
+    assert(routes.some((r) => r.agencies?.length), 'no operating agency reported');
+    const first = routes[0]!;
+    return `${routes.length} routes, best ${first.durationText} via ${first.summary}, fare ${first.fare?.text ?? 'n/a'}`;
+  });
+
+  await check('transit.getRoute geocodes string endpoints', async () => {
+    const { routes } = await maps.travel.transit.getRoute({
+      origin: 'Trafalgar Square, London',
+      destination: 'British Museum, London',
+    });
+    assert(routes.length > 0, 'no itineraries for string endpoints');
+    return `${routes.length} routes`;
+  });
+
+  await check('traffic.getIncidents returns located slowdowns', async () => {
+    const incidents = await maps.travel.traffic.getIncidents({
+      swLat: 40.6,
+      swLng: -74.1,
+      neLat: 40.9,
+      neLng: -73.8,
+    });
+    assert(incidents.length > 0, 'no incidents in greater New York');
+    assert(incidents.every((i) => i.id && i.title), 'incident missing id or title');
+    const located = incidents.filter((i) => (i.path?.length ?? 0) > 1);
+    assert(located.length > 0, 'no incident carried a decoded path');
+    assert(located.every((i) => i.lat > 40 && i.lat < 41.2), 'decoded path is outside the query box');
+    assert(incidents.some((i) => i.delay?.seconds), 'no incident reported a delay');
+    return `${incidents.length} incidents, worst ${Math.max(...incidents.map((i) => i.delay?.estimatedMinutes ?? 0))} min`;
+  });
+
+  await check('layers.getSchools returns markers inside the bounds', async () => {
+    const bounds = { ne: { lat: 40.8, lng: -73.93 }, sw: { lat: 40.7, lng: -74.02 } };
+    const schools = await maps.map.layers.getSchools({ bounds });
+    assert(schools.length > 0, 'no schools found');
+    assert(
+      schools.every(
+        (s) =>
+          s.lat <= bounds.ne.lat && s.lat >= bounds.sw.lat && s.lng <= bounds.ne.lng && s.lng >= bounds.sw.lng,
+      ),
+      'a school fell outside the requested bounds',
+    );
+    return `${schools.length} schools across ${new Set(schools.map((s) => s.type)).size} levels`;
+  });
+
+  await check('layers tiles decode for terrain, traffic and transit', async () => {
+    const coords = { zoom: 14, x: 11723, y: 7596 };
+    const [terrain, traffic, transit] = await Promise.all([
+      maps.map.layers.getTerrain(coords),
+      maps.map.layers.getTraffic(coords),
+      maps.map.layers.getTransit(coords),
+    ]);
+    assert(terrain.data.length > 1000, 'terrain tile is empty');
+    assert(traffic.data.length > 1000, 'traffic tile is empty (layer key regression?)');
+    assert(transit.data.length > 0, 'transit tile is empty');
+    return `terrain ${terrain.mimeType} ${terrain.data.length}B, traffic ${traffic.data.length}B, transit ${transit.data.length}B`;
+  });
+
+  await check('tiles.getLayer serves distinct satellite and roadmap imagery', async () => {
+    const coords = { z: 14, x: 11723, y: 7596 };
+    const [roadmap, satellite] = await Promise.all([
+      maps.map.tiles.getLayer({ layer: 'standard', ...coords }),
+      maps.map.tiles.getLayer({ layer: 'satellite', ...coords }),
+    ]);
+    assert(satellite.contentType.includes('jpeg'), `satellite returned ${satellite.contentType}`);
+    assert(satellite.bytes.length !== roadmap.bytes.length, 'satellite and roadmap returned the same tile');
+    return `roadmap ${roadmap.contentType} ${roadmap.width}x${roadmap.height}, satellite ${satellite.contentType}`;
+  });
+
+  await check('earth.getImagery covers a bounding box', async () => {
+    const imagery = await maps.map.earth.getImagery({
+      bounds: { ne: { lat: 12.99, lng: 77.62 }, sw: { lat: 12.95, lng: 77.57 } },
+    });
+    assert(imagery.imagery.length > 1000, 'imagery is empty');
+    return `${imagery.imagery.length}B at ${imagery.resolution} detail`;
+  });
+
+  // ——— Search-backed category services ———
+
+  await check('ev.findCharging returns stations with connectors', async () => {
+    const stations = await maps.travel.ev.findCharging({ location: HSR, radiusMeters: 6000 });
+    assert(stations.length > 0, 'no charging stations found');
+    assert(stations.every((s) => s.name && s.id), 'station missing id or name');
+    const withConnectors = stations.filter((s) => s.chargers.length > 0);
+    assert(withConnectors.length > 0, 'no station reported any connector');
+    assert(withConnectors.some((s) => s.chargers.some((c) => c.power > 0)), 'no connector reported power');
+    return `${stations.length} stations, ${withConnectors.length} with connector detail`;
+  });
+
+  await check('parking.search returns located parking', async () => {
+    const parking = await maps.travel.parking.search({ location: HSR, radiusMeters: 3000 });
+    assert(parking.length > 0, 'no parking found');
+    assert(parking.every((p) => p.distanceMeters <= 3000), 'a result fell outside the radius');
+    assert(parking.every((p, i, all) => i === 0 || p.distanceMeters >= all[i - 1]!.distanceMeters), 'not sorted by distance');
+    return `${parking.length} within 3km, nearest ${Math.round(parking[0]!.distanceMeters)}m`;
+  });
+
+  await check('context.getRegions names the admin hierarchy', async () => {
+    const regions = await maps.location.context.getRegions(HSR);
+    assert(regions.length > 0, 'no regions resolved');
+    assert(regions.at(-1)!.type === 'country', 'coarsest region is not a country');
+    assert(regions[0]!.parent, 'regions are not linked to their parents');
+    return regions.map((r) => `${r.name}/${r.type}`).join(' → ');
+  });
+
+  await check('places.attributes reads a place attribute catalog', async () => {
+    const categories = await maps.places.attributes.getAll({ hexId: HEX, name: NAME, lat: LAT, lng: LNG });
+    assert(categories.length > 0, 'no attribute categories for the sample place');
+    assert(categories.every((c) => c.id && c.name), 'category missing id or name');
+    assert(categories.some((c) => c.attributes.length > 0), 'no category carried attributes');
+    return `${categories.length} groups, ${categories.reduce((n, c) => n + c.attributes.length, 0)} attributes`;
+  });
+
+  await check('suggest biases on location', async () => {
+    const [ny, london] = await Promise.all([
+      maps.places.suggest.suggest({ query: 'central', location: { lat: 40.758, lng: -73.9855 }, gl: 'us' }),
+      maps.places.suggest.suggest({ query: 'central', location: LONDON_A, gl: 'gb' }),
+    ]);
+    assert(ny.suggestions.length > 0 && london.suggestions.length > 0, 'no suggestions returned');
+    assert(
+      ny.suggestions[0]!.text !== london.suggestions[0]!.text,
+      'the same top suggestion came back for both cities',
+    );
+    return `${ny.suggestions[0]!.text.slice(0, 28)} vs ${london.suggestions[0]!.text.slice(0, 28)}`;
+  });
 
   const passed = results.filter((r) => r.outcome === 'pass').length;
   const blocked = results.filter((r) => r.outcome === 'expected-block').length;

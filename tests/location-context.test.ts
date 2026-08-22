@@ -23,8 +23,8 @@ describe('extractAdminRegions', () => {
     expect(regions.map((r) => r.type)).toEqual(['city', 'country']);
   });
 
-  it('handles a country-only address', () => {
-    expect(extractAdminRegions('India').map((r) => r.type)).toEqual(['country']);
+  it('treats a lone component as a locality, not a country', () => {
+    expect(extractAdminRegions('New York').map((r) => r.type)).toEqual(['city']);
   });
 
   it('reports no bounds — reverse geocode publishes no polygons', () => {

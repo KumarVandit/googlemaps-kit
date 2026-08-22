@@ -24,12 +24,16 @@ export function extractAdminRegions(address: string | undefined): AdminRegion[] 
 
   // Order coarse → fine so each region can point at its parent.
   const coarseToFine = [...parts].reverse();
+  // Levels are positional. Callers should hand this a fully-qualified address
+  // (see LocationContextService.getRegions, which probes for the country) —
+  // a truncated one shifts every level up.
   const levels: AdminLevel[] =
     coarseToFine.length >= 3
       ? ['country', 'state', 'city']
       : coarseToFine.length === 2
         ? ['country', 'city']
-        : ['country'];
+        // A lone component is a locality ("New York"), not a country.
+        : ['city'];
 
   const regions: AdminRegion[] = [];
   let parent: AdminRegion | undefined;

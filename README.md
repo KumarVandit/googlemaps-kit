@@ -106,10 +106,10 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 
 | Namespace | Contains |
 |-----------|----------|
-| `maps.places` | `search`, `suggest`, `details`, `get()`, `reviews`, `photos`, `knowledge`, `localPosts` |
-| `maps.location` | `geocode`, `timezone`, `reveal`, `passiveAssist` |
-| `maps.travel` | `directions`, `distanceMatrix`, `elevation`, `transit`, `traffic` |
-| `maps.map` | `tiles`, `staticMap`, `panorama` |
+| `maps.places` | `search`, `suggest`, `details`, `get()`, `reviews`, `photos`, `knowledge`, `localPosts`, `attributes` |
+| `maps.location` | `geocode`, `timezone`, `reveal`, `passiveAssist`, `context` |
+| `maps.travel` | `directions`, `distanceMatrix`, `elevation`, `transit`, `traffic`, `parking`, `ev` |
+| `maps.map` | `tiles`, `staticMap`, `panorama`, `layers`, `earth`, `map3d` |
 | `maps.meta` | `categories`, `ugcAggregates`, `lists`, `links`, `batchUrl` |
 | `maps.agent` | `ask()`, `askMaps` (signed-in) |
 | `maps.auth` | `status()`, `summarize()` |
@@ -119,6 +119,55 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 await maps.places.search.searchText({ query: 'coffee', near, mode: 'fast' });
 await maps.travel.directions.get({ origin: 'A', destination: 'B' });
 await maps.location.geocode.geocode('HSR Layout, Bengaluru');
+```
+
+### Transit routing
+
+Full itineraries with lines, stops, fares and service alerts:
+
+```typescript
+const { routes } = await maps.travel.transit.getRoute({
+  origin: { lat: 51.5081, lng: -0.1281 },
+  destination: 'British Museum, London',
+});
+
+for (const route of routes) {
+  console.log(route.durationText, route.summary, route.fare?.text); // "21 min" "176" "£1.75"
+  for (const leg of route.legs) {
+    if (leg.mode === 'transit') {
+      console.log(leg.line?.number, leg.line?.headsign, leg.startStation.name, '→', leg.endStation.name);
+      console.log(leg.stops?.map((s) => s.name));       // intermediate stops
+    } else {
+      console.log(leg.instructions);                     // walking steps, plain text
+    }
+  }
+}
+```
+
+Every itinerary carries `departureTime`/`arrivalTime`, `timezone`, `transfers`,
+`frequency`, `walkingSeconds`, `agencies` and `alerts`.
+
+### Traffic, layers and category search
+
+```typescript
+// Individual slowdowns with the affected stretch of road
+const incidents = await maps.travel.traffic.getIncidents({
+  swLat: 40.6, swLng: -74.1, neLat: 40.9, neLng: -73.8,
+});
+incidents[0].title;      // "Slowdown on E 42nd St"
+incidents[0].delay;      // { estimatedMinutes: 14, seconds: 840, text: "14 min delay" }
+incidents[0].path;       // [{ lat, lng }, …] — also available as .polyline
+
+// Raster layers: roadmap, terrain, traffic, transit, satellite, hybrid
+await maps.map.layers.getTraffic({ zoom: 14, x: 11723, y: 7596 });
+await maps.map.tiles.getLayer({ layer: 'satellite', z: 14, x: 11723, y: 7596 });
+
+// Category surfaces backed by place search
+await maps.travel.ev.findCharging({ location, radiusMeters: 5000 });   // + connector type/power
+await maps.travel.parking.search({ location, radiusMeters: 2000 });
+await maps.map.layers.getSchools({ bounds });
+await maps.location.context.getRegions(location);   // Bengaluru → Karnataka → India
+await maps.places.attributes.getAll({ hexId, name });
 ```
 
 ## Auth tiers
@@ -214,7 +263,18 @@ Organized modules: HTTP transport, auth/session, RPC/protobuf, parsers, service 
 - Undocumented consumer surfaces; no stability guarantee.
 - Signed-in features need cookies you supply — the kit does not perform Google login.
 - `passiveAssist` needs a viewport `psi` you supply externally.
-- Map tiles: 256px roadmap layer verified; other layers may return HTTP 400.
+
+Surfaces Google does not publish anonymously, which throw a typed error naming
+the alternative rather than returning an empty result:
+
+| Call | Why |
+|------|-----|
+| `map.map3d.getBuildings()` / `getTerrain()` | 3D geometry only reaches the renderer through the mapcore WASM binary stream; every `/maps/vt` dataset answers raster. Use the paid Photorealistic 3D Tiles API. |
+| `location.context.getNearby()` / `getAreas()` | Neighbourhood polygons are vector-tile only. Use `getRegions()` for the administrative hierarchy. |
+| `travel.ev.getStatus()` / `getPricing()` | Live plug availability and tariffs are not published. `findCharging()` returns connector type, power and plug count. |
+| `travel.parking.getAvailability()` / `getPricing()` | Space counts and posted rates are not in place data. |
+
+`maps.surfaces.catalog()` lists all 54 known surfaces with their live status.
 
 ## Development
 

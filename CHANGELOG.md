@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Transit routing** (`travel.transit.getRoute`) — full itineraries with legs, line
+  names and feed colours, boarding/alighting and intermediate stops, fares,
+  operating agencies, frequency, timezone, transfers and service alerts. Gated on
+  a session block the SDK now sends on every directions request.
+- **Traffic incidents** (`travel.traffic.getIncidents`) — slowdowns with road name,
+  delay, and the affected stretch decoded to coordinates and an encoded polyline.
+- **Schools layer** (`map.layers.getSchools`) — markers clipped to a bounding box.
+- `withAbortSignal()` for aborting direct service calls.
+- `npm run api:serve` / `api:build`; `googlemaps-kit --version`.
+- ~30 previously unexported public types; 7 service classes missing from `/advanced`.
+- `suggest()` accepts `location: { lat, lng }` like every other service.
+
+### Changed
+- `ev.findCharging`, `parking.search`, `location.context.getRegions`,
+  `places.attributes.*` and `map.earth.*` rebuilt on surfaces that exist.
+  `places.attributes` methods now take the place to read.
+- Surfaces Google does not publish now throw a typed error naming the working
+  alternative instead of returning an empty array.
+
+### Fixed
+- Non-ASCII place names crashed every place, photo and review fetch — the referer
+  was built from the raw name and header values above U+00FF are rejected.
+- `tiles.getLayer` returned roadmap tiles for `satellite` and `hybrid`.
+- Terrain and satellite tiles (JPEG) failed a PNG-only decoder.
+- `layers.getTraffic` requested a layer key that renders transparent.
+- `context.getRegions` mislabelled administrative levels when the caller's region
+  matched the queried country.
+
+### Removed
+- Five stale status documents and the dead builders/parsers for endpoints that
+  never existed.
+
+
 ## 0.4.0
 
 ### CLI + TUI

@@ -21,8 +21,8 @@ export class SuggestService {
 
   /** Maps omnibox autocomplete — query completions and place suggestions. */
   async suggest(options: SuggestOptions): Promise<SuggestResult> {
-    const lat = options.lat ?? DEFAULT_SUGGEST_LAT;
-    const lng = options.lng ?? DEFAULT_SUGGEST_LNG;
+    const lat = options.location?.lat ?? options.lat ?? DEFAULT_SUGGEST_LAT;
+    const lng = options.location?.lng ?? options.lng ?? DEFAULT_SUGGEST_LNG;
     const hl = options.hl ?? this.hl;
     const gl = options.gl ?? this.gl;
 

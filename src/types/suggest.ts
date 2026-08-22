@@ -2,6 +2,11 @@
 export interface SuggestOptions {
   /** Partial query text typed by the user. */
   query: string;
+  /**
+   * Bias point for suggestions — the same `{ lat, lng }` shape the other
+   * services take. Wins over the flat `lat` / `lng` fields when both are given.
+   */
+  location?: { lat: number; lng: number };
   /** Camera latitude — biases suggestions toward this viewport (default Bangalore). */
   lat?: number;
   /** Camera longitude — biases suggestions toward this viewport (default Bangalore). */
