@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { Map3dService } from '../src/services/map-3d';
-import { HttpClient } from '../src/client/http-client';
-import type { Building3d, Terrain3dResult } from '../src/types/map-3d';
+import { Map3dService } from '../src/services/map-3d.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { Building3d, Terrain3dResult } from '../src/types/map-3d.js';
 
 describe('Map3dService', () => {
   const http = new HttpClient({ config: {} });
@@ -42,7 +42,7 @@ describe('Map3dService', () => {
         bounds: sanFranciscoBounds,
       });
       if (buildings.length > 0) {
-        const building = buildings[0];
+        const building = buildings[0]!;
         expect(building).toHaveProperty('id');
         expect(building).toHaveProperty('outline');
         expect(building).toHaveProperty('height');

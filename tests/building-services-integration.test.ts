@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GMapsClient } from '../src/client/gmaps-client';
+import { GMapsClient } from '../src/client/gmaps-client.js';
 import type {
   Building3d,
   Map3dBuildingsOptions,
@@ -7,7 +7,7 @@ import type {
   SchoolMarker,
   EarthTileResult,
   EarthImageryResult,
-} from '../src/index';
+} from '../src/index.js';
 
 describe('Building & Map Layer Services - Integration', () => {
   const client = new GMapsClient({ session: 'anonymous' });

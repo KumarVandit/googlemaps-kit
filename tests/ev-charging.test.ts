@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { EvChargingService } from '../src/services/ev-charging';
-import { HttpClient } from '../src/client/http-client';
-import type { EvChargingStation, EvChargerStatus, EvChargingPrice } from '../src/index';
+import { EvChargingService } from '../src/services/ev-charging.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { EvChargingStation, EvChargerStatus, EvChargingPrice } from '../src/index.js';
 
 describe('EvChargingService', () => {
   const http = new HttpClient({ config: {} });
@@ -31,7 +31,7 @@ describe('EvChargingService', () => {
         location: { lat: 37.77, lng: -122.42 },
       });
       if (results.length > 0) {
-        const station = results[0];
+        const station = results[0]!;
         expect(station).toHaveProperty('id');
         expect(station).toHaveProperty('name');
         expect(station).toHaveProperty('lat');

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { PlaceAttributesService } from '../src/services/place-attributes';
-import { HttpClient } from '../src/client/http-client';
-import type { AttributeCategory, Attribute } from '../src/index';
+import { PlaceAttributesService } from '../src/services/place-attributes.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { AttributeCategory, Attribute } from '../src/index.js';
 
 describe('PlaceAttributesService', () => {
   const http = new HttpClient({ config: {} });
@@ -16,7 +16,7 @@ describe('PlaceAttributesService', () => {
     it('should have correct AttributeCategory structure when populated', async () => {
       const results = await service.getAll();
       if (results.length > 0) {
-        const category = results[0];
+        const category = results[0]!;
         expect(category).toHaveProperty('id');
         expect(category).toHaveProperty('name');
         expect(Array.isArray(category.attributes)).toBe(true);

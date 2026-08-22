@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MapLayersService } from '../src/services/map-layers';
-import { HttpClient } from '../src/client/http-client';
-import type { LayerTileResult, SchoolMarker } from '../src/types/map-layers';
+import { MapLayersService } from '../src/services/map-layers.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { LayerTileResult, SchoolMarker } from '../src/types/map-layers.js';
 
 describe('MapLayersService', () => {
   const http = new HttpClient({ config: {} });
@@ -27,7 +27,7 @@ describe('MapLayersService', () => {
         bounds: sanFranciscoBounds,
       });
       if (schools.length > 0) {
-        const school = schools[0];
+        const school = schools[0]!;
         expect(school).toHaveProperty('id');
         expect(school).toHaveProperty('name');
         expect(school).toHaveProperty('type');

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { LocationContextService } from '../src/services/location-context';
-import { HttpClient } from '../src/client/http-client';
-import type { GeoArea, AdminRegion, NearbyAreasOptions } from '../src/index';
+import { LocationContextService } from '../src/services/location-context.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { GeoArea, AdminRegion, NearbyAreasOptions } from '../src/index.js';
 
 describe('LocationContextService', () => {
   const http = new HttpClient({ config: {} });
@@ -86,9 +86,13 @@ describe('LocationContextService', () => {
       for (const level of levels) {
         const region: AdminRegion = {
           name: `Test ${level}`,
-          adminLevel: level,
+          type: level,
+          bounds: {
+            ne: { lat: 37.8, lng: -122.4 },
+            sw: { lat: 37.7, lng: -122.5 },
+          },
         };
-        expect(region.adminLevel).toBe(level);
+        expect(region.type).toBe(level);
       }
     });
   });
@@ -96,8 +100,12 @@ describe('LocationContextService', () => {
   describe('Type validation', () => {
     it('should validate GeoArea type', () => {
       const area: GeoArea = {
+        id: 'area-123',
         name: 'Downtown',
         type: 'neighborhood',
+        lat: 37.77,
+        lng: -122.42,
+        distanceMeters: 1000,
         bounds: {
           ne: { lat: 37.8, lng: -122.4 },
           sw: { lat: 37.7, lng: -122.5 },
@@ -110,10 +118,14 @@ describe('LocationContextService', () => {
     it('should validate AdminRegion type', () => {
       const region: AdminRegion = {
         name: 'California',
-        adminLevel: 'state',
+        type: 'state',
+        bounds: {
+          ne: { lat: 42, lng: -114 },
+          sw: { lat: 32.5, lng: -124 },
+        },
       };
       expect(region.name).toBe('California');
-      expect(region.adminLevel).toBe('state');
+      expect(region.type).toBe('state');
     });
 
     it('should validate NearbyAreasOptions type', () => {

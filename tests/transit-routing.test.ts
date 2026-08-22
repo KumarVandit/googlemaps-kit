@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { TransitService } from '../src/services/transit';
-import { HttpClient } from '../src/client/http-client';
+import { TransitService } from '../src/services/transit.js';
+import { HttpClient } from '../src/client/http-client.js';
 import type {
   TransitRouteOptions,
   TransitRouteResult,
   TransitRoute,
   TransitLeg,
   TransitStation,
-} from '../src/index';
+} from '../src/index.js';
 
 describe('TransitService - Routing', () => {
   const http = new HttpClient({ config: {} });
@@ -181,8 +181,8 @@ describe('TransitService - Routing', () => {
       ];
       const leg: TransitLeg = {
         mode: 'BUS',
-        startStation: stops[0],
-        endStation: stops[stops.length - 1],
+        startStation: stops[0]!,
+        endStation: stops[stops.length - 1]!,
         departureTime: new Date(),
         arrivalTime: new Date(),
         durationSeconds: 1200,

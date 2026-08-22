@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { MapEarthService } from '../src/services/map-earth';
-import { HttpClient } from '../src/client/http-client';
-import type { EarthTileResult, EarthImageryResult, EarthTileOptions, EarthImageryOptions } from '../src/types/map-earth';
+import { MapEarthService } from '../src/services/map-earth.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { EarthTileResult, EarthImageryResult, EarthTileOptions, EarthImageryOptions } from '../src/types/map-earth.js';
 
 describe('MapEarthService', () => {
   const http = new HttpClient({ config: {} });

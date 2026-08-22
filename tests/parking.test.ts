@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ParkingService } from '../src/services/parking';
-import { HttpClient } from '../src/client/http-client';
-import type { Parking, ParkingAvailability, ParkingPrice } from '../src/index';
+import { ParkingService } from '../src/services/parking.js';
+import { HttpClient } from '../src/client/http-client.js';
+import type { Parking, ParkingAvailability, ParkingPrice } from '../src/index.js';
 
 describe('ParkingService', () => {
   const http = new HttpClient({ config: {} });
@@ -33,7 +33,7 @@ describe('ParkingService', () => {
         location: sanFranciscoCoords,
       });
       if (results.length > 0) {
-        const parking = results[0];
+        const parking = results[0]!;
         expect(parking).toHaveProperty('id');
         expect(parking).toHaveProperty('name');
         expect(parking).toHaveProperty('type');

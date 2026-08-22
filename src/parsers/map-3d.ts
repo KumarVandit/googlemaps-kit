@@ -44,18 +44,18 @@ export function extract3dBuildings(data: PbNode): Building3d[] {
 
 export function extract3dTerrain(data: PbNode, format: 'obj' | 'gltf' | 'ply' = 'gltf'): Terrain3dResult {
   const meshData = safeGet<string | Buffer>(data, 1);
-  let mesh: any = Buffer.alloc(0);
+  let mesh: Buffer = Buffer.alloc(0);
 
   if (meshData) {
     if (typeof meshData === 'string') {
-      mesh = Buffer.from(meshData, 'base64') as any;
+      mesh = Buffer.from(meshData, 'base64');
     } else if (Buffer.isBuffer(meshData)) {
-      mesh = meshData as any;
+      mesh = meshData;
     }
   }
 
   return {
-    mesh: mesh as Buffer,
+    mesh,
     format,
     bounds: {
       ne: {

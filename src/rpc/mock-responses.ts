@@ -33,7 +33,7 @@ export function mockSchoolsResponse(schools: Array<{
   lat: number;
   lng: number;
   rating?: number;
-}>): any {
+}>): PbNode {
   return [
     null,
     [
@@ -45,7 +45,7 @@ export function mockSchoolsResponse(schools: Array<{
         s.rating,
       ]),
     ],
-  ];
+  ] as PbNode;
 }
 
 /**
@@ -59,7 +59,7 @@ export function mockAttributeCatalogResponse(categories: Array<{
     name: string;
     icon?: string;
   }>;
-}>): any {
+}>): PbNode {
   return [
     null,
     categories.map(cat => [
@@ -73,7 +73,7 @@ export function mockAttributeCatalogResponse(categories: Array<{
         attr.icon,
       ]),
     ]),
-  ];
+  ] as PbNode;
 }
 
 /**
@@ -87,7 +87,7 @@ export function mockParkingResponse(results: Array<{
   lng: number;
   distance?: number;
   rating?: number;
-}>): any {
+}>): PbNode {
   return [
     null,
     [
@@ -100,7 +100,7 @@ export function mockParkingResponse(results: Array<{
         p.rating,
       ]),
     ],
-  ];
+  ] as PbNode;
 }
 
 /**
@@ -113,7 +113,7 @@ export function mockTrafficIncidentsResponse(incidents: Array<{
   lat: number;
   lng: number;
   title: string;
-}>): any {
+}>): PbNode {
   return [
     null,
     [
@@ -138,7 +138,7 @@ export function mockLocationContextResponse(areas: Array<{
   lat: number;
   lng: number;
   distance?: number;
-}>): any {
+}>): PbNode {
   return [
     null,
     [
