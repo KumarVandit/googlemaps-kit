@@ -53,7 +53,9 @@
     "example:maps-url": "tsx examples/maps-url.ts",
     "examples:all": "npm run build && tsx examples/run-all.ts",
     "verify:all": "tsx scripts/verify-all.ts",
-    "smoke:daily": "tsx scripts/smoke-daily.ts"
+    "smoke:daily": "tsx scripts/smoke-daily.ts",
+    "api:serve": "tsx src/server/api-server.ts",
+    "api:build": "tsc -p tsconfig.server.json"
   },
   "keywords": [
     "google-maps",

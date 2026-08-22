@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { GMapsError } from '../src/types/common.js';
 import { ParkingService } from '../src/services/parking.js';
 import { HttpClient } from '../src/client/http-client.js';
 import type { Parking, ParkingAvailability, ParkingPrice } from '../src/index.js';
@@ -47,26 +48,16 @@ describe('ParkingService', () => {
   });
 
   describe('getAvailability', () => {
-    it('should return parking availability data', async () => {
-      try {
-        const availability = await service.getAvailability('parking-123');
-        expect(availability).toHaveProperty('parkingId');
-        expect(availability).toHaveProperty('available');
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+    // Google publishes space counts only for operator-integrated garages, and
+    // not in the preview payload — the call must say so rather than invent zeros.
+    it('rejects when the place carries no live counts', async () => {
+      await expect(service.getAvailability('0x0:0x0')).rejects.toThrow(GMapsError);
     });
   });
 
   describe('getPricing', () => {
-    it('should return parking pricing data', async () => {
-      try {
-        const pricing = await service.getPricing('parking-123');
-        expect(pricing).toHaveProperty('parkingId');
-        expect(pricing).toHaveProperty('currency');
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+    it('rejects when the place carries no posted rates', async () => {
+      await expect(service.getPricing('0x0:0x0')).rejects.toThrow(GMapsError);
     });
   });
 

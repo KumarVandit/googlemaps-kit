@@ -11,6 +11,7 @@ import { loadProjectEnv } from '../utils/load-env.js';
 import { sdk } from '../client/gmaps-client.js';
 import type { Coordinates, TravelMode } from '../types/common.js';
 import { GMapsError, GMapsAuthError, GMapsThrottleError } from '../types/common.js';
+import { getPackageVersion } from '../utils/version.js';
 
 loadProjectEnv();
 
@@ -32,6 +33,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    'access-control-allow-origin': '*',
   });
   res.end(payload);
 }
@@ -79,7 +81,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const path = url.pathname.replace(/\/$/, '') || '/';
 
   if (req.method === 'GET' && (path === '/v1/health' || path === '/health')) {
-    sendJson(res, 200, { ok: true, version: '0.1.0' });
+    sendJson(res, 200, { ok: true, version: getPackageVersion() });
     return;
   }
 

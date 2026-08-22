@@ -1,71 +1,60 @@
 import { HttpClient } from '../client/http-client.js';
-import { extractNearbyAreas, extractAdminRegions } from '../parsers/location-context.js';
-import { buildLocationContextNearbyArgs, buildLocationContextRegionsArgs } from '../rpc/location-context-pb.js';
-import { createRpcClient } from '../rpc/batch-rpc.js';
-import { BATCH_SERVICES } from '../rpc/batch-services.js';
+import { GeocodeService } from './geocode.js';
+import { extractAdminRegions } from '../parsers/location-context.js';
+import { GMapsError } from '../types/common.js';
 import type { GMapsConfig } from '../types/common.js';
-import type { PbNode } from '../types/protobuf.js';
-import type {
-  AdminRegion,
-  GeoArea,
-  NearbyAreasOptions,
-} from '../types/location-context.js';
+import type { AdminRegion, GeoArea, NearbyAreasOptions } from '../types/location-context.js';
 
+/**
+ * Administrative context for a coordinate.
+ *
+ * Backed by reverse geocode — the only anonymous Maps surface that names the
+ * region hierarchy containing a point.
+ */
 export class LocationContextService {
-  private http: HttpClient;
-  private hl: string;
-  private gl: string;
-  private config: GMapsConfig;
+  private geocode: GeocodeService;
 
   constructor(http: HttpClient, config: GMapsConfig) {
-    this.http = http;
-    this.hl = config.hl ?? 'en';
-    this.gl = config.gl ?? 'us';
-    this.config = config;
+    this.geocode = new GeocodeService(http, config);
   }
 
-  async getNearby(options: NearbyAreasOptions): Promise<GeoArea[]> {
-    const psi = 'anonymous';
-    const rpc = await createRpcClient(this.http, this.config);
-
-    try {
-      const data = await rpc.call(
-        BATCH_SERVICES.LOCATION_CONTEXT_NEARBY,
-        buildLocationContextNearbyArgs({
-          psi,
-          lat: options.location.lat,
-          lng: options.location.lng,
-          radiusMeters: options.radiusMeters,
-        }),
-      );
-      return extractNearbyAreas(data as PbNode);
-    } catch {
-      return [];
-    }
+  /**
+   * Not available.
+   *
+   * Maps renders neighbourhood and district polygons from vector tiles rather
+   * than any queryable surface, and place search returns businesses instead of
+   * areas. Use {@link getRegions} for the administrative hierarchy.
+   *
+   * @throws {GMapsError} always
+   */
+  async getNearby(_options: NearbyAreasOptions): Promise<GeoArea[]> {
+    throw new GMapsError(
+      'Nearby area lookup is not exposed by any public Maps surface — ' +
+        'getRegions() returns the administrative hierarchy for a point.',
+    );
   }
 
+  /**
+   * Not available — alias of {@link getNearby}.
+   *
+   * @throws {GMapsError} always
+   */
   async getAreas(coordinates: { lat: number; lng: number }): Promise<GeoArea[]> {
-    return this.getNearby({
-      location: coordinates,
-    });
+    return this.getNearby({ location: coordinates });
   }
 
+  /**
+   * Administrative regions containing a point, most specific first
+   * (e.g. `Bengaluru` → `Karnataka` → `India`).
+   *
+   * Reverse geocode names the hierarchy but reports no polygons, so
+   * {@link AdminRegion.bounds} is absent.
+   */
   async getRegions(coordinates: { lat: number; lng: number }): Promise<AdminRegion[]> {
-    const psi = 'anonymous';
-    const rpc = await createRpcClient(this.http, this.config);
+    const response = await this.geocode.reverseGeocode(coordinates.lat, coordinates.lng);
+    const result = response.result ?? response.alternatives[0];
+    if (!result) return [];
 
-    try {
-      const data = await rpc.call(
-        BATCH_SERVICES.LOCATION_CONTEXT_REGIONS,
-        buildLocationContextRegionsArgs({
-          psi,
-          lat: coordinates.lat,
-          lng: coordinates.lng,
-        }),
-      );
-      return extractAdminRegions(data as PbNode);
-    } catch {
-      return [];
-    }
+    return extractAdminRegions(result.plusCodeAddress ?? result.formattedAddress);
   }
 }

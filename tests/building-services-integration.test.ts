@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { GMapsError } from '../src/types/common.js';
 import { GMapsClient } from '../src/client/gmaps-client.js';
 import type {
   Building3d,
@@ -51,30 +52,16 @@ describe('Building & Map Layer Services - Integration', () => {
       expect(options.sort).toBe('height');
     });
 
-    it('should return Building3d array structure', async () => {
-      const buildings = await client.map.map3d.getBuildings({
-        bounds: sanFranciscoBounds,
-      });
-      expect(Array.isArray(buildings)).toBe(true);
-      if (buildings.length > 0) {
-        const building = buildings[0];
-        expect(building).toHaveProperty('id');
-        expect(building).toHaveProperty('outline');
-        expect(building).toHaveProperty('height');
-        expect(building).toHaveProperty('centerLat');
-        expect(building).toHaveProperty('centerLng');
-      }
+    it('rejects getBuildings — 3D geometry has no queryable surface', async () => {
+      await expect(
+        client.map.map3d.getBuildings({ bounds: sanFranciscoBounds }),
+      ).rejects.toThrow(GMapsError);
     });
 
-    it('should return Terrain3dResult with mesh', async () => {
-      const terrain = await client.map.map3d.getTerrain({
-        bounds: sanFranciscoBounds,
-        resolution: 'high',
-      });
-      expect(terrain).toHaveProperty('mesh');
-      expect(terrain).toHaveProperty('format');
-      expect(terrain).toHaveProperty('bounds');
-      expect(terrain.format).toBe('gltf');
+    it('rejects getTerrain and points at the raster layer', async () => {
+      await expect(
+        client.map.map3d.getTerrain({ bounds: sanFranciscoBounds, resolution: 'high' }),
+      ).rejects.toThrow(/layers\.getTerrain/);
     });
   });
 
@@ -144,35 +131,10 @@ describe('Building & Map Layer Services - Integration', () => {
       }
     });
 
-    it('should return SchoolMarker array', async () => {
-      const schools = await client.map.layers.getSchools({
-        bounds: sanFranciscoBounds,
-      });
-      expect(Array.isArray(schools)).toBe(true);
-      if (schools.length > 0) {
-        const school = schools[0];
-        expect(school).toHaveProperty('id');
-        expect(school).toHaveProperty('name');
-        expect(school).toHaveProperty('type');
-        expect(school).toHaveProperty('lat');
-        expect(school).toHaveProperty('lng');
-      }
-    });
-
-    it('should support school type filtering', async () => {
-      const types: Array<'elementary' | 'middle' | 'high' | 'college'> = [
-        'elementary',
-        'middle',
-        'high',
-        'college',
-      ];
-      for (const type of types) {
-        const schools = await client.map.layers.getSchools({
-          bounds: sanFranciscoBounds,
-          type,
-        });
-        expect(Array.isArray(schools)).toBe(true);
-      }
+    it('rejects getSchools — the schools layer has no queryable surface', async () => {
+      await expect(
+        client.map.layers.getSchools({ bounds: sanFranciscoBounds }),
+      ).rejects.toThrow(GMapsError);
     });
   });
 
@@ -187,19 +149,15 @@ describe('Building & Map Layer Services - Integration', () => {
       expect(typeof client.map.earth.getImagery).toBe('function');
     });
 
-    it('should handle tile requests with options', async () => {
-      try {
-        const tile = await client.map.earth.getTiles({
-          zoom: 10,
-          x: 512,
-          y: 512,
-          imageryType: 'satellite',
-        });
-        expect(tile).toHaveProperty('data');
-        expect(tile).toHaveProperty('zoom');
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+    it('returns imagery bytes for a tile request', async () => {
+      const tile = await client.map.earth.getTiles({
+        zoom: 10,
+        x: 512,
+        y: 512,
+        imageryType: 'satellite',
+      });
+      expect(tile.data.length).toBeGreaterThan(0);
+      expect(tile.zoom).toBe(10);
     });
 
     it('should handle imagery requests', async () => {

@@ -1,141 +1,129 @@
 import { describe, it, expect } from 'vitest';
 import { PlaceAttributesService } from '../src/services/place-attributes.js';
 import { HttpClient } from '../src/client/http-client.js';
-import type { AttributeCategory, Attribute } from '../src/index.js';
+import {
+  attributeGroupsToCategories,
+  getAttributesByType,
+  getCategoryAttributes,
+} from '../src/parsers/place-attributes.js';
+import type { PlaceAttributeGroup } from '../src/types/common.js';
+
+/**
+ * Maps publishes no global attribute catalog — attributes live in each place's
+ * preview payload, so every lookup is scoped to one place.
+ */
+const GROUPS: PlaceAttributeGroup[] = [
+  {
+    id: 'accessibility',
+    title: 'Accessibility',
+    attributes: [
+      {
+        groupId: 'accessibility',
+        groupTitle: 'Accessibility',
+        ontologyPath: '/geo/type/establishment_poi/has_wheelchair_accessible_entrance',
+        label: 'Wheelchair-accessible entrance',
+        available: true,
+      },
+    ],
+  },
+  {
+    id: 'payments',
+    title: 'Payments',
+    attributes: [
+      {
+        groupId: 'payments',
+        groupTitle: 'Payments',
+        ontologyPath: '/geo/type/establishment_poi/pay_credit_card',
+        label: 'Credit cards',
+        available: true,
+      },
+    ],
+  },
+  {
+    id: 'service_options',
+    title: 'Service options',
+    attributes: [
+      {
+        groupId: 'service_options',
+        groupTitle: 'Service options',
+        ontologyPath: '/geo/type/establishment_poi/has_takeout',
+        label: 'Takeout',
+        available: true,
+      },
+    ],
+  },
+];
+
+describe('attributeGroupsToCategories', () => {
+  it('maps every group to a category', () => {
+    const catalog = attributeGroupsToCategories(GROUPS);
+    expect(catalog).toHaveLength(3);
+    expect(catalog.map((c) => c.id)).toEqual(['accessibility', 'payments', 'service_options']);
+  });
+
+  it('carries the group title as the category name', () => {
+    const catalog = attributeGroupsToCategories(GROUPS);
+    expect(catalog[0]!.name).toBe('Accessibility');
+  });
+
+  it('uses the ontology path as a stable attribute id', () => {
+    const catalog = attributeGroupsToCategories(GROUPS);
+    expect(catalog[0]!.attributes[0]!.id).toContain('has_wheelchair_accessible_entrance');
+  });
+
+  it('falls back to a group-scoped id when no ontology path exists', () => {
+    const catalog = attributeGroupsToCategories([
+      { id: 'misc', title: 'Misc', attributes: [{ groupId: 'misc', groupTitle: 'Misc', label: 'Wi-Fi' }] },
+    ]);
+    expect(catalog[0]!.attributes[0]!.id).toBe('misc:Wi-Fi');
+  });
+});
+
+describe('getCategoryAttributes', () => {
+  const catalog = attributeGroupsToCategories(GROUPS);
+
+  it('matches on group id', () => {
+    expect(getCategoryAttributes(catalog, 'accessibility')).toHaveLength(1);
+  });
+
+  it('matches on group title, case-insensitively', () => {
+    expect(getCategoryAttributes(catalog, 'Service Options')).toHaveLength(1);
+  });
+
+  it('returns nothing for an unknown group', () => {
+    expect(getCategoryAttributes(catalog, 'nope')).toEqual([]);
+  });
+});
+
+describe('getAttributesByType', () => {
+  const catalog = attributeGroupsToCategories(GROUPS);
+
+  it('buckets wheelchair rows as accessibility', () => {
+    const rows = getAttributesByType(catalog, 'accessibility');
+    expect(rows.map((r) => r.name)).toContain('Wheelchair-accessible entrance');
+  });
+
+  it('buckets card rows as payment', () => {
+    const rows = getAttributesByType(catalog, 'payment');
+    expect(rows.map((r) => r.name)).toContain('Credit cards');
+  });
+
+  it('buckets everything else as amenities', () => {
+    const rows = getAttributesByType(catalog, 'amenities');
+    expect(rows.map((r) => r.name)).toContain('Takeout');
+  });
+});
 
 describe('PlaceAttributesService', () => {
   const http = new HttpClient({ config: {} });
   const service = new PlaceAttributesService(http, {});
 
-  describe('getAll', () => {
-    it('should return array of attribute categories', async () => {
-      const results = await service.getAll();
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should have correct AttributeCategory structure when populated', async () => {
-      const results = await service.getAll();
-      if (results.length > 0) {
-        const category = results[0]!;
-        expect(category).toHaveProperty('id');
-        expect(category).toHaveProperty('name');
-        expect(Array.isArray(category.attributes)).toBe(true);
-      }
-    });
-
-    it('should cache results on subsequent calls', async () => {
-      const first = await service.getAll();
-      const second = await service.getAll();
-      expect(first.length).toBe(second.length);
-      // Both calls should complete quickly due to caching
-    });
+  it('requires a place to read attributes for', () => {
+    // The catalog is per place — the signature enforces it.
+    expect(service.getAll.length).toBe(1);
   });
 
-  describe('byCategory', () => {
-    it('should return array of attributes for category', async () => {
-      const results = await service.byCategory('accessibility');
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should filter by category name', async () => {
-      const accessibility = await service.byCategory('accessibility');
-      const parking = await service.byCategory('parking');
-      // Both should return arrays, may be empty if category doesn't exist
-      expect(Array.isArray(accessibility)).toBe(true);
-      expect(Array.isArray(parking)).toBe(true);
-    });
-
-    it('should have correct Attribute structure when populated', async () => {
-      const results = await service.byCategory('amenities');
-      if (results.length > 0) {
-        const attr = results[0];
-        expect(attr).toHaveProperty('id');
-        expect(attr).toHaveProperty('name');
-        expect(attr).toHaveProperty('category');
-      }
-    });
-  });
-
-  describe('byType', () => {
-    it('should return array of attributes for type', async () => {
-      const results = await service.byType('accessibility');
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should support all attribute types', async () => {
-      const types: Array<'accessibility' | 'parking' | 'payment' | 'amenities'> = [
-        'accessibility',
-        'parking',
-        'payment',
-        'amenities',
-      ];
-      for (const type of types) {
-        const results = await service.byType(type);
-        expect(Array.isArray(results)).toBe(true);
-      }
-    });
-
-    it('should have correct Attribute structure when populated', async () => {
-      const results = await service.byType('parking');
-      if (results.length > 0) {
-        const attr = results[0];
-        expect(attr).toHaveProperty('id');
-        expect(attr).toHaveProperty('name');
-        expect(attr).toHaveProperty('category');
-      }
-    });
-  });
-
-  describe('Type validation', () => {
-    it('should validate AttributeCategory type', () => {
-      const category: AttributeCategory = {
-        id: 'accessibility',
-        name: 'Accessibility Features',
-        attributes: [],
-      };
-      expect(category.id).toBe('accessibility');
-      expect(Array.isArray(category.attributes)).toBe(true);
-    });
-
-    it('should validate Attribute type', () => {
-      const attribute: Attribute = {
-        id: 'wheelchair-accessible',
-        name: 'Wheelchair Accessible',
-        category: 'accessibility',
-      };
-      expect(attribute.id).toBe('wheelchair-accessible');
-      expect(attribute.category).toBe('accessibility');
-    });
-
-    it('should support attribute value types', () => {
-      const valueTypes: Array<'boolean' | 'enum' | 'string' | 'number'> = [
-        'boolean',
-        'enum',
-        'string',
-        'number',
-      ];
-      for (const valueType of valueTypes) {
-        const attribute: Attribute = {
-          id: `test-${valueType}`,
-          name: `Test ${valueType}`,
-          category: 'test',
-          valueType,
-        };
-        expect(attribute.valueType).toBe(valueType);
-      }
-    });
-  });
-
-  describe('Caching behavior', () => {
-    it('should use cached catalog for subsequent operations', async () => {
-      // First call populates cache
-      await service.getAll();
-      // Subsequent calls should use cache
-      const byCategory = await service.byCategory('parking');
-      const byType = await service.byType('accessibility');
-      // Both operations complete successfully
-      expect(Array.isArray(byCategory)).toBe(true);
-      expect(Array.isArray(byType)).toBe(true);
-    });
+  it('exposes cache clearing', () => {
+    expect(() => service.clearCache()).not.toThrow();
   });
 });

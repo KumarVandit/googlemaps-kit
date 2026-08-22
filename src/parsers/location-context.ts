@@ -1,90 +1,49 @@
-import { safeGet } from '../utils/safe-get.js';
-import type { PbNode } from '../types/protobuf.js';
-import type {
-  AdminLevel,
-  AdminRegion,
-  AreaType,
-  GeoArea,
-} from '../types/location-context.js';
+import type { AdminLevel, AdminRegion } from '../types/location-context.js';
 
-export function extractNearbyAreas(data: PbNode): GeoArea[] {
-  const results: GeoArea[] = [];
+/** Leading Plus Code token in a reverse-geocode address ("XHCV+JRQ Bengaluru, …"). */
+const PLUS_CODE_PREFIX = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}\s+/i;
 
-  // Extract areas array from [1][0][*]
-  const areasArray = safeGet<PbNode[]>(data, 1, 0);
-  if (!Array.isArray(areasArray)) return results;
+/**
+ * Administrative hierarchy from a reverse-geocode address line.
+ *
+ * Google returns the hierarchy as a comma-separated tail ("… Bengaluru,
+ * Karnataka, India") rather than as tagged components, so levels are assigned
+ * by position: last is the country, the one before it a state, and anything
+ * ahead of those the city. No extent is reported on this surface.
+ */
+export function extractAdminRegions(address: string | undefined): AdminRegion[] {
+  if (!address) return [];
 
-  for (const item of areasArray) {
-    if (!Array.isArray(item)) continue;
+  const parts = address
+    .replace(PLUS_CODE_PREFIX, '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
 
-    const area: GeoArea = {
-      id: safeGet<string>(item, 0) ?? '',
-      name: safeGet<string>(item, 1) ?? '',
-      type: (safeGet<string>(item, 2) as AreaType) ?? 'region',
-      lat: safeGet<number>(item, 3, 0) ?? 0,
-      lng: safeGet<number>(item, 3, 1) ?? 0,
-      distanceMeters: safeGet<number>(item, 4) ?? 0,
-      bounds: safeGet<PbNode>(item, 5)
-        ? {
-            ne: {
-              lat: safeGet<number>(item, 5, 0, 0) ?? 0,
-              lng: safeGet<number>(item, 5, 0, 1) ?? 0,
-            },
-            sw: {
-              lat: safeGet<number>(item, 5, 1, 0) ?? 0,
-              lng: safeGet<number>(item, 5, 1, 1) ?? 0,
-            },
-          }
-        : undefined,
-      population: safeGet<number>(item, 6),
-    };
+  if (parts.length === 0) return [];
 
-    if (area.id) results.push(area);
-  }
+  // Order coarse → fine so each region can point at its parent.
+  const coarseToFine = [...parts].reverse();
+  const levels: AdminLevel[] =
+    coarseToFine.length >= 3
+      ? ['country', 'state', 'city']
+      : coarseToFine.length === 2
+        ? ['country', 'city']
+        : ['country'];
 
-  return results;
-}
+  const regions: AdminRegion[] = [];
+  let parent: AdminRegion | undefined;
 
-export function extractAdminRegions(data: PbNode): AdminRegion[] {
-  const results: AdminRegion[] = [];
-
-  // Extract regions from nested structure [1][*]
-  const regionsArray = safeGet<PbNode[]>(data, 1);
-  if (!Array.isArray(regionsArray)) return results;
-
-  for (const item of regionsArray) {
-    if (!Array.isArray(item)) continue;
-
-    const levelStr = safeGet<string>(item, 1);
-    const level: AdminLevel =
-      levelStr === 'country'
-        ? 'country'
-        : levelStr === 'state'
-          ? 'state'
-          : levelStr === 'county'
-            ? 'county'
-            : levelStr === 'city'
-              ? 'city'
-              : 'neighborhood';
-
+  for (const [index, name] of coarseToFine.entries()) {
     const region: AdminRegion = {
-      name: safeGet<string>(item, 0) ?? '',
-      type: level,
-      code: safeGet<string>(item, 2),
-      bounds: {
-        ne: {
-          lat: safeGet<number>(item, 3, 0, 0) ?? 0,
-          lng: safeGet<number>(item, 3, 0, 1) ?? 0,
-        },
-        sw: {
-          lat: safeGet<number>(item, 3, 1, 0) ?? 0,
-          lng: safeGet<number>(item, 3, 1, 1) ?? 0,
-        },
-      },
+      name,
+      type: levels[Math.min(index, levels.length - 1)] ?? 'city',
+      parent,
     };
-
-    results.push(region);
+    regions.push(region);
+    parent = region;
   }
 
-  return results;
+  // Return fine → coarse: callers usually want the most specific region first.
+  return regions.reverse();
 }

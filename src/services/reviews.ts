@@ -14,6 +14,7 @@ import type { GMapsConfig, ReviewSortOrder, ReviewsResult } from '../types/commo
 import type { ReviewClientFilters } from '../types/reviews.js';
 import type { PbNode } from '../types/protobuf.js';
 import { asPlaceDataNode } from '../types/protobuf.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 export interface GetReviewsOptions {
   hexId: string;
@@ -271,9 +272,7 @@ export class ReviewsService {
     });
 
     const data = await this.http.get(url, {
-      referer: options.name
-        ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-        : 'https://www.google.com/maps/',
+      referer: buildPlaceReferer(options.name),
       includeOrigin: true,
     });
 

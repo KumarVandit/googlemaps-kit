@@ -1,140 +1,57 @@
 import { describe, it, expect } from 'vitest';
 import { LocationContextService } from '../src/services/location-context.js';
 import { HttpClient } from '../src/client/http-client.js';
-import type { GeoArea, AdminRegion, NearbyAreasOptions } from '../src/index.js';
+import { extractAdminRegions } from '../src/parsers/location-context.js';
+import { GMapsError } from '../src/types/common.js';
+
+describe('extractAdminRegions', () => {
+  it('reads the hierarchy out of a Plus Code address, finest first', () => {
+    const regions = extractAdminRegions('XHCV+JRQ Bengaluru, Karnataka, India');
+    expect(regions.map((r) => r.name)).toEqual(['Bengaluru', 'Karnataka', 'India']);
+    expect(regions.map((r) => r.type)).toEqual(['city', 'state', 'country']);
+  });
+
+  it('links each region to its parent', () => {
+    const regions = extractAdminRegions('XHCV+JRQ Bengaluru, Karnataka, India');
+    expect(regions[0]!.parent?.name).toBe('Karnataka');
+    expect(regions[0]!.parent?.parent?.name).toBe('India');
+    expect(regions[2]!.parent).toBeUndefined();
+  });
+
+  it('handles a two-part address', () => {
+    const regions = extractAdminRegions('Paris, France');
+    expect(regions.map((r) => r.type)).toEqual(['city', 'country']);
+  });
+
+  it('handles a country-only address', () => {
+    expect(extractAdminRegions('India').map((r) => r.type)).toEqual(['country']);
+  });
+
+  it('reports no bounds — reverse geocode publishes no polygons', () => {
+    const regions = extractAdminRegions('XHCV+JRQ Bengaluru, Karnataka, India');
+    expect(regions.every((r) => r.bounds === undefined)).toBe(true);
+  });
+
+  it('returns nothing for an empty address', () => {
+    expect(extractAdminRegions(undefined)).toEqual([]);
+    expect(extractAdminRegions('')).toEqual([]);
+  });
+});
 
 describe('LocationContextService', () => {
   const http = new HttpClient({ config: {} });
   const service = new LocationContextService(http, {});
+  const coords = { lat: 37.77, lng: -122.42 };
 
-  const sanFranciscoCoords = { lat: 37.77, lng: -122.42 };
-
-  describe('getNearby', () => {
-    it('should return array of nearby areas', async () => {
-      const results = await service.getNearby({
-        location: sanFranciscoCoords,
-      });
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should accept optional radius parameter', async () => {
-      const results = await service.getNearby({
-        location: sanFranciscoCoords,
-        radiusMeters: 5000,
-      });
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should have correct GeoArea structure when populated', async () => {
-      const results = await service.getNearby({
-        location: sanFranciscoCoords,
-      });
-      if (results.length > 0) {
-        const area = results[0];
-        expect(area).toHaveProperty('name');
-        expect(area).toHaveProperty('type');
-        expect(area).toHaveProperty('bounds');
-      }
-    });
+  it('rejects getNearby rather than returning an empty area list', async () => {
+    await expect(service.getNearby({ location: coords })).rejects.toThrow(GMapsError);
   });
 
-  describe('getAreas', () => {
-    it('should return array of geographic areas', async () => {
-      const results = await service.getAreas(sanFranciscoCoords);
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should accept lat/lng coordinates', async () => {
-      const results = await service.getAreas({
-        lat: 37.77,
-        lng: -122.42,
-      });
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should match getNearby result', async () => {
-      const fromGetAreas = await service.getAreas(sanFranciscoCoords);
-      const fromGetNearby = await service.getNearby({
-        location: sanFranciscoCoords,
-      });
-      expect(fromGetAreas.length).toBe(fromGetNearby.length);
-    });
+  it('points getNearby callers at getRegions', async () => {
+    await expect(service.getNearby({ location: coords })).rejects.toThrow(/getRegions/);
   });
 
-  describe('getRegions', () => {
-    it('should return array of admin regions', async () => {
-      const results = await service.getRegions(sanFranciscoCoords);
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should have correct AdminRegion structure when populated', async () => {
-      const results = await service.getRegions(sanFranciscoCoords);
-      if (results.length > 0) {
-        const region = results[0];
-        expect(region).toHaveProperty('name');
-        expect(region).toHaveProperty('adminLevel');
-      }
-    });
-
-    it('should support multiple admin levels', () => {
-      const levels: Array<'country' | 'state' | 'county' | 'city'> = [
-        'country',
-        'state',
-        'county',
-        'city',
-      ];
-      for (const level of levels) {
-        const region: AdminRegion = {
-          name: `Test ${level}`,
-          type: level,
-          bounds: {
-            ne: { lat: 37.8, lng: -122.4 },
-            sw: { lat: 37.7, lng: -122.5 },
-          },
-        };
-        expect(region.type).toBe(level);
-      }
-    });
-  });
-
-  describe('Type validation', () => {
-    it('should validate GeoArea type', () => {
-      const area: GeoArea = {
-        id: 'area-123',
-        name: 'Downtown',
-        type: 'neighborhood',
-        lat: 37.77,
-        lng: -122.42,
-        distanceMeters: 1000,
-        bounds: {
-          ne: { lat: 37.8, lng: -122.4 },
-          sw: { lat: 37.7, lng: -122.5 },
-        },
-      };
-      expect(area.name).toBe('Downtown');
-      expect(area.type).toBe('neighborhood');
-    });
-
-    it('should validate AdminRegion type', () => {
-      const region: AdminRegion = {
-        name: 'California',
-        type: 'state',
-        bounds: {
-          ne: { lat: 42, lng: -114 },
-          sw: { lat: 32.5, lng: -124 },
-        },
-      };
-      expect(region.name).toBe('California');
-      expect(region.type).toBe('state');
-    });
-
-    it('should validate NearbyAreasOptions type', () => {
-      const options: NearbyAreasOptions = {
-        location: sanFranciscoCoords,
-        radiusMeters: 5000,
-      };
-      expect(options.location.lat).toBe(37.77);
-      expect(options.radiusMeters).toBe(5000);
-    });
+  it('rejects getAreas the same way', async () => {
+    await expect(service.getAreas(coords)).rejects.toThrow(GMapsError);
   });
 });

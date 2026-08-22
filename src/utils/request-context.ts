@@ -20,3 +20,24 @@ export function runWithRequestContext<T>(
 export function getRequestSignal(): AbortSignal | undefined {
   return store.getStore()?.signal;
 }
+
+/**
+ * Run any kit calls inside an abortable scope.
+ *
+ * Intent methods (`discover`, `profile`, …) take `signal` directly. Service
+ * calls (`maps.travel.directions.get(…)`, `maps.map.tiles.getTile(…)`) do not —
+ * wrap them in this to make their HTTP requests abortable.
+ *
+ * @example
+ * const ac = new AbortController();
+ * const tile = await withAbortSignal(ac.signal, () =>
+ *   maps.map.tiles.getTile({ zoom: 14, x: 11871, y: 7576 }),
+ * );
+ */
+export function withAbortSignal<T>(
+  signal: AbortSignal | undefined,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (!signal) return fn();
+  return runWithRequestContext({ signal }, fn);
+}

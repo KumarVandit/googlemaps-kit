@@ -391,3 +391,40 @@ export type {
 export type {
   MapLayerTileOptions,
 } from './types/tiles.js';
+
+// ——— Remaining public option / result types ———
+export type { CreateShortUrlOptions, CreateShortUrlResult } from './types/batch-url.js';
+export type {
+  GetCategorySuggestionsOptions,
+  GetPlaceInfoOptions,
+  GetPotentialDuplicatesOptions,
+  GetSignedUrlOptions,
+  PlaceInfoEntry,
+} from './types/categories.js';
+export type {
+  DistanceMatrixElementStatus,
+  DistanceMatrixLocation,
+} from './types/distance-matrix.js';
+export type {
+  ElevationProfileSample,
+  ElevationStatus,
+  ElevationSummary,
+} from './types/elevation.js';
+export type { TimezoneIdSource, TimezoneOffsetSource } from './types/timezone.js';
+export type { TransitPreference } from './types/transit.js';
+export type { SearchFilters, SearchHotelDatesFilter, SearchOpenHoursFilter } from './types/search-filters.js';
+/** Discriminated members of {@link ParsedMapsUrl} — narrow on `kind`. */
+export type {
+  MapsCoordinates,
+  ParsedCidUrl,
+  ParsedDirectionsUrl,
+  ParsedListUrl,
+  ParsedPlaceUrl,
+  ParsedSearchUrl,
+  ParsedShortLinkUrl,
+  ParsedUnknownUrl,
+  ParsedViewportUrl,
+} from './types/links.js';
+
+/** Make direct service calls abortable (Intent methods take `signal` directly). */
+export { withAbortSignal } from './utils/request-context.js';

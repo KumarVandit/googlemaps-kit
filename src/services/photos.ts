@@ -18,6 +18,7 @@ import type {
 import type { PbNode } from '../types/protobuf.js';
 import { GMapsError } from '../types/common.js';
 import { dedupePhotos } from '../utils/photo-url.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 function isCompletePlacePayload(data: unknown): boolean {
   const details = extractPlaceDetails(data as PbNode);
@@ -215,9 +216,7 @@ export class PhotosService {
       mode,
     });
 
-    const referer = options.name
-      ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-      : 'https://www.google.com/maps/';
+    const referer = buildPlaceReferer(options.name);
 
     const data = await this.http.get(url, {
       referer,

@@ -216,3 +216,135 @@ export type {
   ReviewerCredibility,
   ReviewTranslation,
 } from './types/reviews.js';
+
+// ——— Wire-level protobuf node types + narrowing helpers ———
+export type {
+  BoqReviewsResponseRoot,
+  DirectionsPreviewResponse,
+  KnowledgeEntityResponse,
+  ListUgcReviewsResponseRoot,
+  LocalPostEntry,
+  MapsPreviewPlaceResponse,
+  PbNode,
+  PbScalar,
+  PlaceDataNode,
+  RpcArgs,
+  SearchMapResponseRoot,
+  SearchResultWrapper,
+} from './types/protobuf.js';
+export {
+  asBoqRoot,
+  asListUgcRoot,
+  asPlaceDataNode,
+  asPreviewResponse,
+  asSearchRoot,
+} from './types/protobuf.js';
+
+// ——— Wire constants ———
+export { ENDPOINTS } from './types/common.js';
+export {
+  OPEN_HOURS_CHIP_VALUE,
+  RATING_FILTER_CODE,
+  SEARCH_FILTER_SLOT,
+} from './types/search-filters.js';
+export type { SearchHotelDatesFilter, SearchOpenHoursFilter } from './types/search-filters.js';
+
+// ——— Remaining product types (parity with the root entry) ———
+export type { CreateShortUrlOptions, CreateShortUrlResult } from './types/batch-url.js';
+export type {
+  GetCategorySuggestionsOptions,
+  GetPlaceInfoOptions,
+  GetPotentialDuplicatesOptions,
+  GetSignedUrlOptions,
+  PlaceInfoEntry,
+} from './types/categories.js';
+export type {
+  DistanceMatrixElementStatus,
+  DistanceMatrixLocation,
+} from './types/distance-matrix.js';
+export type {
+  ElevationProfileSample,
+  ElevationStatus,
+  ElevationSummary,
+} from './types/elevation.js';
+export type { TimezoneIdSource, TimezoneOffsetSource } from './types/timezone.js';
+export type {
+  TransitPreference,
+  TransitRoute,
+  TransitRouteOptions,
+  TransitRouteResult,
+  TransitLeg,
+  TransitLine,
+  TransitStation,
+} from './types/transit.js';
+export type {
+  MapsCoordinates,
+  ParsedCidUrl,
+  ParsedDirectionsUrl,
+  ParsedListUrl,
+  ParsedPlaceUrl,
+  ParsedSearchUrl,
+  ParsedShortLinkUrl,
+  ParsedUnknownUrl,
+  ParsedViewportUrl,
+} from './types/links.js';
+export type {
+  EvChargingStation,
+  EvCharger,
+  EvChargerStatus,
+  EvChargingPrice,
+  EvChargingSearchOptions,
+  ConnectorType,
+  ChargerStatus,
+} from './types/ev-charging.js';
+export type {
+  Parking,
+  ParkingAvailability,
+  ParkingPrice,
+  ParkingSearchOptions,
+  ParkingType,
+} from './types/parking.js';
+export type {
+  NearbyAreasOptions,
+  GeoArea,
+  AdminRegion,
+  AdminLevel,
+  AreaType,
+} from './types/location-context.js';
+export type { Attribute, AttributeCategory } from './types/place-attributes.js';
+export type {
+  LayerTileOptions,
+  LayerTileResult,
+  LayerSearchOptions,
+  SchoolMarker,
+} from './types/map-layers.js';
+export type {
+  Map3dBuildingsOptions,
+  Building3d,
+  Map3dTerrainOptions,
+  Terrain3dResult,
+} from './types/map-3d.js';
+export type {
+  EarthTileOptions,
+  EarthTileResult,
+  EarthImageryOptions,
+  EarthImageryResult,
+} from './types/map-earth.js';
+export type {
+  TrafficIncident,
+  TrafficIncidentsOptions,
+  IncidentType,
+  IncidentSeverity,
+} from './types/traffic.js';
+export type { MapLayerTileOptions } from './types/tiles.js';
+export type { ListBrowseOptions, PlaceListSummary } from './types/lists.js';
+export type { PanoramaVideoOptions, PanoramaVideoResult } from './types/panorama.js';
+export type { TransitRoutingPreference } from './types/directions.js';
+
+// ——— Abort scope for direct service calls ———
+export {
+  withAbortSignal,
+  runWithRequestContext,
+  getRequestSignal,
+  type RequestContext,
+} from './utils/request-context.js';

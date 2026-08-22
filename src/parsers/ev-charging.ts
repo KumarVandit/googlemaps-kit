@@ -1,96 +1,77 @@
 import { safeGet } from '../utils/safe-get.js';
 import type { PbNode } from '../types/protobuf.js';
-import type {
-  ChargerStatus,
-  ConnectorType,
-  EvCharger,
-  EvChargerStatus,
-  EvChargingPrice,
-  EvChargingStation,
-} from '../types/ev-charging.js';
+import type { ConnectorType, EvCharger } from '../types/ev-charging.js';
 
-export function extractEvChargingStations(data: PbNode): EvChargingStation[] {
-  const results: EvChargingStation[] = [];
+/**
+ * Connector block inside a place preview: `placeData[140][1][0][2]`.
+ *
+ * Each entry is laid out as
+ * `[label, _, _, ports[], _, _, powerKw, _, iconUrl, [speedLabel], [minKw, maxKw]]`,
+ * where `ports[]` is one entry per physical plug. Google does not publish a
+ * documented meaning for the per-port status code, so it is not interpreted here.
+ */
+const CONNECTORS_PATH = [140, 1, 0, 2] as const;
 
-  // Extract stations array from [1][0][*]
-  const stationsArray = safeGet<PbNode[]>(data, 1, 0);
-  if (!Array.isArray(stationsArray)) return results;
+const CONNECTOR_LABELS: Array<[RegExp, ConnectorType]> = [
+  [/supercharger/i, 'supercharger'],
+  [/tesla/i, 'tesla'],
+  [/ccs/i, 'ccs'],
+  [/chademo/i, 'chademo'],
+  [/type\s*2|mennekes/i, 'type2'],
+  [/\bac\b|wall|three[- ]?pin|j1772/i, 'ac'],
+];
 
-  for (const item of stationsArray) {
-    if (!Array.isArray(item)) continue;
+function toConnectorType(label: string | undefined): ConnectorType {
+  if (!label) return 'type2';
+  for (const [pattern, type] of CONNECTOR_LABELS) {
+    if (pattern.test(label)) return type;
+  }
+  return 'type2';
+}
 
-    const chargersArray = safeGet<PbNode[]>(item, 4);
-    const chargers: EvCharger[] = [];
+/** Connectors advertised by a place, from its preview payload. */
+export function extractEvChargers(data: PbNode, stationId: string): EvCharger[] {
+  const placeData = safeGet<PbNode>(data, 6);
+  const connectors = safeGet<PbNode[]>(placeData, ...CONNECTORS_PATH);
+  if (!Array.isArray(connectors)) return [];
 
-    if (Array.isArray(chargersArray)) {
-      for (const chargerItem of chargersArray) {
-        if (Array.isArray(chargerItem)) {
-          const charger: EvCharger = {
-            id: safeGet<string>(chargerItem, 0) ?? '',
-            type: (safeGet<string>(chargerItem, 1) as ConnectorType) ?? 'type2',
-            power: safeGet<number>(chargerItem, 2) ?? 0,
-            status: (safeGet<string>(chargerItem, 3) as ChargerStatus) ?? 'unknown',
-            availableCount: safeGet<number>(chargerItem, 4),
-            totalCount: safeGet<number>(chargerItem, 5),
-          };
-          if (charger.id) chargers.push(charger);
-        }
-      }
-    }
+  const chargers: EvCharger[] = [];
+  for (const [index, entry] of connectors.entries()) {
+    if (!Array.isArray(entry)) continue;
 
-    const station: EvChargingStation = {
-      id: safeGet<string>(item, 0) ?? '',
-      name: safeGet<string>(item, 1) ?? '',
-      operator: safeGet<string>(item, 2) ?? '',
-      lat: safeGet<number>(item, 3, 0) ?? 0,
-      lng: safeGet<number>(item, 3, 1) ?? 0,
-      distanceMeters: safeGet<number>(item, 5) ?? 0,
-      chargers,
-      address: safeGet<string>(item, 6),
-      phone: safeGet<string>(item, 7),
-      website: safeGet<string>(item, 8),
-      amenities: safeGet<string[]>(item, 9),
-    };
+    const label = safeGet<string>(entry, 0);
+    const ports = safeGet<PbNode[]>(entry, 3);
+    const power = safeGet<number>(entry, 6) ?? safeGet<number>(entry, 10, 1) ?? 0;
 
-    if (station.id) results.push(station);
+    chargers.push({
+      id: `${stationId}:${index}`,
+      type: toConnectorType(label),
+      power,
+      // Google publishes a per-port code here but documents no mapping to a
+      // charging state, so it is reported as unknown rather than guessed.
+      status: 'unknown',
+      totalCount: Array.isArray(ports) ? ports.length : undefined,
+    });
   }
 
-  return results;
+  return chargers;
 }
 
-export function extractChargerStatus(data: PbNode): EvChargerStatus {
-  const statusStr = safeGet<string>(data, 1, 0);
-  const status: ChargerStatus =
-    statusStr === 'available'
-      ? 'available'
-      : statusStr === 'occupied'
-        ? 'occupied'
-        : statusStr === 'faulted'
-          ? 'faulted'
-          : 'unknown';
+/** Most recent per-port report time, when the operator supplies one. */
+export function extractChargerLastReported(data: PbNode): Date | undefined {
+  const placeData = safeGet<PbNode>(data, 6);
+  const connectors = safeGet<PbNode[]>(placeData, ...CONNECTORS_PATH);
+  if (!Array.isArray(connectors)) return undefined;
 
-  return {
-    chargerId: safeGet<string>(data, 0) ?? '',
-    status,
-    available: status === 'available',
-    lastUpdated: new Date(safeGet<number>(data, 2) ?? Date.now()),
-    percentReserved: safeGet<number>(data, 3),
-  };
-}
+  let newest: number | undefined;
+  for (const entry of connectors) {
+    const ports = safeGet<PbNode[]>(entry, 3);
+    if (!Array.isArray(ports)) continue;
+    for (const port of ports) {
+      const seconds = safeGet<number>(port, 3);
+      if (typeof seconds === 'number' && (newest == null || seconds > newest)) newest = seconds;
+    }
+  }
 
-export function extractChargingPrice(data: PbNode): EvChargingPrice {
-  const pricing = safeGet<PbNode>(data, 1);
-
-  return {
-    stationId: safeGet<string>(data, 0) ?? '',
-    currency: safeGet<string>(data, 2) ?? 'USD',
-    pricing: {
-      perKwh: safeGet<number>(pricing, 0),
-      perMinute: safeGet<number>(pricing, 1),
-      perSession: safeGet<number>(pricing, 2),
-      sessionMinutes: safeGet<number>(pricing, 3),
-    },
-    validFrom: safeGet<number>(data, 3) ? new Date(safeGet<number>(data, 3)!) : undefined,
-    validTo: safeGet<number>(data, 4) ? new Date(safeGet<number>(data, 4)!) : undefined,
-  };
+  return newest == null ? undefined : new Date(newest * 1000);
 }

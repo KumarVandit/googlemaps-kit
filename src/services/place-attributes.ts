@@ -1,56 +1,74 @@
 import { HttpClient } from '../client/http-client.js';
-import { extractAttributeCatalog, getCategoryAttributes, getAttributesByType } from '../parsers/place-attributes.js';
-import { createRpcClient } from '../rpc/batch-rpc.js';
-import { BATCH_SERVICES } from '../rpc/batch-services.js';
+import { PlacesService } from './places.js';
+import {
+  attributeGroupsToCategories,
+  extractAttributeGroups,
+  getAttributesByType,
+  getCategoryAttributes,
+} from '../parsers/place-attributes.js';
+import { safeGet } from '../utils/safe-get.js';
 import type { GMapsConfig } from '../types/common.js';
-import type { PbNode } from '../types/protobuf.js';
+import type { PlaceDataNode } from '../types/protobuf.js';
 import type { Attribute, AttributeCategory } from '../types/place-attributes.js';
 
+/** Place to read attributes for. */
+export interface PlaceAttributesTarget {
+  hexId: string;
+  name?: string;
+  lat?: number;
+  lng?: number;
+}
+
+/**
+ * Structured amenity / accessibility / payment attributes for a place.
+ *
+ * Maps publishes no global attribute catalog — attributes live in each place's
+ * preview payload, so every call is scoped to one place. Results are cached per
+ * place for the lifetime of the service.
+ */
 export class PlaceAttributesService {
-  private http: HttpClient;
-  private hl: string;
-  private gl: string;
-  private config: GMapsConfig;
-  private catalogCache?: AttributeCategory[];
+  private places: PlacesService;
+  private cache = new Map<string, AttributeCategory[]>();
 
   constructor(http: HttpClient, config: GMapsConfig) {
-    this.http = http;
-    this.hl = config.hl ?? 'en';
-    this.gl = config.gl ?? 'us';
-    this.config = config;
+    this.places = new PlacesService(http, config);
   }
 
-  async getAll(): Promise<AttributeCategory[]> {
-    if (this.catalogCache) {
-      return this.catalogCache;
-    }
+  /** Every attribute group published for a place. */
+  async getAll(place: PlaceAttributesTarget): Promise<AttributeCategory[]> {
+    const cached = this.cache.get(place.hexId);
+    if (cached) return cached;
 
-    const psi = 'anonymous';
-    const rpc = await createRpcClient(this.http, this.config);
+    const { data } = await this.places.fetchPreview({
+      hexId: place.hexId,
+      name: place.name,
+      lat: place.lat,
+      lng: place.lng,
+      mode: 'live',
+    });
 
-    try {
-      const data = await rpc.call(
-        '/MapsPlaceAttributesService.GetAttributeCatalog',
-        [{ psi }],
-      );
-
-      const catalog = extractAttributeCatalog(data as PbNode);
-      this.catalogCache = catalog;
-      return catalog;
-    } catch {
-      return [];
-    }
+    const placeData = safeGet<PlaceDataNode>(data, 6);
+    const groups = placeData ? extractAttributeGroups(placeData) : [];
+    const catalog = attributeGroupsToCategories(groups);
+    this.cache.set(place.hexId, catalog);
+    return catalog;
   }
 
-  async byCategory(category: string): Promise<Attribute[]> {
-    const catalog = await this.getAll();
-    return getCategoryAttributes(catalog, category);
+  /** Attributes in one group, matched on group id or title (e.g. `accessibility`). */
+  async byCategory(place: PlaceAttributesTarget, category: string): Promise<Attribute[]> {
+    return getCategoryAttributes(await this.getAll(place), category);
   }
 
+  /** Attributes bucketed into a coarse type. */
   async byType(
+    place: PlaceAttributesTarget,
     type: 'accessibility' | 'parking' | 'payment' | 'amenities',
   ): Promise<Attribute[]> {
-    const catalog = await this.getAll();
-    return getAttributesByType(catalog, type);
+    return getAttributesByType(await this.getAll(place), type);
+  }
+
+  /** Drop cached catalogs. */
+  clearCache(): void {
+    this.cache.clear();
   }
 }

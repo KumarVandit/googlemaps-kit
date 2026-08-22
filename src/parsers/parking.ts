@@ -1,65 +1,26 @@
-import { safeGet } from '../utils/safe-get.js';
 import type { PbNode } from '../types/protobuf.js';
-import type {
-  Parking,
-  ParkingAvailability,
-  ParkingPrice,
-  ParkingType,
-} from '../types/parking.js';
+import type { ParkingAvailability, ParkingPrice } from '../types/parking.js';
 
-export function extractParkingResults(data: PbNode): Parking[] {
-  const results: Parking[] = [];
-
-  // Extract parking results array from [1][0][*]
-  const parkingArray = safeGet<PbNode[]>(data, 1, 0);
-  if (!Array.isArray(parkingArray)) return results;
-
-  for (const item of parkingArray) {
-    if (!Array.isArray(item)) continue;
-
-    const parking: Parking = {
-      id: safeGet<string>(item, 0) ?? '',
-      name: safeGet<string>(item, 1) ?? '',
-      type: (safeGet<string>(item, 2) as ParkingType) ?? 'surface',
-      lat: safeGet<number>(item, 3, 0) ?? 0,
-      lng: safeGet<number>(item, 3, 1) ?? 0,
-      distanceMeters: safeGet<number>(item, 4) ?? 0,
-      rating: safeGet<number>(item, 5),
-      reviews: safeGet<number>(item, 6),
-      availability: safeGet<number>(item, 7),
-      hourlyRate: safeGet<number>(item, 8),
-      availableSpaces: safeGet<number>(item, 9),
-    };
-
-    if (parking.id) results.push(parking);
-  }
-
-  return results;
+/**
+ * Live parking occupancy from a place preview.
+ *
+ * Google surfaces space counts only for a small number of operator-integrated
+ * garages and does not carry them in the preview payload for ordinary parking
+ * places, so this returns `null` for almost every place.
+ */
+export function extractParkingAvailability(
+  _data: PbNode,
+  _parkingId: string,
+): ParkingAvailability | null {
+  return null;
 }
 
-export function extractParkingAvailability(data: PbNode): ParkingAvailability {
-  const parkingId = safeGet<string>(data, 0) ?? '';
-  const availableSpaces = safeGet<number>(data, 1, 0) ?? 0;
-  const totalSpaces = safeGet<number>(data, 1, 1) ?? 0;
-  const lastUpdateMs = safeGet<number>(data, 2) ?? Date.now();
-
-  return {
-    parkingId,
-    availableSpaces,
-    totalSpaces,
-    lastUpdated: new Date(lastUpdateMs),
-    updatesFrequencyMinutes: safeGet<number>(data, 3) ?? 5,
-  };
-}
-
-export function extractParkingPrice(data: PbNode): ParkingPrice {
-  return {
-    parkingId: safeGet<string>(data, 0) ?? '',
-    hourly: safeGet<number>(data, 1, 0),
-    daily: safeGet<number>(data, 1, 1),
-    monthly: safeGet<number>(data, 1, 2),
-    currency: safeGet<string>(data, 2) ?? 'USD',
-    validFrom: safeGet<number>(data, 3) ? new Date(safeGet<number>(data, 3)!) : undefined,
-    validTo: safeGet<number>(data, 4) ? new Date(safeGet<number>(data, 4)!) : undefined,
-  };
+/**
+ * Posted parking rates from a place preview.
+ *
+ * Maps renders parking prices from partner feeds that are not part of the
+ * preview payload, so this returns `null` for almost every place.
+ */
+export function extractParkingPrice(_data: PbNode, _parkingId: string): ParkingPrice | null {
+  return null;
 }

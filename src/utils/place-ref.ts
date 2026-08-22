@@ -155,3 +155,15 @@ export function resolveDirectionsEndpoints(options: {
     destination: resolveRouteEndpoint(destRaw),
   };
 }
+
+/**
+ * Build a `google.com/maps/place/…` referer for a place name.
+ *
+ * Percent-encodes the name so non-ASCII titles (accents, CJK, Indic scripts)
+ * cannot produce a header value `fetch` refuses to serialise as a ByteString.
+ */
+export function buildPlaceReferer(name?: string): string {
+  if (!name) return 'https://www.google.com/maps/';
+  const slug = encodeURIComponent(name.trim()).replace(/%20/g, '+');
+  return `https://www.google.com/maps/place/${slug}/`;
+}

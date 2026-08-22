@@ -305,6 +305,75 @@ export const KNOWN_SURFACES = {
     notes:
       '2026 service-path format: f.req with /MapsService.Method and no at field. Works anonymously.',
   },
+  mapLayerTiles: {
+    status: 'working',
+    method: 'GET',
+    path: 'mt.google.com/vt?lyrs={m|p|s|y|transit|h,traffic}',
+    notes:
+      'Raster basemap and overlay tiles. `p` (terrain) and `s`/`y` (imagery) answer JPEG, the rest PNG. Traffic only paints when composited onto a base layer (`h,traffic`); a bare `traffic` key returns a transparent tile.',
+  },
+  satelliteImagery: {
+    status: 'working',
+    method: 'GET',
+    path: 'mt.google.com/vt?lyrs=s|y',
+    notes:
+      'Satellite (`s`) and hybrid (`y`) imagery, JPEG. earth.google.com exposes no public imagery API — mw.google.com/mw-earth does not resolve.',
+  },
+  evCharging: {
+    status: 'fallback',
+    method: 'GET',
+    path: '/search?tbm=map + /maps/preview/place',
+    notes:
+      'No EV RPC exists. Stations are found by categorical place search; connector type, power, and plug count come from placeData[140][1][0][2]. Live availability and pricing are not published anywhere.',
+  },
+  parkingSearch: {
+    status: 'fallback',
+    method: 'GET',
+    path: '/search?tbm=map',
+    notes:
+      'No parking RPC exists. Parking lots are ordinary places found by categorical search. Space counts and posted rates are not carried in place data.',
+  },
+  adminRegions: {
+    status: 'fallback',
+    method: 'GET',
+    path: '/search?tbm=map (reverse geocode)',
+    notes:
+      'Region hierarchy is read from the reverse-geocode address tail. No polygons are published, so AdminRegion.bounds is absent.',
+  },
+  placeAttributes: {
+    status: 'working',
+    method: 'GET',
+    path: '/maps/preview/place (placeData[100][1])',
+    notes:
+      'Amenity / accessibility / payment attributes are per place. Maps publishes no global attribute catalog.',
+  },
+  trafficIncidents: {
+    status: 'blocked',
+    method: 'POST',
+    path: '/MapsTrafficService.GetIncidents',
+    notes:
+      'Not a real service path — batchexecute answers 400, identical to an unknown rpcid. Incident pins come from vector tiles. getAreaTraffic (EvxQ3b) is the working traffic surface.',
+  },
+  schoolsLayer: {
+    status: 'blocked',
+    method: 'POST',
+    path: '/MapsLayersService.GetSchools',
+    notes: 'Not a real service path — batchexecute answers 400. The schools layer is drawn from vector tiles.',
+  },
+  buildings3d: {
+    status: 'blocked',
+    method: 'POST',
+    path: '/MapsLayersService.Get3dBuildings',
+    notes:
+      'Not a real service path — batchexecute answers 400. 3D geometry is streamed as binary vector tiles to the WebGL renderer; use the paid Photorealistic 3D Tiles API.',
+  },
+  transitRouting: {
+    status: 'fallback',
+    method: 'GET',
+    path: '/maps/preview/directions?mode=transit',
+    notes:
+      'No transit routing RPC exists (/MapsApi.GetTransitDirections answers 400). Transit routes come from the directions surface with mode=transit.',
+  },
 } as const satisfies Record<string, SurfaceInfo>;
 
 export type KnownSurfaceName = keyof typeof KNOWN_SURFACES;

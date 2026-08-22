@@ -22,6 +22,12 @@ export interface AdminRegion {
   name: string;
   type: AdminLevel;
   code?: string;
-  bounds: { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } };
+  /**
+   * Region extent, when the source surface reports one.
+   *
+   * Reverse geocode names the administrative hierarchy but does not carry
+   * polygons, so this is usually absent.
+   */
+  bounds?: { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } };
   parent?: AdminRegion;
 }

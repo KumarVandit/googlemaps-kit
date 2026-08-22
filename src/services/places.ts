@@ -19,6 +19,7 @@ import type {
 import type { MapsPreviewPlaceResponse, PlaceDataNode, PbNode } from '../types/protobuf.js';
 import { dedupePhotos } from '../utils/photo-url.js';
 import type { ReviewsService } from './reviews.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 export interface GetPlaceOptions {
   hexId: string;
@@ -107,9 +108,7 @@ export class PlacesService {
     });
 
     const start = performance.now();
-    const referer = options.name
-      ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-      : 'https://www.google.com/maps/';
+    const referer = buildPlaceReferer(options.name);
     const data = await this.http.get(url, {
       referer,
       includeOrigin: true,

@@ -1,12 +1,12 @@
 import { HttpClient } from '../client/http-client.js';
 import { GMapsParseError } from '../types/common.js';
-import { readPngDimensions, unwrapTilePng } from '../parsers/tiles.js';
+import { readJpegDimensions, readPngDimensions, unwrapTileImage } from '../parsers/tiles.js';
 import {
   buildIconUrl,
   buildMapTileUrl,
   DEFAULT_POI_ICON,
 } from '../rpc/tiles-pb.js';
-import { buildTrafficTileUrl, buildTransitTileUrl, buildTerrainTileUrl } from '../rpc/tile-builders.js';
+import { buildEarthTileUrl, buildTerrainTileUrl } from '../rpc/tile-builders.js';
 import type { GMapsConfig } from '../types/common.js';
 import type {
   MapIconFetchOptions,
@@ -31,7 +31,7 @@ export class TilesService {
     const { bytes: envelope, contentType } = await this.http.getBytes(url, {
       referer: 'https://www.google.com/maps/',
       includeOrigin: true,
-      minBytes: 100,
+      allowShortBody: true,
     });
 
     return this.decodeTile(envelope, contentType, {
@@ -64,26 +64,22 @@ export class TilesService {
         scale: options.scale,
       });
     } else {
-      // satellite and hybrid use mt.google.com
-      const mtUrl = new URL(`https://mt.google.com/vt`);
-      mtUrl.searchParams.set('x', String(options.x));
-      mtUrl.searchParams.set('y', String(options.y));
-      mtUrl.searchParams.set('z', String(options.z));
-      if (options.layer === 'satellite') {
-        mtUrl.searchParams.set('style', 'satellite');
-      } else {
-        mtUrl.searchParams.set('style', 'hybrid');
-      }
-      if (options.scale && options.scale > 1) {
-        mtUrl.searchParams.set('scale', String(options.scale));
-      }
-      url = mtUrl.toString();
+      // Satellite and hybrid come from mt.google.com, selected with `lyrs`
+      // (`s` = imagery, `y` = imagery plus roads and labels). A `style` param
+      // is ignored by that host and silently yields the roadmap tile.
+      url = buildEarthTileUrl({
+        x: options.x,
+        y: options.y,
+        zoom: options.z,
+        imageType: options.layer === 'hybrid' ? 'satellite' : 'aerial',
+        scale: options.scale,
+      });
     }
 
     const { bytes: envelope, contentType } = await this.http.getBytes(url, {
       referer: 'https://www.google.com/maps/',
       includeOrigin: true,
-      minBytes: 100,
+      allowShortBody: true,
     });
 
     return this.decodeTile(envelope, contentType, {
@@ -132,19 +128,24 @@ export class TilesService {
     contentType: string,
     coordinates: { z: number; x: number; y: number },
   ): MapTileResult {
-    const png = unwrapTilePng(envelope);
-    if (!png) {
-      throw new GMapsParseError('Tile response does not contain a PNG image');
+    const image = unwrapTileImage(envelope);
+    if (!image) {
+      throw new GMapsParseError(
+        `Tile response contains no decodable PNG or JPEG image (content-type: ${contentType})`,
+      );
     }
 
-    const dimensions = readPngDimensions(png);
+    const dimensions =
+      image.mimeType === 'image/png'
+        ? readPngDimensions(image.bytes)
+        : readJpegDimensions(image.bytes);
     if (!dimensions) {
-      throw new GMapsParseError('Extracted tile PNG has invalid IHDR');
+      throw new GMapsParseError('Extracted tile image has no readable dimensions');
     }
 
     return {
-      bytes: png,
-      contentType,
+      bytes: image.bytes,
+      contentType: image.mimeType,
       width: dimensions.width,
       height: dimensions.height,
       coordinates,

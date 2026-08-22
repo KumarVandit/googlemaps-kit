@@ -26,6 +26,7 @@ import {
   runRoute,
 } from './cli/run.js';
 import { runTui } from './cli/tui/app.js';
+import { getPackageVersion } from './utils/version.js';
 
 function usage(exit = 1): never {
   console.error(`googlemaps-kit — Intent CLI + TUI
@@ -43,6 +44,7 @@ Commands:
   googlemaps-kit media <hexId> | --query <text> [--near <lat,lng>] [--limit N]
   googlemaps-kit pipeline <query> --near <lat,lng> [--max N] [--profile card|full|false] [--opinions]
   googlemaps-kit capabilities
+  googlemaps-kit version                 print the installed version
 
 Global:
   --format table|pretty|json|csv|geojson   (default: table/pretty on TTY, json when piped)
@@ -56,6 +58,11 @@ TUI built with Bubble Tea (charmbracelet) via @oakoliver/bubbletea.
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
+
+  if (has(argv, '-v') || has(argv, '--version') || argv[0] === 'version') {
+    console.log(getPackageVersion());
+    return;
+  }
 
   if (has(argv, '-h') || has(argv, '--help')) usage(0);
 

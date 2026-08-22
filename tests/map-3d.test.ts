@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Map3dService } from '../src/services/map-3d.js';
 import { HttpClient } from '../src/client/http-client.js';
-import type { Building3d, Terrain3dResult } from '../src/types/map-3d.js';
+import { GMapsError } from '../src/types/common.js';
 
+/**
+ * 3D geometry is streamed to the Maps WebGL renderer as binary vector tiles.
+ * There is no queryable service, so both methods must fail loudly rather than
+ * report an empty result that reads as "no buildings here".
+ */
 describe('Map3dService', () => {
   const http = new HttpClient({ config: {} });
   const service = new Map3dService(http, {});
@@ -13,70 +18,28 @@ describe('Map3dService', () => {
   };
 
   describe('getBuildings', () => {
-    it('should return an array of buildings', async () => {
-      const buildings = await service.getBuildings({
-        bounds: sanFranciscoBounds,
-      });
-      expect(Array.isArray(buildings)).toBe(true);
-      expect(buildings).toHaveLength(0); // Mock returns empty
+    it('rejects rather than returning an empty array', async () => {
+      await expect(service.getBuildings({ bounds: sanFranciscoBounds })).rejects.toThrow(
+        GMapsError,
+      );
     });
 
-    it('should accept sort options', async () => {
-      const buildings = await service.getBuildings({
-        bounds: sanFranciscoBounds,
-        sort: 'height',
-      });
-      expect(Array.isArray(buildings)).toBe(true);
-    });
-
-    it('should accept minHeight filter', async () => {
-      const buildings = await service.getBuildings({
-        bounds: sanFranciscoBounds,
-        minHeight: 50,
-      });
-      expect(Array.isArray(buildings)).toBe(true);
-    });
-
-    it('should have correct Building3d structure', async () => {
-      const buildings = await service.getBuildings({
-        bounds: sanFranciscoBounds,
-      });
-      if (buildings.length > 0) {
-        const building = buildings[0]!;
-        expect(building).toHaveProperty('id');
-        expect(building).toHaveProperty('outline');
-        expect(building).toHaveProperty('height');
-        expect(building).toHaveProperty('centerLat');
-        expect(building).toHaveProperty('centerLng');
-        expect(Array.isArray(building.outline)).toBe(true);
-      }
+    it('names the supported alternative in the error', async () => {
+      await expect(service.getBuildings({ bounds: sanFranciscoBounds })).rejects.toThrow(
+        /Photorealistic 3D Tiles/i,
+      );
     });
   });
 
   describe('getTerrain', () => {
-    it('should return terrain result with mesh data', async () => {
-      const terrain = await service.getTerrain({
-        bounds: sanFranciscoBounds,
-      });
-      expect(terrain).toHaveProperty('mesh');
-      expect(terrain).toHaveProperty('format');
-      expect(terrain).toHaveProperty('bounds');
-      expect(terrain.format).toBe('gltf');
+    it('rejects rather than returning an empty mesh', async () => {
+      await expect(service.getTerrain({ bounds: sanFranciscoBounds })).rejects.toThrow(GMapsError);
     });
 
-    it('should accept resolution options', async () => {
-      const terrain = await service.getTerrain({
-        bounds: sanFranciscoBounds,
-        resolution: 'high',
-      });
-      expect(terrain.format).toBe('gltf');
-    });
-
-    it('should have correct bounds in result', async () => {
-      const terrain = await service.getTerrain({
-        bounds: sanFranciscoBounds,
-      });
-      expect(terrain.bounds).toEqual(sanFranciscoBounds);
+    it('points at the raster terrain layer', async () => {
+      await expect(service.getTerrain({ bounds: sanFranciscoBounds })).rejects.toThrow(
+        /layers\.getTerrain/,
+      );
     });
   });
 });

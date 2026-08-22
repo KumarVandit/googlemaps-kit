@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MapLayersService } from '../src/services/map-layers.js';
 import { HttpClient } from '../src/client/http-client.js';
-import type { LayerTileResult, SchoolMarker } from '../src/types/map-layers.js';
+import { GMapsError } from '../src/types/common.js';
+import type { LayerTileResult } from '../src/types/map-layers.js';
 
 describe('MapLayersService', () => {
   const http = new HttpClient({ config: {} });
@@ -15,58 +16,14 @@ describe('MapLayersService', () => {
   const tileOptions = { zoom: 15, x: 1, y: 1 };
 
   describe('getSchools', () => {
-    it('should return array of school markers', async () => {
-      const schools = await service.getSchools({
-        bounds: sanFranciscoBounds,
-      });
-      expect(Array.isArray(schools)).toBe(true);
+    // /MapsLayersService.GetSchools is not a real batchexecute service — it
+    // answers 400 exactly like an unknown rpcid.
+    it('rejects rather than returning an empty marker list', async () => {
+      await expect(service.getSchools({ bounds: sanFranciscoBounds })).rejects.toThrow(GMapsError);
     });
 
-    it('should have correct SchoolMarker structure when populated', async () => {
-      const schools = await service.getSchools({
-        bounds: sanFranciscoBounds,
-      });
-      if (schools.length > 0) {
-        const school = schools[0]!;
-        expect(school).toHaveProperty('id');
-        expect(school).toHaveProperty('name');
-        expect(school).toHaveProperty('type');
-        expect(school).toHaveProperty('lat');
-        expect(school).toHaveProperty('lng');
-        expect(['elementary', 'middle', 'high', 'college']).toContain(school.type);
-      }
-    });
-
-    it('should support type filter', async () => {
-      const schools = await service.getSchools({
-        bounds: sanFranciscoBounds,
-        type: 'high',
-      });
-      expect(Array.isArray(schools)).toBe(true);
-    });
-
-    it('should return array on error (graceful fallback)', async () => {
-      const schools = await service.getSchools({
-        bounds: sanFranciscoBounds,
-      });
-      expect(Array.isArray(schools)).toBe(true);
-      expect(schools.length >= 0).toBe(true);
-    });
-
-    it('should support all school types in filter', async () => {
-      const types: Array<'elementary' | 'middle' | 'high' | 'college'> = [
-        'elementary',
-        'middle',
-        'high',
-        'college',
-      ];
-      for (const type of types) {
-        const schools = await service.getSchools({
-          bounds: sanFranciscoBounds,
-          type,
-        });
-        expect(Array.isArray(schools)).toBe(true);
-      }
+    it('points callers at place search', async () => {
+      await expect(service.getSchools({ bounds: sanFranciscoBounds })).rejects.toThrow(/places\.search/);
     });
   });
 

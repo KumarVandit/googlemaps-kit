@@ -1,126 +1,109 @@
 import { describe, it, expect } from 'vitest';
 import { EvChargingService } from '../src/services/ev-charging.js';
 import { HttpClient } from '../src/client/http-client.js';
-import type { EvChargingStation, EvChargerStatus, EvChargingPrice } from '../src/index.js';
+import { extractEvChargers, extractChargerLastReported } from '../src/parsers/ev-charging.js';
+import { GMapsError } from '../src/types/common.js';
+import type { PbNode } from '../src/types/protobuf.js';
+
+/** Preview payload shape: connectors live at `placeData[140][1][0][2]`. */
+function previewWithConnectors(connectors: PbNode[]): PbNode {
+  const placeData: PbNode[] = [];
+  placeData[140] = [null, [[null, null, connectors]]];
+  const root: PbNode[] = [];
+  root[6] = placeData;
+  return root;
+}
+
+const CCS_180KW: PbNode = [
+  'CCS',
+  null,
+  null,
+  [
+    [1, null, null, 1787342050],
+    [1, null, null, 1787415491],
+  ],
+  2,
+  6,
+  180,
+  null,
+  'https://www.gstatic.com/maps/ev/connectors/EV_Connectors_CCS_2.png',
+  ['Very fast'],
+  [180, 180],
+];
+
+describe('extractEvChargers', () => {
+  it('reads connector type and power', () => {
+    const chargers = extractEvChargers(previewWithConnectors([CCS_180KW]), 'hex:1');
+    expect(chargers).toHaveLength(1);
+    expect(chargers[0]!.type).toBe('ccs');
+    expect(chargers[0]!.power).toBe(180);
+  });
+
+  it('counts plugs from the per-port array', () => {
+    const chargers = extractEvChargers(previewWithConnectors([CCS_180KW]), 'hex:1');
+    expect(chargers[0]!.totalCount).toBe(2);
+  });
+
+  it('reports status as unknown — Google documents no code mapping', () => {
+    const chargers = extractEvChargers(previewWithConnectors([CCS_180KW]), 'hex:1');
+    expect(chargers[0]!.status).toBe('unknown');
+  });
+
+  it('scopes the charger id to its station', () => {
+    const chargers = extractEvChargers(previewWithConnectors([CCS_180KW]), 'hex:abc');
+    expect(chargers[0]!.id).toBe('hex:abc:0');
+  });
+
+  it('classifies other connector labels', () => {
+    const labels: Array<[string, string]> = [
+      ['CHAdeMO', 'chademo'],
+      ['Tesla Supercharger', 'supercharger'],
+      ['Type 2', 'type2'],
+      ['Wall outlet', 'ac'],
+    ];
+    for (const [label, expected] of labels) {
+      const entry: PbNode = [label, null, null, [[1]], 2, 6, 50, null, '', ['Fast'], [50, 50]];
+      const chargers = extractEvChargers(previewWithConnectors([entry]), 'x');
+      expect(chargers[0]!.type).toBe(expected);
+    }
+  });
+
+  it('handles a connector block with no per-port array', () => {
+    const entry: PbNode = ['CCS', null, null, null, 2, 6, 60, null, '', ['Fast'], [60, 60]];
+    const chargers = extractEvChargers(previewWithConnectors([entry]), 'x');
+    expect(chargers[0]!.totalCount).toBeUndefined();
+  });
+
+  it('returns nothing when the place carries no connector block', () => {
+    expect(extractEvChargers([], 'x')).toEqual([]);
+  });
+});
+
+describe('extractChargerLastReported', () => {
+  it('returns the newest port report time', () => {
+    const at = extractChargerLastReported(previewWithConnectors([CCS_180KW]));
+    expect(at).toEqual(new Date(1787415491 * 1000));
+  });
+
+  it('returns undefined when no port carries a timestamp', () => {
+    const entry: PbNode = ['CCS', null, null, [[2], [2]], 2, 6, 60, null, '', ['Fast'], [60, 60]];
+    expect(extractChargerLastReported(previewWithConnectors([entry]))).toBeUndefined();
+  });
+});
 
 describe('EvChargingService', () => {
   const http = new HttpClient({ config: {} });
   const service = new EvChargingService(http, {});
 
-  describe('findCharging', () => {
-    it('should return array of charging stations', async () => {
-      const results = await service.findCharging({
-        location: { lat: 37.77, lng: -122.42 },
-      });
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should accept optional parameters', async () => {
-      const results = await service.findCharging({
-        location: { lat: 37.77, lng: -122.42 },
-        radiusMeters: 5000,
-        connectorTypes: ['type2', 'ccs'],
-        minPower: 50,
-        sort: 'distance',
-      });
-      expect(Array.isArray(results)).toBe(true);
-    });
-
-    it('should have correct EvChargingStation structure when populated', async () => {
-      const results = await service.findCharging({
-        location: { lat: 37.77, lng: -122.42 },
-      });
-      if (results.length > 0) {
-        const station = results[0]!;
-        expect(station).toHaveProperty('id');
-        expect(station).toHaveProperty('name');
-        expect(station).toHaveProperty('lat');
-        expect(station).toHaveProperty('lng');
-        expect(Array.isArray(station.chargers)).toBe(true);
-      }
-    });
+  it('rejects getStatus — availability is not published', async () => {
+    await expect(service.getStatus('hex:1')).rejects.toThrow(GMapsError);
   });
 
-  describe('getStatus', () => {
-    it('should return charger status', async () => {
-      const status = await service.getStatus('charger-123');
-      expect(status).toHaveProperty('chargerId');
-      expect(status).toHaveProperty('status');
-      expect(status).toHaveProperty('available');
-      expect(status).toHaveProperty('lastUpdated');
-      expect(status.lastUpdated).toBeInstanceOf(Date);
-    });
-
-    it('should handle errors gracefully with fallback', async () => {
-      const status = await service.getStatus('nonexistent-charger');
-      expect(status.chargerId).toBe('nonexistent-charger');
-      expect(status.status).toBe('unknown');
-      expect(status.available).toBe(false);
-    });
+  it('points getStatus callers at findCharging', async () => {
+    await expect(service.getStatus('hex:1')).rejects.toThrow(/findCharging/);
   });
 
-  describe('getPricing', () => {
-    it('should return pricing information', async () => {
-      const pricing = await service.getPricing('station-123');
-      expect(pricing).toHaveProperty('stationId');
-      expect(pricing).toHaveProperty('currency');
-      expect(pricing).toHaveProperty('pricing');
-    });
-
-    it('should handle errors gracefully with fallback', async () => {
-      const pricing = await service.getPricing('nonexistent-station');
-      expect(pricing.stationId).toBe('nonexistent-station');
-      expect(pricing.currency).toBe('USD');
-      expect(typeof pricing.pricing).toBe('object');
-    });
-
-    it('should support pricing structure', async () => {
-      const pricing = await service.getPricing('station-123');
-      const p = pricing.pricing;
-      const firstKey = Object.keys(p)[0];
-      if (firstKey) {
-        expect(['perKwh', 'perMinute', 'perSession']).toContain(firstKey);
-      }
-      // Empty pricing is acceptable (fallback case)
-      expect(typeof p).toBe('object');
-    });
-  });
-
-  describe('Type validation', () => {
-    it('should validate EvChargingStation type', () => {
-      const station: EvChargingStation = {
-        id: 'station-1',
-        name: 'Charging Hub A',
-        operator: 'Tesla',
-        lat: 37.77,
-        lng: -122.42,
-        distanceMeters: 500,
-        chargers: [],
-      };
-      expect(station.id).toBe('station-1');
-      expect(station.chargers.length).toBe(0);
-    });
-
-    it('should validate EvChargerStatus type', () => {
-      const status: EvChargerStatus = {
-        chargerId: 'charger-1',
-        status: 'available',
-        available: true,
-        lastUpdated: new Date(),
-      };
-      expect(status.status).toBe('available');
-    });
-
-    it('should validate EvChargingPrice type', () => {
-      const price: EvChargingPrice = {
-        stationId: 'station-1',
-        currency: 'USD',
-        pricing: {
-          perKwh: 0.35,
-          perMinute: 0.05,
-        },
-      };
-      expect(price.pricing.perKwh).toBe(0.35);
-    });
+  it('rejects getPricing — tariffs are not published', async () => {
+    await expect(service.getPricing('hex:1')).rejects.toThrow(GMapsError);
   });
 });

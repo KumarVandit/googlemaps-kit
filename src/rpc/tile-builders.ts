@@ -32,7 +32,7 @@ export function buildMapTileUrl(options: {
 
 /**
  * Build a traffic overlay tile URL.
- * Format: https://mt.google.com/vt?lyrs=traffic&x={x}&y={y}&z={z}
+  * Format: https://mt.google.com/vt?lyrs=h,traffic&x={x}&y={y}&z={z}
  */
 export function buildTrafficTileUrl(options: {
   x: number;
@@ -41,7 +41,9 @@ export function buildTrafficTileUrl(options: {
   scale?: 1 | 2;
 }): string {
   const params = new URLSearchParams({
-    lyrs: 'traffic',
+    // `traffic` on its own renders a fully transparent tile — mt.google.com only
+    // paints the congestion overlay when it is composited onto a base layer.
+    lyrs: 'h,traffic',
     x: String(options.x),
     y: String(options.y),
     z: String(options.zoom),
@@ -103,46 +105,31 @@ export function buildTerrainTileUrl(options: {
 }
 
 /**
- * Build a Google Earth tile URL.
- * Format: https://mw.google.com/mw-earth/api/earthentity/cc/imagery?...
+ * Build a satellite / hybrid imagery tile URL.
+ *
+ * `earth.google.com` has no public tile API — the imagery the Maps web client
+ * renders comes from the same `mt.google.com/vt` host as the basemap, keyed
+ * `s` (satellite only) or `y` (satellite + roads and labels). Both answer JPEG.
  */
 export function buildEarthTileUrl(options: {
   x: number;
   y: number;
   zoom: number;
   imageType?: 'aerial' | 'satellite';
+  scale?: 1 | 2;
 }): string {
   const params = new URLSearchParams({
+    lyrs: options.imageType === 'satellite' ? 'y' : 's',
     x: String(options.x),
     y: String(options.y),
     z: String(options.zoom),
-    imageType: options.imageType ?? 'aerial',
   });
 
-  return `https://mw.google.com/mw-earth/api/earthentity/cc/imagery?${params.toString()}`;
-}
-
-/**
- * Build a 3D building geometry request URL.
- * These are typically fetched via RPC, not direct HTTP.
- */
-export function build3dBuildingsUrl(options: {
-  neLat: number;
-  neLng: number;
-  swLat: number;
-  swLng: number;
-  zoom?: number;
-}): string {
-  const params = new URLSearchParams({
-    ne: `${options.neLat},${options.neLng}`,
-    sw: `${options.swLat},${options.swLng}`,
-  });
-
-  if (options.zoom) {
-    params.set('zoom', String(options.zoom));
+  if (options.scale && options.scale > 1) {
+    params.set('scale', String(options.scale));
   }
 
-  return `https://maps.google.com/maps/api/js/buildings?${params.toString()}`;
+  return `https://mt.google.com/vt?${params.toString()}`;
 }
 
 /**

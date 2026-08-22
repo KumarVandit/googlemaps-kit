@@ -1,11 +1,10 @@
 import { HttpClient } from '../client/http-client.js';
-import { extractAreaTraffic, extractIncidents } from '../parsers/traffic.js';
+import { extractAreaTraffic } from '../parsers/traffic.js';
 import { buildAreaTrafficArgs } from '../rpc/batch-request-builders.js';
-import { buildTrafficIncidentsArgs } from '../rpc/traffic-incidents-pb.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient } from '../rpc/batch-rpc.js';
+import { GMapsError } from '../types/common.js';
 import type { GMapsConfig } from '../types/common.js';
-import type { PbNode } from '../types/protobuf.js';
 import type {
   AreaTrafficReport,
   GetAreaTrafficOptions,
@@ -43,26 +42,20 @@ export class TrafficService {
     return extractAreaTraffic(data);
   }
 
-  /** Fetch detailed traffic incidents (accidents, road work, etc.) in a region. */
-  async getIncidents(options: TrafficIncidentsOptions): Promise<TrafficIncident[]> {
-    const rpc = await createRpcClient(this.http, this.config);
-    const psi = options.psi ?? (await this.resolvePsi());
-
-    try {
-      const data = await rpc.call(
-        BATCH_SERVICES.TRAFFIC_INCIDENTS,
-        buildTrafficIncidentsArgs({
-          psi,
-          neLat: options.neLat,
-          neLng: options.neLng,
-          swLat: options.swLat,
-          swLng: options.swLng,
-        }),
-      );
-      return extractIncidents(data as PbNode);
-    } catch {
-      return [];
-    }
+  /**
+   * Not available.
+   *
+   * Google renders incident pins from the same vector tiles as the traffic
+   * layer and exposes no incident service. `getAreaTraffic()` returns the
+   * congestion summary that batchexecute does publish.
+   *
+   * @throws {GMapsError} always
+   */
+  async getIncidents(_options: TrafficIncidentsOptions): Promise<TrafficIncident[]> {
+    throw new GMapsError(
+      'Traffic incidents are not exposed by any public Maps surface — ' +
+        'getAreaTraffic() returns the published congestion summary.',
+    );
   }
 
   private async resolvePsi(): Promise<string> {
