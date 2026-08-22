@@ -80,3 +80,24 @@ export interface PlaceList {
   entries: PlaceListEntry[];
   raw?: unknown;
 }
+
+/** Options for browsing public lists. */
+export interface ListBrowseOptions {
+  category?: 'featured' | 'trending' | 'new';
+  language?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Summary of a list for browsing. */
+export interface PlaceListSummary {
+  id: string;
+  title: string;
+  description?: string;
+  ownerName?: string;
+  itemCount: number;
+  itemPreview?: Array<{ name: string; lat?: number; lng?: number }>;
+  createdAt?: Date;
+  lastModified?: Date;
+  isPublic: boolean;
+}

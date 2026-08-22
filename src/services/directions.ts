@@ -111,6 +111,20 @@ export class DirectionsService {
     return best;
   }
 
+  /**
+   * Fetch alternative routes for directions.
+   * Returns multiple route options sorted by travel time.
+   * Respects alternatives count limit when specified (default: all available).
+   */
+  async getAlternatives(
+    options: DirectionsGetOptions & { alternatives?: number },
+  ): Promise<DirectionsResult['routes']> {
+    const result = await this.get(options);
+    const routes = result.routes ?? [];
+    const limit = options.alternatives ?? routes.length;
+    return routes.slice(0, Math.max(1, limit));
+  }
+
   private hasMetrics(result: DirectionsResult): boolean {
     return Boolean(
       result.duration ||

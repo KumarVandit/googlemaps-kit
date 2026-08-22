@@ -6,19 +6,71 @@ import {
   parseListIdFromInput,
 } from '../parsers/lists.js';
 import { buildGetListUrl } from '../rpc/lists-pb.js';
+import { createRpcClient } from '../rpc/batch-rpc.js';
+import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { GMapsError, type GMapsConfig } from '../types/common.js';
-import type { GetListOptions, PlaceList } from '../types/lists.js';
+import type {
+  GetListOptions,
+  ListBrowseOptions,
+  PlaceList,
+  PlaceListSummary,
+} from '../types/lists.js';
 import type { PbNode } from '../types/protobuf.js';
 
 export class ListsService {
   private http: HttpClient;
   private hl: string;
   private gl: string;
+  private config: GMapsConfig;
 
   constructor(http: HttpClient, config: GMapsConfig) {
     this.http = http;
     this.hl = config.hl ?? 'en';
     this.gl = config.gl ?? 'us';
+    this.config = config;
+  }
+
+  /**
+   * Browse public lists (featured, trending, new).
+   * Returns list summaries with item count and previews.
+   */
+  async list(options?: ListBrowseOptions): Promise<PlaceListSummary[]> {
+    const psi = 'anonymous';
+    const rpc = await createRpcClient(this.http, this.config);
+
+    try {
+      const category = options?.category ?? 'featured';
+      const categoryCode = category === 'trending' ? 1 : category === 'new' ? 2 : 0;
+
+      const data = await rpc.call(
+        '/MapsListsService.BrowseLists',
+        [
+          { psi },
+          [categoryCode],
+        ],
+      );
+
+      // Extract list summaries from response [1][*]
+      const results: PlaceListSummary[] = [];
+      const listsArray = Array.isArray(data) ? (data as any)[1] : null;
+      if (Array.isArray(listsArray)) {
+        for (const item of listsArray) {
+          if (!Array.isArray(item)) continue;
+          const summary: PlaceListSummary = {
+            id: (item as any)[0] ?? '',
+            title: (item as any)[1] ?? '',
+            itemCount: (item as any)[2] ?? 0,
+            ownerName: (item as any)[3],
+            isPublic: true,
+          };
+          if (summary.id) results.push(summary);
+        }
+      }
+
+      return results;
+    } catch {
+      return [];
+    }
   }
 
   /**

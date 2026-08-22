@@ -311,3 +311,81 @@ export function extractPlaceAggregateAttributes(placeData: PlaceDataNode): {
     plusCode: extractPlusCode(placeData),
   };
 }
+
+// Attribute catalog functions for the new PlaceAttributesService
+import type { Attribute, AttributeCategory } from '../types/place-attributes.js';
+
+export function extractAttributeCatalog(data: PbNode): AttributeCategory[] {
+  const results: AttributeCategory[] = [];
+
+  const categoriesArray = safeGet<PbNode[]>(data, 1);
+  if (!Array.isArray(categoriesArray)) return results;
+
+  for (const catNode of categoriesArray) {
+    if (!Array.isArray(catNode)) continue;
+
+    const catId = safeGet<string>(catNode, 0) ?? '';
+    const catName = safeGet<string>(catNode, 1) ?? catId;
+
+    const attributes: Attribute[] = [];
+    const attrsArray = safeGet<PbNode[]>(catNode, 2);
+    if (Array.isArray(attrsArray)) {
+      for (const attrNode of attrsArray) {
+        if (!Array.isArray(attrNode)) continue;
+
+        const attr: Attribute = {
+          id: safeGet<string>(attrNode, 0) ?? '',
+          name: safeGet<string>(attrNode, 1) ?? '',
+          category: catId,
+          description: safeGet<string>(attrNode, 3),
+          icon: safeGet<string>(attrNode, 4),
+        };
+
+        if (attr.id) attributes.push(attr);
+      }
+    }
+
+    if (catId) {
+      results.push({
+        id: catId,
+        name: catName,
+        attributes,
+      });
+    }
+  }
+
+  return results;
+}
+
+export function getCategoryAttributes(
+  catalog: AttributeCategory[],
+  category: string,
+): Attribute[] {
+  const cat = catalog.find((c) => c.id === category);
+  return cat?.attributes ?? [];
+}
+
+export function getAttributesByType(
+  catalog: AttributeCategory[],
+  type: 'accessibility' | 'parking' | 'payment' | 'amenities',
+): Attribute[] {
+  const results: Attribute[] = [];
+  for (const cat of catalog) {
+    for (const attr of cat.attributes) {
+      if (mapAttributeType(attr.category) === type) {
+        results.push(attr);
+      }
+    }
+  }
+  return results;
+}
+
+function mapAttributeType(
+  category: string,
+): 'accessibility' | 'parking' | 'payment' | 'amenities' {
+  if (category.includes('wheelchair') || category.includes('access'))
+    return 'accessibility';
+  if (category.includes('parking')) return 'parking';
+  if (category.includes('payment')) return 'payment';
+  return 'amenities';
+}

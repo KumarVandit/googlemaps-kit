@@ -117,3 +117,22 @@ export interface PanoramaGetOptions {
 /** Options for `getByLocation` — lat/lng are passed as method arguments. */
 export type PanoramaLocationOptions = Omit<PanoramaSearchOptions, 'lat' | 'lng'> &
   PanoramaGetOptions;
+
+/** Options for fetching panorama video. */
+export interface PanoramaVideoOptions {
+  panoId?: string;
+  heading?: number;
+  pitch?: number;
+  fov?: number;
+  quality?: 'low' | 'medium' | 'high';
+  format?: 'mp4' | 'webm';
+}
+
+/** Result from fetching panorama video. */
+export interface PanoramaVideoResult {
+  videoUrl: string;
+  format: string;
+  duration: number;
+  width: number;
+  height: number;
+}

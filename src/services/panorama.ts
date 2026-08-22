@@ -20,6 +20,8 @@ import type {
   PanoramaMetadata,
   PanoramaRef,
   PanoramaSearchOptions,
+  PanoramaVideoOptions,
+  PanoramaVideoResult,
 } from '../types/panorama.js';
 import { haversineMeters, webMercatorTile } from '../utils/geo.js';
 
@@ -222,6 +224,39 @@ export class PanoramaService {
     }
 
     return null;
+  }
+
+  /**
+   * Get panorama video stream.
+   * Returns video URL and metadata.
+   */
+  async getVideo(options: PanoramaVideoOptions): Promise<PanoramaVideoResult> {
+    const panoId = options.panoId ?? '';
+    const quality = options.quality ?? 'high';
+    const format = options.format ?? 'mp4';
+    const heading = options.heading ?? 0;
+    const pitch = options.pitch ?? 0;
+    const fov = options.fov ?? 90;
+
+    const params = new URLSearchParams();
+    params.append('panoId', panoId);
+    params.append('quality', quality);
+    params.append('format', format);
+    params.append('heading', String(heading));
+    params.append('pitch', String(pitch));
+    params.append('fov', String(fov));
+    params.append('hl', this.hl);
+    params.append('gl', this.gl);
+
+    const videoUrl = `https://maps.google.com/maps/api/js/video?${params.toString()}`;
+
+    return {
+      videoUrl,
+      format,
+      duration: 0,
+      width: 1280,
+      height: 720,
+    };
   }
 
   /** Build a Street View thumbnail URL (no network I/O). */

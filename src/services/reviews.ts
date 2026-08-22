@@ -198,6 +198,36 @@ export class ReviewsService {
   }
 
   /**
+   * Stream review pages as an async generator.
+   * Yields each page as it's fetched, with deduplication across pages.
+   */
+  async *listPages(options: GetReviewsOptions): AsyncGenerator<ReviewsResult> {
+    // TODO: Implement pagination generator
+    // Fetch first page using listBoq or listEmbedded
+    // Track seen review IDs to deduplicate across yields
+    // Yield each page as it arrives
+    // Continue until no nextPageToken
+    const firstPage = await this.list(options);
+    const seen = new Set<string>();
+    for (const review of firstPage.reviews) {
+      if (review.reviewId) seen.add(review.reviewId);
+    }
+    yield firstPage;
+
+    let nextToken = firstPage.nextPageToken;
+    while (nextToken) {
+      const page = await this.list({ ...options, paginationToken: nextToken });
+      const deduped = page.reviews.filter((r) => {
+        if (!r.reviewId || seen.has(r.reviewId)) return false;
+        seen.add(r.reviewId);
+        return true;
+      });
+      yield { ...page, reviews: deduped, reviewCount: deduped.length };
+      nextToken = page.nextPageToken;
+    }
+  }
+
+  /**
    * Full paginated reviews via GetLocalBoqProxy httpservice RPC.
    *
    * Responses are cumulative: passing page 1's `nextPageToken` returns page 1's reviews

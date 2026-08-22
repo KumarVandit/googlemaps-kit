@@ -322,4 +322,72 @@ export type {
   TransitDeparture,
   TransitModeBoard,
   TransitStationBoard,
+  TransitRouteOptions,
+  TransitRouteResult,
+  TransitRoute,
+  TransitLeg,
+  TransitStation,
+  TransitLine,
 } from './types/transit.js';
+export type {
+  Parking,
+  ParkingAvailability,
+  ParkingPrice,
+  ParkingSearchOptions,
+  ParkingType,
+} from './types/parking.js';
+export type {
+  EvChargingStation,
+  EvCharger,
+  EvChargerStatus,
+  EvChargingPrice,
+  EvChargingSearchOptions,
+  ConnectorType,
+  ChargerStatus,
+} from './types/ev-charging.js';
+export type {
+  LayerTileOptions,
+  LayerTileResult,
+  LayerSearchOptions,
+  SchoolMarker,
+} from './types/map-layers.js';
+export type {
+  Map3dBuildingsOptions,
+  Building3d,
+  Map3dTerrainOptions,
+  Terrain3dResult,
+} from './types/map-3d.js';
+export type {
+  EarthTileOptions,
+  EarthTileResult,
+  EarthImageryOptions,
+  EarthImageryResult,
+} from './types/map-earth.js';
+export type {
+  NearbyAreasOptions,
+  GeoArea,
+  AdminRegion,
+  AdminLevel,
+  AreaType,
+} from './types/location-context.js';
+export type {
+  AttributeCategory,
+  Attribute,
+} from './types/place-attributes.js';
+export type {
+  TrafficIncident,
+  TrafficIncidentsOptions,
+  IncidentType,
+  IncidentSeverity,
+} from './types/traffic.js';
+export type {
+  PanoramaVideoOptions,
+  PanoramaVideoResult,
+} from './types/panorama.js';
+export type {
+  ListBrowseOptions,
+  PlaceListSummary,
+} from './types/lists.js';
+export type {
+  MapLayerTileOptions,
+} from './types/tiles.js';

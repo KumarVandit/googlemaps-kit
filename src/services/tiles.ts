@@ -6,10 +6,12 @@ import {
   buildMapTileUrl,
   DEFAULT_POI_ICON,
 } from '../rpc/tiles-pb.js';
+import { buildTrafficTileUrl, buildTransitTileUrl, buildTerrainTileUrl } from '../rpc/tile-builders.js';
 import type { GMapsConfig } from '../types/common.js';
 import type {
   MapIconFetchOptions,
   MapIconResult,
+  MapLayerTileOptions,
   MapTileFetchOptions,
   MapTileLatLngOptions,
   MapTileResult,
@@ -44,6 +46,51 @@ export class TilesService {
     const { lat, lng, zoom, ...rest } = options;
     const { x, y } = webMercatorTile(lat, lng, zoom);
     return this.getTile({ ...rest, z: zoom, x, y });
+  }
+
+  /** Fetch a specific map layer tile (satellite, hybrid, terrain, standard). */
+  async getLayer(options: MapLayerTileOptions): Promise<MapTileResult> {
+    // For satellite, hybrid, and terrain layers, use the external mt.google.com endpoints
+    // Standard layer uses the internal VT protobuf endpoint
+    let url: string;
+
+    if (options.layer === 'standard') {
+      url = buildMapTileUrl({ z: options.z, x: options.x, y: options.y });
+    } else if (options.layer === 'terrain') {
+      url = buildTerrainTileUrl({
+        x: options.x,
+        y: options.y,
+        zoom: options.z,
+        scale: options.scale,
+      });
+    } else {
+      // satellite and hybrid use mt.google.com
+      const mtUrl = new URL(`https://mt.google.com/vt`);
+      mtUrl.searchParams.set('x', String(options.x));
+      mtUrl.searchParams.set('y', String(options.y));
+      mtUrl.searchParams.set('z', String(options.z));
+      if (options.layer === 'satellite') {
+        mtUrl.searchParams.set('style', 'satellite');
+      } else {
+        mtUrl.searchParams.set('style', 'hybrid');
+      }
+      if (options.scale && options.scale > 1) {
+        mtUrl.searchParams.set('scale', String(options.scale));
+      }
+      url = mtUrl.toString();
+    }
+
+    const { bytes: envelope, contentType } = await this.http.getBytes(url, {
+      referer: 'https://www.google.com/maps/',
+      includeOrigin: true,
+      minBytes: 100,
+    });
+
+    return this.decodeTile(envelope, contentType, {
+      z: options.z,
+      x: options.x,
+      y: options.y,
+    });
   }
 
   /** Build a basemap tile URL (no network I/O). */

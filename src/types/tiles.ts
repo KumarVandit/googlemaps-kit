@@ -70,3 +70,12 @@ export interface MapIconResult {
   width: number;
   height: number;
 }
+
+/** Options for fetching a specific map layer tile. */
+export interface MapLayerTileOptions {
+  z: number;
+  x: number;
+  y: number;
+  layer: 'standard' | 'satellite' | 'hybrid' | 'terrain';
+  scale?: 1 | 2;
+}

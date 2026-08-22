@@ -66,3 +66,53 @@ export interface ListTransitLinesOptions {
   lng?: number;
   psi?: string;
 }
+
+export interface TransitRouteOptions {
+  origin: { lat: number; lng: number } | string;
+  destination: { lat: number; lng: number } | string;
+  departureTime?: Date;
+  arrivalTime?: Date;
+  preferences?: TransitPreference[];
+  language?: string;
+}
+
+export type TransitPreference = 'avoidSurface' | 'preferRail' | 'fewerTransfers';
+
+export interface TransitStation {
+  name: string;
+  code?: string;
+  lat: number;
+  lng: number;
+}
+
+export interface TransitLine {
+  number?: string;
+  color?: string;
+  agency?: string;
+}
+
+export interface TransitLeg {
+  mode: string;
+  startStation: TransitStation;
+  endStation: TransitStation;
+  departureTime: Date;
+  arrivalTime: Date;
+  durationSeconds: number;
+  line?: TransitLine;
+  instructions?: string;
+  stops?: TransitStation[];
+}
+
+export interface TransitRoute {
+  legs: TransitLeg[];
+  durationSeconds: number;
+  arrivalTime?: Date;
+  departureTime?: Date;
+  transfers: number;
+  summary?: string;
+}
+
+export interface TransitRouteResult {
+  routes: TransitRoute[];
+  timingMs: number;
+}

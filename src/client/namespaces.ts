@@ -10,14 +10,21 @@ import { CategoriesService } from '../services/categories.js';
 import { DirectionsService } from '../services/directions.js';
 import { DistanceMatrixService } from '../services/distance-matrix.js';
 import { ElevationService } from '../services/elevation.js';
+import { EvChargingService } from '../services/ev-charging.js';
 import { GeocodeService } from '../services/geocode.js';
 import { KnowledgeService } from '../services/knowledge.js';
 import { LinksService } from '../services/links.js';
 import { ListsService } from '../services/lists.js';
 import { LocalPostsService } from '../services/local-posts.js';
+import { LocationContextService } from '../services/location-context.js';
+import { Map3dService } from '../services/map-3d.js';
+import { MapEarthService } from '../services/map-earth.js';
+import { MapLayersService } from '../services/map-layers.js';
 import { PanoramaService } from '../services/panorama.js';
+import { ParkingService } from '../services/parking.js';
 import { PassiveAssistService } from '../services/passiveassist.js';
 import { PhotosService } from '../services/photos.js';
+import { PlaceAttributesService } from '../services/place-attributes.js';
 import { PlacesService, type GetPlaceOptions, type PlacePreviewFetchResult } from '../services/places.js';
 import { ReviewsService } from '../services/reviews.js';
 import { RevealService } from '../services/reveal.js';
@@ -41,18 +48,25 @@ export interface ServiceBundle {
   photos: PhotosService;
   knowledge: KnowledgeService;
   localPosts: LocalPostsService;
+  placeAttributes: PlaceAttributesService;
   geocode: GeocodeService;
   timezone: TimezoneService;
   reveal: RevealService;
   passiveAssist: PassiveAssistService;
+  context: LocationContextService;
   directions: DirectionsService;
   distanceMatrix: DistanceMatrixService;
   elevation: ElevationService;
   transit: TransitService;
   traffic: TrafficService;
+  parking: ParkingService;
+  ev: EvChargingService;
   tiles: TilesService;
+  layers: MapLayersService;
   staticMap: StaticMapService;
   panorama: PanoramaService;
+  map3d: Map3dService;
+  earth: MapEarthService;
   categories: CategoriesService;
   ugcAggregates: UgcAggregatesService;
   lists: ListsService;
@@ -71,6 +85,7 @@ export class PlacesNamespace {
   readonly photos: PhotosService;
   readonly knowledge: KnowledgeService;
   readonly localPosts: LocalPostsService;
+  readonly attributes: PlaceAttributesService;
 
   constructor(s: ServiceBundle) {
     this.search = s.search;
@@ -80,6 +95,7 @@ export class PlacesNamespace {
     this.photos = s.photos;
     this.knowledge = s.knowledge;
     this.localPosts = s.localPosts;
+    this.attributes = s.placeAttributes;
   }
 
   /** Place card (preview + parallel UGC/photo enrichment). */
@@ -106,12 +122,14 @@ export class LocationNamespace {
   readonly timezone: TimezoneService;
   readonly reveal: RevealService;
   readonly passiveAssist: PassiveAssistService;
+  readonly context: LocationContextService;
 
   constructor(s: ServiceBundle) {
     this.geocode = s.geocode;
     this.timezone = s.timezone;
     this.reveal = s.reveal;
     this.passiveAssist = s.passiveAssist;
+    this.context = s.context;
   }
 }
 
@@ -122,6 +140,8 @@ export class TravelNamespace {
   readonly elevation: ElevationService;
   readonly transit: TransitService;
   readonly traffic: TrafficService;
+  readonly parking: ParkingService;
+  readonly ev: EvChargingService;
 
   constructor(s: ServiceBundle) {
     this.directions = s.directions;
@@ -129,6 +149,8 @@ export class TravelNamespace {
     this.elevation = s.elevation;
     this.transit = s.transit;
     this.traffic = s.traffic;
+    this.parking = s.parking;
+    this.ev = s.ev;
   }
 }
 
@@ -137,11 +159,17 @@ export class MapNamespace {
   readonly tiles: TilesService;
   readonly staticMap: StaticMapService;
   readonly panorama: PanoramaService;
+  readonly layers: MapLayersService;
+  readonly map3d: Map3dService;
+  readonly earth: MapEarthService;
 
   constructor(s: ServiceBundle) {
     this.tiles = s.tiles;
     this.staticMap = s.staticMap;
     this.panorama = s.panorama;
+    this.layers = s.layers;
+    this.map3d = s.map3d;
+    this.earth = s.earth;
   }
 }
 
@@ -204,18 +232,25 @@ export function createServiceBundle(http: HttpClient, config: GMapsConfig): Serv
     photos: new PhotosService(http, config),
     knowledge: new KnowledgeService(http, config),
     localPosts: new LocalPostsService(http, config),
+    placeAttributes: new PlaceAttributesService(http, config),
     geocode,
     timezone: new TimezoneService(geocode, config),
     reveal: new RevealService(http, config),
     passiveAssist: new PassiveAssistService(http, config),
+    context: new LocationContextService(http, config),
     directions,
     distanceMatrix: new DistanceMatrixService(directions, config),
     elevation: new ElevationService(http, directions, config),
     transit: new TransitService(http, config),
     traffic: new TrafficService(http, config),
+    parking: new ParkingService(http, config),
+    ev: new EvChargingService(http, config),
     tiles: new TilesService(http, config),
+    layers: new MapLayersService(http, config),
     staticMap: new StaticMapService(http, config),
     panorama: new PanoramaService(http, config),
+    map3d: new Map3dService(http, config),
+    earth: new MapEarthService(http, config),
     categories: new CategoriesService(http, config),
     ugcAggregates: new UgcAggregatesService(http, config),
     lists: new ListsService(http, config),
