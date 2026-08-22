@@ -202,11 +202,6 @@ export class ReviewsService {
    * Yields each page as it's fetched, with deduplication across pages.
    */
   async *listPages(options: GetReviewsOptions): AsyncGenerator<ReviewsResult> {
-    // TODO: Implement pagination generator
-    // Fetch first page using listBoq or listEmbedded
-    // Track seen review IDs to deduplicate across yields
-    // Yield each page as it arrives
-    // Continue until no nextPageToken
     const firstPage = await this.list(options);
     const seen = new Set<string>();
     for (const review of firstPage.reviews) {
