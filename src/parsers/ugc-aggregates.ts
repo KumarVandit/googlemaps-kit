@@ -18,9 +18,16 @@ export function extractPlaceUgcAggregates(data: unknown, options?: { raw?: boole
   const distribution = safeGet<number[]>(block, 1);
   const totalCount = safeGet<number>(block, 2);
 
+  // The wire format always sends exactly 5 elements [5★,4★,3★,2★,1★].
+  // We cast safely after verifying length to satisfy the [n,n,n,n,n] tuple type.
+  const ratingDistribution =
+    Array.isArray(distribution) && distribution.length === 5
+      ? (distribution as [number, number, number, number, number])
+      : undefined;
+
   return {
     rating: typeof rating === 'number' ? rating : undefined,
-    ratingDistribution: Array.isArray(distribution) ? distribution : undefined,
+    ratingDistribution,
     totalCount: typeof totalCount === 'number' ? totalCount : undefined,
     raw: options?.raw ? root : undefined,
   };

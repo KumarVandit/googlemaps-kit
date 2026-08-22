@@ -30,6 +30,23 @@ export {
   extractEmbeddedReviews,
   extractPhotosDeep,
 } from '../parsers/place.js';
+export type { ExtractPlaceDetailsOptions } from '../parsers/place.js';
+export {
+  applyExtendedFields,
+  extractPlaceIdentifiers,
+  extractStructuredAddress,
+  extractReviewTags,
+  extractPeopleAlsoSearch,
+  extractOwnerUpdates,
+  extractGasPrices,
+  extractHotelData,
+  extractRestaurantData,
+  extractMenu,
+  extractEmbeddedQA,
+  buildReviewDetailedRating,
+} from '../parsers/place-extended.js';
+export { extractPopularTimes } from '../parsers/popular-times.js';
+export type { ExtractBoqReviewsOptions } from '../parsers/boq-reviews.js';
 export {
   extractOpeningSchedule,
   extractAttributeGroups,

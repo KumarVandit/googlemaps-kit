@@ -80,3 +80,93 @@ function encodeUnsigned(value: number): string {
   output += String.fromCharCode(remaining + 63);
   return output;
 }
+
+// ─── Human-readable helpers ────────────────────────────────────────────────
+
+/**
+ * Decode an encoded polyline string to an array of `{ lat, lng }` objects.
+ * Alias of `decodeEncodedPolyline` with a friendlier name.
+ *
+ * @example
+ * const path = decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
+ * // [{ lat: 38.5, lng: -120.2 }, { lat: 40.7, lng: -120.95 }, { lat: 43.252, lng: -126.453 }]
+ */
+export function decodePolyline(encoded: string): Coordinates[] {
+  return decodeEncodedPolyline(encoded);
+}
+
+/**
+ * Decode an encoded polyline and return an array of human-readable strings.
+ * Each element is "lat, lng" rounded to 5 decimal places.
+ *
+ * @example
+ * polylineToHumanPath('_p~iF~ps|U_ulLnnqC');
+ * // ["38.50000, -120.20000", "40.70000, -120.95000"]
+ */
+export function polylineToHumanPath(encoded: string): string[] {
+  return decodeEncodedPolyline(encoded).map(
+    (p) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
+  );
+}
+
+/**
+ * Convert an encoded polyline (or a raw `Coordinates[]` path) to a GeoJSON LineString Feature.
+ * The result is safe to stringify and pass to any GeoJSON consumer (Mapbox, Leaflet, turf, etc.).
+ *
+ * @example
+ * const geojson = polylineToGeoJSON(route.polyline!);
+ * // { type: 'Feature', geometry: { type: 'LineString', coordinates: [[lng, lat], ...] }, properties: {} }
+ */
+export function polylineToGeoJSON(
+  encoded: string | Coordinates[],
+): {
+  type: 'Feature';
+  geometry: { type: 'LineString'; coordinates: [number, number][] };
+  properties: Record<string, never>;
+} {
+  const points = typeof encoded === 'string'
+    ? decodeEncodedPolyline(encoded)
+    : encoded;
+
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      // GeoJSON uses [lng, lat] order
+      coordinates: points.map((p) => [p.lng, p.lat]),
+    },
+    properties: {},
+  };
+}
+
+/**
+ * Summarize a polyline as a compact human-readable string showing the first point,
+ * a middle sample, and the last point, plus total point count.
+ *
+ * @example
+ * summarizePolyline(route.polyline!);
+ * // "4 pts: (38.50000, -120.20000) → … → (43.25200, -126.45300)"
+ */
+export function summarizePolyline(encoded: string | Coordinates[]): string {
+  const pts = typeof encoded === 'string'
+    ? decodeEncodedPolyline(encoded)
+    : encoded;
+
+  if (pts.length === 0) return '(empty polyline)';
+  if (pts.length === 1) {
+    const p = pts[0]!;
+    return `1 pt: (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})`;
+  }
+
+  const first = pts[0]!;
+  const last  = pts[pts.length - 1]!;
+
+  const fmt = (p: Coordinates) => `(${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})`;
+
+  if (pts.length <= 3) {
+    return `${pts.length} pts: ${pts.map(fmt).join(' → ')}`;
+  }
+
+  const mid = pts[Math.floor(pts.length / 2)]!;
+  return `${pts.length} pts: ${fmt(first)} → ${fmt(mid)} → … → ${fmt(last)}`;
+}

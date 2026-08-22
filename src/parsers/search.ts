@@ -16,12 +16,14 @@ import {
   extractAttributeGroups,
   extractOpeningSchedule,
 } from './place-attributes.js';
+import { extractPlaceIdentifiers, extractStructuredAddress } from './place-extended.js';
 import {
   parsePhone,
   parseReviewCountFromBlock,
   parseWebsiteFromContact,
   parseOpenStatus,
   parsePriceLevel,
+  parsePriceRange,
 } from './shared.js';
 
 export interface ExtractBusinessesOptions {
@@ -78,6 +80,7 @@ function resolvePlaceDataFromWrapper(entry: PbNode): PlaceDataNode | null {
 function extractSingleBusiness(
   bizData: PlaceDataNode,
   options?: ExtractBusinessesOptions,
+  rank?: number,
 ): SearchResult | null {
   if (!Array.isArray(bizData) || bizData.length < 12) return null;
 
@@ -97,7 +100,27 @@ function extractSingleBusiness(
     reviewCount: parseReviewCountFromBlock(bizData[4]),
     latitude: safeGet<number>(bizData, 9, 2),
     longitude: safeGet<number>(bizData, 9, 3),
+    rank,
   });
+
+  // cid: numeric content-id from placeData[75][0]
+  const cidBlock = safeGet<PbNode>(bizData, 75);
+  if (Array.isArray(cidBlock) && typeof cidBlock[0] === 'string') {
+    business.cid = cidBlock[0];
+  }
+
+  const { cid, kgmid, ownerId } = extractPlaceIdentifiers(bizData);
+  if (cid) business.cid = business.cid ?? cid;
+  if (kgmid) business.kgmid = business.kgmid ?? kgmid;
+  if (ownerId) business.ownerId = ownerId;
+
+  const structuredAddress = extractStructuredAddress(bizData, business.address);
+  if (structuredAddress.street) business.street = structuredAddress.street;
+  if (structuredAddress.neighborhood) business.neighborhood = structuredAddress.neighborhood;
+  if (structuredAddress.city) business.city = structuredAddress.city;
+  if (structuredAddress.state) business.state = structuredAddress.state;
+  if (structuredAddress.postalCode) business.postalCode = structuredAddress.postalCode;
+  if (structuredAddress.countryCode) business.countryCode = structuredAddress.countryCode;
 
   if (!lite) {
     business.phone = parsePhone(bizData);
@@ -124,6 +147,7 @@ function extractSingleBusiness(
   const ratingBlock = bizData[4];
   if (Array.isArray(ratingBlock)) {
     business.priceLevel = parsePriceLevel(ratingBlock);
+    business.priceRange = parsePriceRange(ratingBlock);
   }
 
   if (!lite) {
@@ -139,6 +163,21 @@ function extractSingleBusiness(
 
     const attributeGroups: PlaceAttributeGroup[] = extractAttributeGroups(bizData);
     if (attributeGroups.length > 0) business.attributeGroups = attributeGroups;
+
+    // Closed flags
+    const closedBlock = safeGet<PbNode>(bizData, 34, 4);
+    if (Array.isArray(closedBlock)) {
+      if (closedBlock[4] === 1) business.isPermanentlyClosed = true;
+      if (closedBlock[5] === 1) business.isTemporarilyClosed = true;
+    }
+    const perma = safeGet<PbNode>(bizData, 88);
+    if (perma === 1 || perma === true) business.isPermanentlyClosed = true;
+
+    // Claimed status
+    const claimedBlock = safeGet<PbNode>(bizData, 211);
+    if (claimedBlock === 1 || claimedBlock === true || (Array.isArray(claimedBlock) && claimedBlock[0] === 1)) {
+      business.isClaimed = true;
+    }
   }
 
   return business;
@@ -249,10 +288,11 @@ function extractFromWrappers(
   options?: ExtractBusinessesOptions,
 ): SearchResult[] {
   const businesses: SearchResult[] = [];
-  for (const entry of wrappers) {
+  for (let i = 0; i < wrappers.length; i++) {
+    const entry = wrappers[i]!;
     const bizData = resolvePlaceDataFromWrapper(entry);
     if (!bizData) continue;
-    const business = extractSingleBusiness(bizData, options);
+    const business = extractSingleBusiness(bizData, options, i + 1);
     if (business?.name) businesses.push(business);
   }
   return businesses;

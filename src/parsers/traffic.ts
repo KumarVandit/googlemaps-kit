@@ -25,7 +25,10 @@ export function extractAreaTraffic(data: unknown, options?: { raw?: boolean }): 
     raw: options?.raw ? root : undefined,
   };
 
-  report.severity = safeGet<number>(payload, 8) ?? undefined;
+  const rawSeverity = safeGet<number>(payload, 8);
+  if (rawSeverity != null && rawSeverity >= 0 && rawSeverity <= 4) {
+    report.severity = rawSeverity as 0 | 1 | 2 | 3 | 4;
+  }
 
   const iconBlock = safeGet<PbNode[]>(payload, 14, 4);
   if (Array.isArray(iconBlock)) {

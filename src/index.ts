@@ -40,8 +40,41 @@ export type {
 } from './types/maps-urls.js';
 
 export { parseMapsUrl, isShortMapsLink } from './parsers/maps-url.js';
+export type {
+  PopularTimesData,
+  PopularTimesDay,
+  PopularTimesHour,
+  ReviewTag,
+  PeopleAlsoSearch,
+  OwnerUpdate,
+  GasPrice,
+  HotelData,
+  HotelBookingOffer,
+  NearbyHotel,
+  RestaurantData,
+  TableReservationProvider,
+  PlaceMenu,
+  MenuItem,
+  MenuSection,
+  PlaceQAItem,
+  PlaceQAAnswer,
+  PlaceQAResult,
+  StructuredAddress,
+  PlaceIdentifiers,
+  BusinessOperatingStatus,
+  PlaceDetailsExtended,
+  SearchResultExtended,
+} from './types/place-extended.js';
+export type { LocalPostType, LocalPostMedia, WeekdayKey } from './types/common.js';
 export type { ParsedMapsUrl } from './types/links.js';
-export { decodeEncodedPolyline, encodePolyline } from './utils/encoded-polyline.js';
+export {
+  decodeEncodedPolyline,
+  encodePolyline,
+  decodePolyline,
+  polylineToHumanPath,
+  polylineToGeoJSON,
+  summarizePolyline,
+} from './utils/encoded-polyline.js';
 export { loadProjectEnv } from './utils/load-env.js';
 
 export type {
@@ -74,9 +107,12 @@ export type {
   StepManeuver,
   DirectionsUnits,
   DirectionsAvoid,
+  TransitMode,
+  TransitRoutingPreference,
 } from './types/directions.js';
 export type { AreaTrafficReport, GetAreaTrafficOptions } from './types/traffic.js';
 export type {
+  CategoryHierarchyResult,
   CategoryNode,
   CategorySuggestion,
   PotentialDuplicate,

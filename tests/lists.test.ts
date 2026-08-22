@@ -82,6 +82,11 @@ describe('place list parser', () => {
     const marcy = list.entries[0]!;
     expect(marcy.name).toBe('Marcy Land Omotesando Ramen Bar');
     expect(marcy.note).toBe('Uni ramen');
+    // address = addressBlock[2]: full address string (may be prefixed with place name)
+    expect(marcy.address).toContain('Kita-Aoyama');
+    expect(marcy.address).toContain('Tokyo');
+    // streetAddress is deprecated and no longer populated
+    expect(marcy.streetAddress).toBeUndefined();
     expect(marcy.lat).toBeCloseTo(35.666944, 4);
     expect(marcy.lng).toBeCloseTo(139.71206, 4);
     expect(marcy.featureId).toBe('/g/11q21hjdkh');

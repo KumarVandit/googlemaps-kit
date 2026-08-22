@@ -21,7 +21,7 @@ function parseAddressComponents(raw: unknown): AddressComponent[] | undefined {
   if (parts.length === 0) return undefined;
   if (parts.every(isCoordinateLine)) return undefined;
 
-  return parts.map((longName) => ({ longName }));
+  return parts.map((longName, index) => ({ longName, raw: raw[index] }));
 }
 
 function parseSingleGeocodeResult(placeRow: PlaceDataNode): GeocodeResult | null {
@@ -42,11 +42,21 @@ function parseSingleGeocodeResult(placeRow: PlaceDataNode): GeocodeResult | null
   const plusCode = payloadPlusCode ?? encodePlusCode(lat, lng);
   const plusCodeSource = payloadPlusCode ? ('payload' as const) : ('derived-olc' as const);
 
+  // Primary category — first entry in placeRow[13] when it's an array of strings
+  const categoriesRaw = safeGet<PbNode>(placeRow, 13);
+  const category = Array.isArray(categoriesRaw)
+    ? categoriesRaw.find((c): c is string => typeof c === 'string' && c.length > 0)
+    : undefined;
+
+  // hexId presence + rating block presence = POI vs. generic location
+  const hexId = optionalString(safeGet<string>(placeRow, 10));
+  const isPoi = hexId != null ? true : undefined;
+
   const result: GeocodeResult = {
     name,
     lat,
     lng,
-    hexId: optionalString(safeGet<string>(placeRow, 10)),
+    hexId,
     placeId: optionalString(safeGet<string>(placeRow, 78)),
     timezone: optionalString(safeGet<string>(placeRow, 30)),
     formattedAddress: formattedFromRow ?? plusCodeAddress,
@@ -54,6 +64,9 @@ function parseSingleGeocodeResult(placeRow: PlaceDataNode): GeocodeResult | null
     plusCode,
     plusCodeAddress,
     plusCodeSource,
+    category,
+    isPoi,
+    raw: placeRow,
   };
 
   return result;

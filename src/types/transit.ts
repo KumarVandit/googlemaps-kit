@@ -2,8 +2,14 @@
 
 export interface TransitDeparture {
   headsign: string;
+  /** Human-readable departure time, e.g. "2 min" or "10:32". */
   scheduledTime?: string;
+  /** Unix timestamp in seconds (UTC). */
   scheduledUnix?: number;
+  /** ISO 8601 formatted departure time derived from scheduledUnix when timezone is present. */
+  scheduledAt?: string;
+  /** Minutes until departure (derived from scheduledUnix and current time). */
+  minutesUntil?: number;
   timezone?: string;
   platform?: string;
   tripId?: string;
@@ -11,13 +17,24 @@ export interface TransitDeparture {
   lineName?: string;
   lineColor?: string;
   lineTextColor?: string;
+  /**
+   * Vehicle type string from the transit feed.
+   * Known values: `"SUBWAY"`, `"BUS"`, `"TRAM"`, `"RAIL"`, `"FERRY"`, `"CABLE_CAR"`, `"GONDOLA"`.
+   * May also be a display label like `"Tube"` or `"Metro"` depending on locale.
+   */
   vehicleType?: string;
   vehicleIconUrl?: string;
+  /** Short route identifier (e.g. "N1", "Jubilee") extracted from headsign or line name. */
+  routeShortName?: string;
+  raw?: unknown;
 }
 
 export interface TransitModeBoard {
   mode: string;
+  /** Human-readable mode label (e.g. "Tube", "Bus") when present. */
+  modeLabel?: string;
   departures: TransitDeparture[];
+  raw?: unknown;
 }
 
 export interface TransitStationBoard {
@@ -27,6 +44,7 @@ export interface TransitStationBoard {
   lng?: number;
   timezone?: string;
   modes: TransitModeBoard[];
+  raw?: unknown;
 }
 
 export interface GetStationDeparturesOptions {

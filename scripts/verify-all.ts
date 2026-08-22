@@ -636,7 +636,8 @@ async function main(): Promise<void> {
   });
 
   await check('categories.getHierarchy returns the gcid taxonomy', async () => {
-    const roots = await maps.meta.categories.getHierarchy();
+    const result = await maps.meta.categories.getHierarchy();
+    const roots = result.nodes;
     assert(roots.length > 3, `only ${roots.length} root categories`);
     return `${roots.length} roots, first="${roots[0]?.name ?? '?'}"`;
   });

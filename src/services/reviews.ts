@@ -44,6 +44,11 @@ export interface GetReviewsOptions {
    * `rpc` requires signed-in SAPISID cookies.
    */
   source?: import('../types/dx.js').ReviewSource;
+  /**
+   * When true, attach the raw boq entry array to each `Review.raw`.
+   * Useful for debugging field discovery. Default false.
+   */
+  raw?: boolean;
 }
 
 export class ReviewsService {
@@ -213,7 +218,7 @@ export class ReviewsService {
         referer: 'https://www.google.com/maps/',
         includeOrigin: true,
       });
-      const parsed = extractBoqReviews(data as PbNode);
+      const parsed = extractBoqReviews(data as PbNode, { raw: options.raw });
       const withAggregates = await this.attachAggregates(parsed, options);
       return applyReviewClientFilters(withAggregates, options.filters);
     } catch {

@@ -24,6 +24,34 @@ function formatCaptureDate(year: unknown, month: unknown): string | undefined {
 }
 
 /**
+ * Convert a compass heading (0–360°) to a human-readable bearing label.
+ * e.g. 0 → "N", 45 → "NE", 180 → "S", 315 → "NW".
+ */
+function headingToBearing(heading: number): string {
+  const normalized = ((heading % 360) + 360) % 360;
+  const index = Math.round(normalized / 45) % 8;
+  return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][index]!;
+}
+
+/**
+ * Build a shareable Google Maps Street View URL for a given pano id and optional camera.
+ */
+function buildStreetViewUrl(panoId: string, heading?: number, pitch?: number): string {
+  const h = heading ?? 0;
+  const p = pitch ?? 0;
+  return `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}&heading=${h}&pitch=${p}`;
+}
+
+/**
+ * Build a Maps embed URL for a Street View panorama (works in <iframe>, no API key needed).
+ */
+function buildEmbedUrl(panoId: string, heading?: number, pitch?: number): string {
+  const h = heading ?? 0;
+  const p = pitch ?? 0;
+  return `https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s${panoId}!2m2!1d0!2d0!3f${h}!4f${p}!5f0.7820865974627469`;
+}
+
+/**
  * Detect the ~74-byte photometa stub Google returns for invalid/expired pano ids.
  *
  * The stub echoes the id at `$[1][0][1][1]` but leaves indices 2–6 null — unlike a
@@ -60,12 +88,15 @@ export function extractCoveragePanoramas(data: unknown): PanoramaRef[] {
     const panoId = asString(safeGet(entry, 0, 0, 1));
     if (!panoId) continue;
 
+    const heading = asNumber(safeGet(entry, 0, 2, 2, 0));
+
     results.push({
       panoId,
       lat: asNumber(safeGet(entry, 0, 2, 0, 2)),
       lng: asNumber(safeGet(entry, 0, 2, 0, 3)),
-      heading: asNumber(safeGet(entry, 0, 2, 2, 0)),
-      thumbnailUrl: buildThumbnailUrl({ panoId }),
+      heading,
+      thumbnailUrl: buildThumbnailUrl({ panoId, yaw: heading ?? 0 }),
+      raw: entry,
     });
   }
 
@@ -85,13 +116,16 @@ export function extractNearbyPanoramas(data: unknown): PanoramaRef[] {
     const panoId = asString(safeGet(item, 0));
     if (!panoId) continue;
 
+    const heading = asNumber(safeGet(item, 8, 1, 0));
+
     results.push({
       panoId,
       thumbnailUrl: asString(safeGet(item, 6, 0)),
       lng: asNumber(safeGet(item, 8, 0, 1)),
       lat: asNumber(safeGet(item, 8, 0, 2)),
-      heading: asNumber(safeGet(item, 8, 1, 0)),
+      heading,
       pitch: asNumber(safeGet(item, 8, 1, 1)),
+      raw: item,
     });
   }
 
@@ -102,11 +136,16 @@ function parsePanoramaLink(linkNode: unknown): PanoramaLink | undefined {
   const panoId = asString(safeGet(linkNode, 0, 1));
   if (!panoId) return undefined;
 
+  const heading = asNumber(safeGet(linkNode, 2, 1, 0));
+  const bearingLabel = heading != null ? headingToBearing(heading) : undefined;
+
   return {
     panoId,
     lat: asNumber(safeGet(linkNode, 2, 0, 2)),
     lng: asNumber(safeGet(linkNode, 2, 0, 3)),
-    heading: asNumber(safeGet(linkNode, 2, 1, 0)),
+    heading,
+    bearingLabel,
+    raw: linkNode,
   };
 }
 
@@ -120,7 +159,8 @@ function parseHistoricalCaptures(data: unknown): PanoramaHistoricalCapture[] {
     const year = asNumber(safeGet(entry, 1, 0));
     const month = asNumber(safeGet(entry, 1, 1));
     if (year == null || month == null) continue;
-    captures.push({ year, month });
+    const mm = String(month).padStart(2, '0');
+    captures.push({ year, month, label: `${year}-${mm}`, raw: entry });
   }
 
   return captures;
@@ -157,6 +197,11 @@ export function extractPanoramaMetadata(
   const faceWidth = asNumber(safeGet(data, 1, 0, 2, 3, 1, 0));
   const faceHeight = asNumber(safeGet(data, 1, 0, 2, 3, 1, 1));
 
+  // Camera orientation: heading at [1,0,5,0,1,2,0], pitch at [1,0,5,0,1,2,1], roll at [1,0,5,0,1,2,2]
+  const heading = asNumber(safeGet(data, 1, 0, 5, 0, 1, 2, 0));
+  const pitch   = asNumber(safeGet(data, 1, 0, 5, 0, 1, 2, 1));
+  const roll    = asNumber(safeGet(data, 1, 0, 5, 0, 1, 2, 2));
+
   const linksList = safeGet<PbNode[]>(data, 1, 0, 5, 0, 3, 0);
   const links: PanoramaLink[] = [];
   if (Array.isArray(linksList)) {
@@ -165,6 +210,8 @@ export function extractPanoramaMetadata(
       if (link) links.push(link);
     }
   }
+
+  const tileSizes = parseTileSizes(data);
 
   const metadata: PanoramaMetadata = {
     panoId,
@@ -177,13 +224,19 @@ export function extractPanoramaMetadata(
     copyright: asString(safeGet(data, 1, 0, 4, 0, 0, 0, 0)),
     attribution: asString(safeGet(data, 1, 0, 4, 1, 0, 0, 0)),
     address: asString(safeGet(data, 1, 0, 3, 2, 0, 0)),
-    tileSizes: parseTileSizes(data),
+    heading,
+    pitch,
+    roll,
+    tileSizes,
+    tileZoomLevels: tileSizes ? tileSizes.length : undefined,
     maxTileDimensions:
       maxWidth != null && maxHeight != null ? [maxWidth, maxHeight] : undefined,
     tileFaceSize:
       faceWidth != null && faceHeight != null ? [faceWidth, faceHeight] : undefined,
     links,
     historicalCaptures: parseHistoricalCaptures(data),
+    embedUrl: buildEmbedUrl(panoId, heading, pitch),
+    streetViewUrl: buildStreetViewUrl(panoId, heading, pitch),
   };
 
   if (options?.raw) {

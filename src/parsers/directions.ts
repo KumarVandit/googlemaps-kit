@@ -9,6 +9,7 @@ import type {
 import type { Coordinates } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
 import { encodePolyline } from '../utils/encoded-polyline.js';
+import { parseDistanceToMeters, parseDurationToSeconds } from '../utils/directions-metrics.js';
 import { safeGet } from '../utils/safe-get.js';
 
 /**
@@ -23,6 +24,9 @@ import { safeGet } from '../utils/safe-get.js';
  * Turn-by-turn steps: any node whose `[1]` is `<step …>` markup; per-step distance `[2][1]`,
  * duration `[3][1]`, lat/lng path `[7][1]` / `[7][2]`, maneuver CSS `[2][1]` when `dir-tt-*`.
  * Note: `[7][5][0]` is a Street View panoid, not an encoded polyline.
+ *
+ * Transit step extras: departure stop `[8][1]`, arrival stop `[8][3]`, departure Unix `[8][5][0]`,
+ * arrival Unix `[8][5][1]`, line colour `[6][0]`, vehicle icon `[6][2][4][0][0]`.
  */
 
 const DURATION_RE = /^\d[\d.,]*\s*(min|mins|minute|minutes|hr|hrs|hour|hours|h|days?)\b/i;
@@ -42,12 +46,17 @@ export function extractDirections(data: PbNode): DirectionsResult {
   const primary = result.routes![0];
   if (primary) {
     result.distance = primary.distance;
+    result.distanceMeters = primary.distanceMeters;
     result.duration = primary.duration;
+    result.durationSeconds = primary.durationSeconds;
     result.summary = primary.summary;
     result.durationInTraffic = primary.durationInTraffic;
+    result.durationInTrafficSeconds = primary.durationInTrafficSeconds;
     result.bounds = primary.bounds;
     result.warnings = primary.warnings;
     result.legs = primary.legs;
+    result.polyline = primary.polyline;
+    result.path = primary.path;
   }
 
   return result;
@@ -125,7 +134,14 @@ function parseRoute(node: PbNode): DirectionsRoute | null {
   if (!distance && !duration && steps.length === 0 && legs.length === 0) return null;
 
   if (legs.length === 0 && steps.length > 0) {
-    legs.push({ distance, duration, summary: derivedSummary, steps });
+    legs.push({
+      distance,
+      distanceMeters: parseDistanceToMeters(distance),
+      duration,
+      durationSeconds: parseDurationToSeconds(duration),
+      summary: derivedSummary,
+      steps,
+    });
   }
 
   // We model a route as one leg spanning every step, so its totals are the
@@ -133,20 +149,32 @@ function parseRoute(node: PbNode): DirectionsRoute | null {
   const soleLeg = legs.length === 1 ? legs[0] : undefined;
   if (soleLeg) {
     soleLeg.distance ??= distance;
+    soleLeg.distanceMeters ??= parseDistanceToMeters(soleLeg.distance);
     soleLeg.duration ??= duration;
+    soleLeg.durationSeconds ??= parseDurationToSeconds(soleLeg.duration);
     soleLeg.summary ??= derivedSummary;
   }
 
+  const distanceMeters = parseDistanceToMeters(distance);
+  const durationSeconds = parseDurationToSeconds(duration);
+  const durationInTrafficSeconds = parseDurationToSeconds(durationInTraffic);
+
+  const humanPath = pathToHuman(routePolyline.path);
+
   return {
     distance,
+    distanceMeters,
     duration,
+    durationSeconds,
     summary: derivedSummary,
     durationInTraffic,
+    durationInTrafficSeconds,
     bounds,
     warnings: warnings.length > 0 ? warnings : undefined,
     legs,
     polyline: routePolyline.encoded,
     path: routePolyline.path,
+    humanPath,
   };
 }
 
@@ -168,7 +196,8 @@ function parseBounds(header: PbNode): LatLngBounds | undefined {
   const sw = coordFromNode(safeGet<PbNode>(box, 2));
   const ne = coordFromNode(safeGet<PbNode>(box, 3));
   if (!sw || !ne) return undefined;
-  return { southwest: sw, northeast: ne };
+  const label = `SW(${sw.lat.toFixed(5)}°, ${sw.lng.toFixed(5)}°) → NE(${ne.lat.toFixed(5)}°, ${ne.lng.toFixed(5)}°)`;
+  return { southwest: sw, northeast: ne, label };
 }
 
 function coordFromNode(node: PbNode | undefined): Coordinates | undefined {
@@ -209,11 +238,25 @@ function parseSteps(route: PbNode): DirectionsStep[] {
     if (typeof markup !== 'string') continue;
 
     const step = parseStepMarkup(markup);
-    const distance = stringAt(holder, [2, 1], DISTANCE_RE);
-    const duration = stringAt(holder, [3, 1], DURATION_RE);
-    if (distance) step.distance = distance;
-    if (duration) step.duration = duration;
 
+    // Distance — slot [2][1] or step markup meters attr fallback
+    const distStr = stringAt(holder, [2, 1], DISTANCE_RE);
+    if (distStr) {
+      step.distance = distStr;
+      step.distanceMeters = parseDistanceToMeters(distStr);
+    } else if (step.meters != null) {
+      step.distance = `${step.meters} m`;
+      step.distanceMeters = step.meters;
+    }
+
+    // Duration — slot [3][1]
+    const durStr = stringAt(holder, [3, 1], DURATION_RE);
+    if (durStr) {
+      step.duration = durStr;
+      step.durationSeconds = parseDurationToSeconds(durStr);
+    }
+
+    // Turn hint — dir-tt-* CSS class at slot [2][1] (when present instead of distance)
     const css = safeGet<string>(holder, 2, 1);
     if (typeof css === 'string' && css.startsWith('dir-tt')) {
       step.turn = parseTurnFromCss(css);
@@ -281,18 +324,82 @@ function parseTurnFromCss(css: string): string | undefined {
 
 function parseTransitDetails(holder: PbNode): DirectionsTransitDetails | undefined {
   if (!Array.isArray(holder)) return undefined;
+
   const details: DirectionsTransitDetails = {};
+
+  // ── Try rich transit block at holder[8] first ────────────────────────────
+  // Layout (from Maps web pb): [8][1] = departure stop, [8][3] = arrival stop,
+  // [8][5][0] = departure unix, [8][5][1] = arrival unix,
+  // [8][7] = num stops, [8][0] = line/route info block.
+  const transitBlock = safeGet<PbNode>(holder, 8);
+  if (Array.isArray(transitBlock)) {
+    const depStop = safeGet<string>(transitBlock, 1);
+    const arrStop = safeGet<string>(transitBlock, 3);
+    if (depStop) details.departureStop = depStop;
+    if (arrStop) details.arrivalStop = arrStop;
+
+    const numStops = safeGet<number>(transitBlock, 7);
+    if (typeof numStops === 'number') details.numStops = numStops;
+
+    const depUnix = safeGet<number>(transitBlock, 5, 0);
+    const arrUnix = safeGet<number>(transitBlock, 5, 1);
+    if (typeof depUnix === 'number' && depUnix > 0) {
+      details.departureAt = new Date(depUnix * 1000).toISOString();
+      details.departureTime = new Date(depUnix * 1000).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+    if (typeof arrUnix === 'number' && arrUnix > 0) {
+      details.arrivalAt = new Date(arrUnix * 1000).toISOString();
+      details.arrivalTime = new Date(arrUnix * 1000).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+
+    // Line/route block at [8][0]: [0] = route short name, [1] = line name,
+    // [2] = line colour, [3] = text colour, [4] = agency name.
+    const lineBlock = safeGet<PbNode>(transitBlock, 0);
+    if (Array.isArray(lineBlock)) {
+      const routeShort = safeGet<string>(lineBlock, 0);
+      const lineName = safeGet<string>(lineBlock, 1);
+      const lineColor = safeGet<string>(lineBlock, 2);
+      const lineTextColor = safeGet<string>(lineBlock, 3);
+      const agency = safeGet<string>(lineBlock, 4);
+      if (routeShort) details.routeShortName = routeShort;
+      if (lineName) details.line = lineName;
+      if (lineColor) details.lineColor = lineColor;
+      if (lineTextColor) details.lineTextColor = lineTextColor;
+      if (agency) details.agency = agency;
+    }
+
+    // Vehicle block at [8][6]: [3] = type, [4][0][0] = icon URL.
+    const vehicleBlock = safeGet<PbNode>(transitBlock, 6);
+    if (Array.isArray(vehicleBlock)) {
+      const vType = safeGet<string>(vehicleBlock, 3);
+      const vIcon = safeGet<string>(vehicleBlock, 4, 0, 0);
+      if (vType) details.vehicleType = vType;
+      if (vIcon) details.vehicleIconUrl = vIcon;
+    }
+  }
+
+  // ── Fallback: heuristic scan of text nodes for the step ─────────────────
   const texts: string[] = [];
   collectStrings(holder, texts);
 
   for (const text of texts) {
-    if (/^(bus|metro|train|tram|subway|ferry|walk)/i.test(text)) details.line = details.line ?? text;
-    if (/toward|towards/i.test(text)) details.headsign = text;
-    if (/^\d+\s*stop/i.test(text)) {
-      const num = Number(text.match(/(\d+)/)?.[1]);
-      if (Number.isFinite(num)) details.numStops = num;
+    if (!details.line && /^(bus|metro|train|tram|subway|ferry|walk)/i.test(text)) {
+      details.line = text;
     }
-    if (/^₹|^\$|€|fare/i.test(text)) details.fare = text;
+    if (!details.headsign && /toward|towards/i.test(text)) details.headsign = text;
+    if (details.numStops == null) {
+      const stopMatch = text.match(/^(\d+)\s*stop/i);
+      if (stopMatch) details.numStops = Number(stopMatch[1]);
+    }
+    if (!details.fare && /^₹|^\$|€|fare/i.test(text)) details.fare = text;
   }
 
   return Object.keys(details).length > 0 ? details : undefined;
@@ -339,6 +446,12 @@ function stitchPolylines(steps: DirectionsStep[]): { encoded?: string; path?: Co
   return { path, encoded: encodePolyline(path) };
 }
 
+/** Convert a path to an array of human-readable "lat, lng" strings (5dp). */
+function pathToHuman(path: Coordinates[] | undefined): string[] | undefined {
+  if (!path || path.length === 0) return undefined;
+  return path.map((p) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`);
+}
+
 /** Collect steps by finding every node whose [1] is `<step …>` markup. */
 export function parseStepMarkup(markup: string): DirectionsStep {
   const step: DirectionsStep = {};
@@ -347,7 +460,12 @@ export function parseStepMarkup(markup: string): DirectionsStep {
   if (maneuver) step.maneuver = maneuver;
 
   const meters = markup.match(/<step[^>]*\bmeters='(\d+)'/)?.[1];
-  if (meters) step.meters = Number(meters);
+  if (meters) {
+    step.meters = Number(meters);
+    // Pre-populate distanceMeters from meters attr as a bootstrap value;
+    // will be overwritten by the slot-based distance string when available.
+    step.distanceMeters ??= Number(meters);
+  }
 
   const roads = [...markup.matchAll(/<road\b[^>]*>([^<]+)<\/road>/g)].map((match) => match[1]!.trim());
   if (roads.length > 0) step.roads = roads;

@@ -106,6 +106,7 @@ export type {
 } from './types/directions.js';
 export type { AreaTrafficReport, GetAreaTrafficOptions } from './types/traffic.js';
 export type {
+  CategoryHierarchyResult,
   CategoryNode,
   CategorySuggestion,
   PotentialDuplicate,
@@ -180,6 +181,7 @@ export type {
   PlaceAttributeGroup,
   PlaceAccessibilityFeature,
   WeekdayIndex,
+  WeekdayKey,
   WeekdayName,
   Review,
   ReviewsResult,
@@ -191,6 +193,7 @@ export type {
   PlaceCompleteResult,
   PlaceFullMeta,
   LocalPost,
+  LocalPostMedia,
   KnowledgeEntity,
   DirectionsOptions,
   DirectionsResult,

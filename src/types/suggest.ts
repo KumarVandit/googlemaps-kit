@@ -24,9 +24,9 @@ export interface SuggestOptions {
   raw?: boolean;
 }
 
-export type SuggestionKind = 'query' | 'place';
+export type SuggestionKind = 'query' | 'place' | 'route';
 
-/** A single omnibox suggestion — either a query completion or a place hit. */
+/** A single omnibox suggestion — either a query completion, a place hit, or a route. */
 export interface Suggestion {
   kind: SuggestionKind;
   /** Best display text (full description or primary line). */
@@ -45,6 +45,21 @@ export interface Suggestion {
   thumbnailUrl?: string;
   /** ISO 3166-1 alpha-2 country code when present. */
   countryCode?: string;
+  /** Suggest response subtype / section discriminator when present. */
+  subtype?: number;
+  /** Ranking / source score when present. */
+  score?: number;
+  /**
+   * Distance string shown for nearby place suggestions, e.g. "0.3 mi" or "500 m".
+   * Present only when the suggest response includes proximity ranking.
+   */
+  distanceText?: string;
+  /**
+   * Category or type hint shown as third line in some suggest responses
+   * (e.g. "Restaurant", "Coffee shop").
+   */
+  typeHint?: string;
+  raw?: unknown;
 }
 
 /** Parsed omnibox autocomplete response. */

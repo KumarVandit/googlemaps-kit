@@ -18,6 +18,7 @@
 import { HttpClient } from '../client/http-client.js';
 import { createRpcClient, isBatchErrorCode, parseBatchPayload } from '../rpc/batch-rpc.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
+import { extractPlaceIdentifiers, extractStructuredAddress } from '../parsers/place-extended.js';
 import {
   GMapsAuthError,
   GMapsError,
@@ -40,9 +41,23 @@ export interface AskMapsPlaceRef {
   name?: string;
   hexId?: string;
   placeId?: string;
+  cid?: string;
+  kgmid?: string;
+  ownerId?: string;
+  ftid?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  countryCode?: string;
   lat?: number;
   lng?: number;
   rating?: number;
+  reviewCount?: number;
+  category?: string;
+  categories?: string[];
+  raw?: unknown;
 }
 
 export interface AskMapsResult {
@@ -60,6 +75,27 @@ export interface AskMapsHistoryThread {
   id?: string;
   title?: string;
   raw?: unknown;
+}
+
+function extractHistoryThreads(root: unknown): AskMapsHistoryThread[] {
+  const threads: AskMapsHistoryThread[] = [];
+  const walk = (node: unknown, depth = 0): void => {
+    if (depth > 8 || !Array.isArray(node)) return;
+    const id = safeGet<string>(node, 0);
+    const title = safeGet<string>(node, 1);
+    if (typeof id === 'string' && id.length > 0) {
+      threads.push({
+        id,
+        title: typeof title === 'string' ? title : undefined,
+        raw: node,
+      });
+    }
+    for (const child of node.slice(0, 20)) {
+      if (Array.isArray(child)) walk(child, depth + 1);
+    }
+  };
+  walk(root);
+  return threads;
 }
 
 /** Official Places API (New) AI field masks — not served on consumer Maps preview. */
@@ -168,19 +204,44 @@ function extractAskText(root: unknown): string[] {
 
 function extractAskPlaces(root: unknown): AskMapsPlaceRef[] {
   const places: AskMapsPlaceRef[] = [];
+  const seen = new Set<string>();
   const walk = (node: unknown, depth = 0): void => {
     if (depth > 10 || !Array.isArray(node)) return;
     const hex = safeGet<string>(node, 10);
     const name = safeGet<string>(node, 11);
     if (typeof hex === 'string' && hex.includes('0x') && typeof name === 'string' && name.length > 1) {
-      places.push({
-        name,
-        hexId: hex,
-        placeId: safeGet<string>(node, 78),
-        lat: safeGet<number>(node, 9, 2),
-        lng: safeGet<number>(node, 9, 3),
-        rating: safeGet<number>(node, 4, 7),
-      });
+      const { cid, kgmid, ownerId } = extractPlaceIdentifiers(node);
+      const address = safeGet<string>(node, 18);
+      const structuredAddress = extractStructuredAddress(node, address);
+      const categories = safeGet<unknown[]>(node, 13)?.filter(
+        (value): value is string => typeof value === 'string' && value.length > 0,
+      );
+      const key = safeGet<string>(node, 78) ?? hex;
+      if (!seen.has(key)) {
+        seen.add(key);
+        places.push({
+          name,
+          hexId: hex,
+          placeId: safeGet<string>(node, 78),
+          cid,
+          kgmid,
+          ownerId,
+          ftid: safeGet<string>(node, 89),
+          address,
+          neighborhood: structuredAddress.neighborhood,
+          city: structuredAddress.city,
+          state: structuredAddress.state,
+          postalCode: structuredAddress.postalCode,
+          countryCode: structuredAddress.countryCode,
+          lat: safeGet<number>(node, 9, 2),
+          lng: safeGet<number>(node, 9, 3),
+          rating: safeGet<number>(node, 4, 7),
+          reviewCount: safeGet<number>(node, 4, 8),
+          category: categories?.[0],
+          categories,
+          raw: node,
+        });
+      }
     }
     for (const child of node.slice(0, 30)) {
       if (Array.isArray(child)) walk(child, depth + 1);
@@ -280,7 +341,8 @@ export class AskMapsService {
       if (isBatchErrorCode(root)) {
         authRequired('Ask Maps history requires a signed-in Maps session (set GMAPS_COOKIES)');
       }
-      return [{ raw: root }];
+      const threads = extractHistoryThreads(root);
+      return threads.length > 0 ? threads : [{ raw: root }];
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/500|401|auth|\[3\]|\[7\]/i.test(message)) {

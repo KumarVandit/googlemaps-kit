@@ -7,7 +7,7 @@
 
 import { defaultViewportDist } from '../utils/geo.js';
 import type { TravelMode } from '../types/common.js';
-import type { DirectionsWaypoint } from '../types/directions.js';
+import type { DirectionsOptions, DirectionsWaypoint, TransitMode, TransitRoutingPreference } from '../types/directions.js';
 
 export function buildSearchPb(params: {
   query: string;
@@ -295,8 +295,45 @@ const DIRECTIONS_MODE_CODE: Record<TravelMode, number> = {
   transit: 3,
 };
 
-function directionsModeBlock(mode: TravelMode): string {
-  return `!20m6!1e${DIRECTIONS_MODE_CODE[mode]}!2e3!5e2!6b1!8b1!14b1!46m1!1b0!96b1!99b1`;
+/** Transit vehicle-type filter codes (verified against Maps web pb probes). */
+const TRANSIT_MODE_FILTER: Record<TransitMode, number> = {
+  bus: 0,
+  subway: 1,
+  train: 2,
+  tram: 3,
+  rail: 4,
+};
+
+/** Transit routing-preference codes. */
+const TRANSIT_PREF_CODE: Record<TransitRoutingPreference, number> = {
+  less_walking: 0,
+  fewer_transfers: 3,
+};
+
+function directionsModeBlock(
+  mode: TravelMode,
+  opts?: {
+    transitModes?: TransitMode[];
+    transitRoutingPreference?: TransitRoutingPreference;
+  },
+): string {
+  const base = `!20m6!1e${DIRECTIONS_MODE_CODE[mode]}!2e3!5e2!6b1!8b1!14b1!46m1!1b0!96b1!99b1`;
+  if (mode !== 'transit') return base;
+
+  // Append transit vehicle-type filters when specified
+  const tmCodes = (opts?.transitModes ?? [])
+    .map((m) => TRANSIT_MODE_FILTER[m])
+    .filter((c): c is number => c != null);
+  const tmPart = tmCodes.length > 0
+    ? `!30m${tmCodes.length}${tmCodes.map((c) => `!1e${c}`).join('')}`
+    : '';
+
+  // Routing preference
+  const prefPart = opts?.transitRoutingPreference != null
+    ? `!31m1!1e${TRANSIT_PREF_CODE[opts.transitRoutingPreference]}`
+    : '';
+
+  return base + tmPart + prefPart;
 }
 
 /** `data=!3e{n}` suffix for /maps/dir/ page URLs — same code space as `!1e{n}`. */
@@ -371,14 +408,36 @@ function directionsEndpointChain(
   return parts.join('');
 }
 
+/**
+ * Build transit departure/arrival time segment.
+ * `departureTime`/`arrivalTime` are Unix timestamps in seconds.
+ * Maps uses `!36m2!1i{unix}` for departure, `!37m2!1i{unix}` for arrival.
+ */
+function buildTransitTimePart(opts?: {
+  departureTime?: number;
+  arrivalTime?: number;
+}): string {
+  if (!opts) return '';
+  if (opts.departureTime != null) return `!36m2!1i${opts.departureTime}!2i0`;
+  if (opts.arrivalTime != null) return `!37m2!1i${opts.arrivalTime}!2i0`;
+  return '';
+}
+
 export function buildDirectionsPb(params: {
   origin: string | { lat: number; lng: number };
   destination: string | { lat: number; lng: number };
   waypoints?: DirectionsWaypoint[];
   mode?: TravelMode;
+  departureTime?: number;
+  arrivalTime?: number;
+  transitModes?: TransitMode[];
+  transitRoutingPreference?: TransitRoutingPreference;
 }): string {
   const mode = params.mode ?? 'driving';
-  const modeBlock = directionsModeBlock(mode);
+  const modeBlock = directionsModeBlock(mode, {
+    transitModes: params.transitModes,
+    transitRoutingPreference: params.transitRoutingPreference,
+  });
   const chain = directionsEndpointChain(params.origin, params.destination, params.waypoints);
   const endpoints = [
     params.origin,
@@ -386,8 +445,12 @@ export function buildDirectionsPb(params: {
     params.destination,
   ];
   const viewport = directionsViewportBlock(endpoints, mode);
+  const timePart = buildTransitTimePart({
+    departureTime: params.departureTime,
+    arrivalTime: params.arrivalTime,
+  });
 
-  return chain + viewport + DIRECTIONS_COMMON_SUFFIX + modeBlock + DIRECTIONS_PANEL_SUFFIX;
+  return chain + viewport + DIRECTIONS_COMMON_SUFFIX + modeBlock + timePart + DIRECTIONS_PANEL_SUFFIX;
 }
 
 export function buildDirectionsUrls(params: {
@@ -397,6 +460,10 @@ export function buildDirectionsUrls(params: {
   mode?: TravelMode;
   hl: string;
   gl: string;
+  departureTime?: number;
+  arrivalTime?: number;
+  transitModes?: TransitMode[];
+  transitRoutingPreference?: TransitRoutingPreference;
 }): string[] {
   return [
     `https://www.google.com/maps/preview/directions` +

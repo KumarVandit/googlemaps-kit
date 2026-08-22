@@ -1,9 +1,19 @@
 /** Area traffic report from GetAreaTraffic batchexecute RPC. */
 export interface AreaTrafficReport {
   hasTraffic: boolean;
-  severity?: number;
+  /**
+   * Traffic congestion severity level:
+   * `0` = no traffic, `1` = light, `2` = moderate, `3` = heavy, `4` = severe.
+   * Matches Google Maps internal traffic overlay codes.
+   */
+  severity?: 0 | 1 | 2 | 3 | 4;
   summary?: string;
   detail?: string;
+  /**
+   * Traffic incident icon URLs.
+   * Reserved — returns an empty array in all currently observed responses.
+   * Kept for forward compatibility if Google starts populating this slot.
+   */
   iconUrls?: string[];
   raw?: unknown;
 }

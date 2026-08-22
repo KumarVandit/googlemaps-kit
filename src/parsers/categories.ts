@@ -17,6 +17,7 @@ function parseCategoryNode(node: PbNode): CategoryNode | null {
   const result: CategoryNode = {
     name,
     id: safeGet<number>(node, 2),
+    raw: node,
   };
 
   const pair = safeGet<PbNode[]>(node, 1);
@@ -36,7 +37,7 @@ function parseCategoryNode(node: PbNode): CategoryNode | null {
         continue;
       }
       if (Array.isArray(child) && typeof child[0] === 'string' && typeof child[1] === 'string') {
-        children.push({ name: child[0], gcid: child[1] });
+        children.push({ name: child[0], gcid: child[1], raw: child });
       }
     }
     if (children.length > 0) result.children = children;
@@ -72,7 +73,7 @@ export function extractCategorySuggestions(data: unknown): CategorySuggestion[] 
     const gcid = item[0];
     const label = item[1];
     if (typeof gcid === 'string' && typeof label === 'string') {
-      out.push({ gcid, label });
+      out.push({ gcid, label, raw: item });
     }
   }
   return out;
@@ -83,7 +84,7 @@ export function extractPlaceInfo(data: unknown): PlaceInfoResult {
   const root = parseBatchPayload(data);
   const directHex = safeGet<string>(root, 0, 1);
   if (directHex?.startsWith('0x')) {
-    return { hexId: directHex, entries: [{ hexId: directHex }] };
+    return { hexId: directHex, entries: [{ hexId: directHex, raw: root }], raw: root };
   }
 
   const entries: PlaceInfoResult['entries'] = [];
@@ -94,11 +95,12 @@ export function extractPlaceInfo(data: unknown): PlaceInfoResult {
       entries.push({
         hexId: safeGet<string>(item, 1),
         label: safeGet<string>(item, 0) ?? undefined,
+        raw: item,
       });
     }
   }
 
-  return { hexId: entries[0]?.hexId, entries };
+  return { hexId: entries[0]?.hexId, entries, raw: root };
 }
 
 /** Parse GetPotentialDuplicates — candidates at [0][*]: [hex, name, category, address, …]. */
@@ -119,11 +121,8 @@ export function extractPotentialDuplicates(data: unknown, options?: { raw?: bool
       address: safeGet<string>(item, 3),
       rating: safeGet<number>(item, 4, 0),
       reviewCount: safeGet<number>(item, 4, 4),
+      raw: options?.raw ? item : undefined,
     });
-  }
-
-  if (options?.raw && out.length > 0) {
-    (out[0] as PotentialDuplicate & { raw?: unknown }).raw = root;
   }
 
   return out;
@@ -135,5 +134,5 @@ export function extractSignedPlaceUrl(data: unknown): SignedPlaceUrl | null {
   const signed = safeGet<string>(root, 0);
   if (!signed) return null;
   const hexId = signed.split('?')[0] ?? signed;
-  return { hexId, signedPath: signed };
+  return { hexId, signedPath: signed, raw: root };
 }

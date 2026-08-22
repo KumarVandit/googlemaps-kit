@@ -35,6 +35,12 @@ describe('search Enterprise field extraction', () => {
     expect(row.timezone).toBe('Asia/Calcutta');
     expect(row.attributeGroups?.length).toBeGreaterThan(0);
     expect(row.openStatus || row.isOpenNow != null).toBeTruthy();
+    // address decomposition (placeData[183][1])
+    expect(row.street).toBeTruthy();
+    expect(row.city).toBe('Bengaluru');
+    expect(row.state).toBe('Karnataka');
+    expect(row.postalCode).toBe('560102');
+    expect(row.neighborhood).toBeTruthy();
 
     const details = searchResultToPlaceDetails(row);
     expect(details.openingSchedule).toBeTruthy();

@@ -140,6 +140,7 @@ export class ElevationService {
         summary: parsed.summary,
         profile: parsed.profile,
         pathDistanceMeters: parsed.pathDistanceMeters,
+        startElevationMeters: parsed.startElevationMeters,
         raw: options.raw ? raw : undefined,
         timingMs: performance.now() - start,
       };

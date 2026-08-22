@@ -30,9 +30,21 @@ export interface ReverseGeocodeOptions {
   raw?: boolean;
 }
 
-/** A single parsed address line from place row index `[2]`. */
+/** A single parsed address component from place row index `[2]`. */
 export interface AddressComponent {
+  /** Long-form component name, e.g. "New York", "United States". */
   longName: string;
+  /**
+   * Short-form component name, e.g. "NY", "US".
+   * Not currently extracted by the geocode parser — reserved for future extraction.
+   */
+  shortName?: string;
+  /**
+   * Address component type tags, e.g. `["locality", "political"]`.
+   * Not currently extracted — reserved for future extraction.
+   */
+  types?: string[];
+  raw?: unknown;
 }
 
 /** Parsed geocode / reverse-geocode place row. */
@@ -53,6 +65,11 @@ export interface GeocodeResult {
   plusCodeAddress?: string;
   /** Whether plusCode came from the response or was computed locally via Open Location Code. */
   plusCodeSource?: 'payload' | 'derived-olc';
+  /** Primary category when the geocode hit is a POI (e.g. "Restaurant"). */
+  category?: string;
+  /** True when the result is a precise POI match vs. a street/area result. */
+  isPoi?: boolean;
+  raw?: unknown;
 }
 
 /** Forward or reverse geocode response with best match and alternates. */

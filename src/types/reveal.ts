@@ -38,10 +38,12 @@ export interface RevealedPlace {
   categoryHint?: string;
   streetViewThumbnailUrl?: string;
   plusCode?: string;
+  raw?: unknown;
 }
 
 export interface RevealPlaceResult {
   place?: RevealedPlace;
   /** Raw address line pair when present at response root. */
   addressLines?: string[];
+  raw?: unknown;
 }

@@ -5,6 +5,15 @@ export interface PassiveAssistChip {
   weatherIconUrl?: string;
   weatherLabel?: string;
   weatherTemp?: string;
+  /** Latitude of the associated place when present in the chip payload. */
+  lat?: number;
+  /** Longitude of the associated place when present in the chip payload. */
+  lng?: number;
+  /** Hex feature id of the associated place when present. */
+  hexId?: string;
+  /** ChIJ place id when present. */
+  placeId?: string;
+  raw?: unknown;
 }
 
 /** What a psi provider returns; `url` lets a provider hand back the verbatim captured request. */
@@ -50,4 +59,5 @@ export interface PassiveAssistResult {
   chips: PassiveAssistChip[];
   /** True when the response is the ~212 B cache-metadata stub with no POI rows. */
   isStub: boolean;
+  raw?: unknown;
 }

@@ -138,10 +138,16 @@ function parsePhotoEntry(entry: unknown, minWidth: number, height?: number): Pla
   const lng = asNumber(safeGet(entry, 8, 0, 1));
   const videoId = asString(safeGet(entry, 31));
   const durationSec = asNumber(safeGet(entry, 21, 0, 3, 0));
+  const authorId = asString(safeGet(entry, 6, 5)) ?? asString(safeGet(entry, 21, 18, 0));
+  const authorName = asString(safeGet(entry, 21, 18, 2)) ?? asString(safeGet(entry, 21, 0, 9));
+  const authorProfileUrl = asString(safeGet(entry, 6, 4)) ?? asString(safeGet(entry, 21, 18, 1));
+  const likeCount = asNumber(safeGet(entry, 21, 0, 5)) ?? asNumber(safeGet(entry, 21, 3));
+  const ownerLabel = `${asString(safeGet(entry, 6, 1)) ?? ''} ${asString(safeGet(entry, 20)) ?? ''}`.toLowerCase();
 
   const isStreetView =
     categoryLabel === 'Street View' || subType === 11 || (subType === 11 && mediaKind === 3);
   const isVideo = subType === 13 || mediaKind === 2 || safeGet(entry, 11) === 1;
+  const isOwnerPhoto = ownerLabel.includes('owner');
 
   const sizedUrl =
     height != null ? resizePhotoUrl(url, minWidth, height) : normalizePhotoUrl(url, minWidth);
@@ -155,6 +161,9 @@ function parsePhotoEntry(entry: unknown, minWidth: number, height?: number): Pla
     maxWidth,
     maxHeight,
     attribution: attribution && !isHtmlLike(attribution) ? attribution : undefined,
+    authorId,
+    authorName: authorName && !isHtmlLike(authorName) ? authorName : undefined,
+    authorProfileUrl,
     caption: caption && !isHtmlLike(caption) ? caption : undefined,
     categoryLabel,
     uploadDate,
@@ -162,10 +171,13 @@ function parsePhotoEntry(entry: unknown, minWidth: number, height?: number): Pla
     lng,
     isVideo,
     isStreetView,
+    isOwnerPhoto: isOwnerPhoto || undefined,
     panoId: isStreetView ? panoId : undefined,
     videoId: isVideo ? videoId : undefined,
     videoThumbnailUrl: isVideo ? url : undefined,
     durationSec,
+    likeCount,
+    raw: entry,
   };
 }
 

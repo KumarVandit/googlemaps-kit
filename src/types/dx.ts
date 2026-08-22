@@ -15,6 +15,7 @@ import type {
   SearchResult,
   TravelMode,
 } from './common.js';
+import type { TransitMode, TransitRoutingPreference } from './directions.js';
 import type { SearchClientFilters } from './search-filters.js';
 import type { ReviewClientFilters } from './reviews.js';
 import type { PhotoCategory, PlacePhoto, PhotosSource } from './photos.js';
@@ -240,6 +241,26 @@ export interface RouteOptions extends IntentCallOptions {
    * Default false: duration/distance only.
    */
   includeSteps?: boolean;
+
+  // ─── transit-specific options ──────────────────────────────────────────────
+
+  /**
+   * Desired departure time as a Unix timestamp (seconds). For `mode: 'transit'`.
+   * Defaults to current time when omitted.
+   */
+  departureTime?: number;
+  /**
+   * Desired arrival time as a Unix timestamp (seconds). Mutually exclusive with `departureTime`.
+   */
+  arrivalTime?: number;
+  /**
+   * Restrict transit routes to these vehicle types. Only effective when `mode: 'transit'`.
+   */
+  transitModes?: TransitMode[];
+  /**
+   * Preference for transit routing: `'less_walking'` or `'fewer_transfers'`.
+   */
+  transitRoutingPreference?: TransitRoutingPreference;
 }
 
 /** Output of `maps.route()` — same as directions service. */

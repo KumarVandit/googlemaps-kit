@@ -262,6 +262,12 @@ export interface SearchResult {
   placeId?: string;
   hexId?: string;
   ftid?: string;
+  /** Numeric Content ID (cid) used in some Maps URLs — placeData[1] when present. */
+  cid?: string;
+  /** Knowledge Graph entity id, e.g. "/g/11q21hjdkh" — placeData[23] when present. */
+  kgmid?: string;
+  /** Internal owner / merchant id when present in the place identity block. */
+  ownerId?: string;
   rating?: number;
   reviewCount?: number;
   /**
@@ -281,12 +287,18 @@ export interface SearchResult {
   category?: string;
   categories?: string[];
   isAd?: boolean;
+  /** Ad position (1-based) when `isAd` is true. */
+  adPosition?: number;
+  /** 1-based position within the organic search results list. */
+  rank?: number;
   /** From placeData[203] when present in search rows — used for client-side openNow filter. */
   openStatus?: string;
   /** Derived from openStatus — true when label starts with "Open". */
   isOpenNow?: boolean;
   /** From placeData[4][14] when present — often missing in restaurant search payloads. */
   priceLevel?: number;
+  /** Human-readable price range string, e.g. "$$" or "₹400–1,400". */
+  priceRange?: string;
   /**
    * Per-place photo from placeData[157], included in the search payload itself.
    *
@@ -296,9 +308,10 @@ export interface SearchResult {
    */
   thumbnailUrl?: string;
   /**
-   * Photo URLs already present in the search row (today: the thumbnail).
-   * Mirrors Places API Text Search `places.photos` for field-mask parity — full
-   * galleries still need `photos.list` / place preview.
+   * Convenience array seeded from `thumbnailUrl` — always `[thumbnailUrl]` when the
+   * thumbnail is present, `undefined` when absent.
+   * Mirrors the Places API Text Search `places.photos` field for parity; full galleries
+   * with metadata still require `photos.list()` / `media()`.
    */
   photos?: string[];
   /** IANA timezone from placeData[30] when present in the search row. */
@@ -310,11 +323,41 @@ export interface SearchResult {
   openingSchedule?: PlaceOpeningSchedule;
   /** Attribute groups from placeData[100] when embedded in search rows. */
   attributeGroups?: PlaceAttributeGroup[];
+  /** True when the listing is permanently closed. */
+  isPermanentlyClosed?: boolean;
+  /** True when the listing is temporarily closed. */
+  isTemporarilyClosed?: boolean;
+  /** True when the business has claimed its listing. */
+  isClaimed?: boolean;
+  /** Neighbourhood name when present in the address components. */
+  neighborhood?: string;
+  /** City / locality. */
+  city?: string;
+  /** State or province. */
+  state?: string;
+  /** Postal code. */
+  postalCode?: string;
+  /** ISO 3166-1 alpha-2 country code, e.g. "US". */
+  countryCode?: string;
+  /** Street address (number + street name) from address decomposition. */
+  street?: string;
 }
 
-export interface BusinessHours {
-  [day: string]: string;
-}
+/**
+ * Lowercase weekday name keys used in BusinessHours maps.
+ * Matches the JS `Date.getDay()` convention names, all lower-case.
+ */
+export type WeekdayKey =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+/** Day-keyed opening hours map. Keys are lower-case weekday names (monday … sunday). */
+export type BusinessHours = Partial<Record<WeekdayKey, string>>;
 
 /** 0 = Sunday … 6 = Saturday — matches the day index Google sends at hours day-entry [1]. */
 export type WeekdayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -390,6 +433,12 @@ export interface PlaceDetails {
   placeId?: string;
   hexId?: string;
   ftid?: string;
+  /** Numeric Content ID (cid) — placeData[1] when present. */
+  cid?: string;
+  /** Knowledge Graph entity id, e.g. "/g/11q21hjdkh" — placeData[23]. */
+  kgmid?: string;
+  /** Internal owner / merchant id when present in the place identity block. */
+  ownerId?: string;
   rating?: number;
   reviewCount?: number;
   priceLevel?: number;
@@ -406,6 +455,8 @@ export interface PlaceDetails {
   /** Same as `lng` — both are set by parsers. */
   longitude?: number;
   phone?: string;
+  /** E.164-style international phone number when available. */
+  internationalPhone?: string;
   website?: string;
   categories?: string[];
   hours?: BusinessHours;
@@ -421,6 +472,12 @@ export interface PlaceDetails {
   timezone?: string;
   /** Plus code with locality at placeData[183][2][2][0], e.g. "Q237+QC New York". */
   plusCode?: string;
+  /**
+   * Photo URLs deep-scanned from the place preview protobuf (googleusercontent.com).
+   * May contain 10–50 URLs including gallery photos, thumbnails, and Street View frames.
+   * For a structured gallery with metadata (attribution, captions, dimensions), use
+   * `photos.list()` / `media()` instead.
+   */
   photos?: string[];
   description?: string;
   amenities?: string[];
@@ -428,6 +485,57 @@ export interface PlaceDetails {
   mapsUrl?: string;
   /** Highlight review snippets from place preview (always available). */
   reviewSnippets?: Review[];
+  // ── Extended fields ──────────────────────────────────────────────────────
+  /** Neighbourhood / sub-locality from address decomposition. */
+  neighborhood?: string;
+  /** City / locality. */
+  city?: string;
+  /** State or province. */
+  state?: string;
+  /** Postal code. */
+  postalCode?: string;
+  /** ISO 3166-1 alpha-2 country code, e.g. "US". */
+  countryCode?: string;
+  /** Human-readable country name. */
+  country?: string;
+  /** Street address (number + street name). */
+  street?: string;
+  /** True when permanently closed. */
+  isPermanentlyClosed?: boolean;
+  /** True when temporarily closed. */
+  isTemporarilyClosed?: boolean;
+  /** True when the business has claimed its Google listing. */
+  isClaimed?: boolean;
+  /** Review keyword/topic frequency tags (shown under the star rating). */
+  reviewTags?: import('./place-extended.js').ReviewTag[];
+  /** "People also search for" cards from the place panel. */
+  peopleAlsoSearch?: import('./place-extended.js').PeopleAlsoSearch[];
+  /** Owner-posted updates visible on the place card. */
+  ownerUpdates?: import('./place-extended.js').OwnerUpdate[];
+  /** Fuel grade prices for gas stations. */
+  gasPrices?: import('./place-extended.js').GasPrice[];
+  /**
+   * Popular times histogram + live busyness.
+   * Parsed from placeData[84]. Only present when Google has visit history data
+   * for the place.
+   */
+  popularTimes?: import('./place-extended.js').PopularTimesData;
+  /** Hotel-specific card data (stars, description, booking offers, similar hotels). */
+  hotelData?: import('./place-extended.js').HotelData;
+  /** Restaurant-specific data (reservation provider, booking/order links). */
+  restaurantData?: import('./place-extended.js').RestaurantData;
+  /** Inline structured menu when Google serves it. */
+  menu?: import('./place-extended.js').PlaceMenu;
+  /**
+   * Inline Q&A items embedded in the place preview — a sample of the public Q&A section.
+   * For the full paginated list, call `places.qa()`.
+   */
+  qa?: import('./place-extended.js').PlaceQAResult;
+  /**
+   * Raw protobuf-over-JSON response tree.
+   * Present only when `{ raw: true }` is passed.
+   */
+  raw?: unknown;
 }
 
 export type {
@@ -476,10 +584,22 @@ export interface Review {
   photos?: string[];
   /** Guided-dining / visit chips — boq entry [30]. */
   attributes?: ReviewAttribute[];
+  /**
+   * Per-aspect ratings as a named map for easy access.
+   * Derived from `attributes` where rating is present, e.g.:
+   * `{ Food: 5, Service: 4, Atmosphere: 3 }`
+   */
+  reviewDetailedRating?: Record<string, number>;
   /** Per-review Maps URL — boq entry [12]. */
   permalink?: string;
+  /** Formatted "visited" visit-context label, e.g. "Visited a month ago". */
   visited?: string;
   source?: 'rpc' | 'embedded' | 'preview' | 'boq';
+  /**
+   * Raw boq entry array for this review.
+   * Present only when `{ raw: true }` is passed to the opinions/reviews call.
+   */
+  raw?: unknown;
 }
 
 export interface ReviewRatingDistribution {
@@ -522,15 +642,43 @@ export interface EnrichedSearchResult extends SearchResult {
   localPosts?: LocalPost[];
 }
 
+/**
+ * Post type from the local posts / owner updates surface.
+ * `event` = event announcement, `offer` = coupon/promo, `update` = generic update.
+ */
+export type LocalPostType = 'update' | 'event' | 'offer' | 'alert' | 'product' | 'unknown';
+
+/** A single media item (image or video) attached to a local post. */
+export interface LocalPostMedia {
+  url: string;
+  /** Media type — `'video'` for video entries, `'photo'` for images (default). */
+  type?: 'photo' | 'video';
+}
+
 /** Owner update / local post from Maps business profile. */
 export interface LocalPost {
   postId?: string;
+  /**
+   * Post type, always set by the parser (defaults to `'unknown'` when unrecognized).
+   * Values: `'update'` (generic), `'event'`, `'offer'` (coupon/promo), `'alert'`, `'product'`.
+   */
+  type: LocalPostType;
   title?: string;
   text?: string;
   date?: string;
+  /** Primary image URL (first item from mediaItems). */
   imageUrl?: string;
+  /** All media items (images / videos) attached to the post. */
+  mediaItems?: LocalPostMedia[];
   ctaUrl?: string;
   ctaLabel?: string;
+  /** Event start date/time string (ISO or human-readable). */
+  eventStartDate?: string;
+  /** Event end date/time string. */
+  eventEndDate?: string;
+  /** Promo / offer code. */
+  offerCode?: string;
+  raw?: unknown;
 }
 
 /** Options for fetching a complete place profile (details + reviews + photos). */
@@ -632,6 +780,8 @@ export type {
   DirectionsWaypoint,
   LatLngBounds,
   StepManeuver,
+  TransitMode,
+  TransitRoutingPreference,
 } from './directions.js';
 
 export class GMapsError extends Error {

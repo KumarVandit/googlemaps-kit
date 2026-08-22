@@ -1,7 +1,8 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractDirections } from '../parsers/directions.js';
 import { buildDirectionsUrls, directionsDataSuffix } from '../rpc/pb-builders.js';
-import type { Coordinates, DirectionsOptions, DirectionsResult, GMapsConfig } from '../types/common.js';
+import type { Coordinates, DirectionsResult, GMapsConfig } from '../types/common.js';
+import type { DirectionsOptions } from '../types/directions.js';
 import type { PbNode } from '../types/protobuf.js';
 import { resolveDirectionsEndpoints } from '../utils/place-ref.js';
 
@@ -80,6 +81,10 @@ export class DirectionsService {
       mode: normalized.mode,
       hl: this.hl,
       gl: this.gl,
+      departureTime: normalized.departureTime,
+      arrivalTime: normalized.arrivalTime,
+      transitModes: normalized.transitModes,
+      transitRoutingPreference: normalized.transitRoutingPreference,
     })) {
       const parsed = await tryUrl(url);
       if (!parsed) continue;

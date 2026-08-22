@@ -75,11 +75,13 @@ describe('batch RPC parsers — ugc aggregates', () => {
 });
 
 describe('batch RPC parsers — decode url', () => {
-  it('extracts coordinates and name from DecodeUrl', () => {
+  it('extracts coordinates, name and type from DecodeUrl', () => {
     const decoded = extractDecodedMapsUrl(loadFixture('decode-url-kake.json'));
     expect(decoded.name).toContain('Kake Di Hatti');
     expect(decoded.lat).toBeCloseTo(12.9121263, 4);
     expect(decoded.lng).toBeCloseTo(77.6499775, 4);
     expect(decoded.zoom).toBe(17);
+    // type code 2 = place URL (verified from decode-url-kake.json fixture)
+    expect(decoded.type).toBe('place');
   });
 });

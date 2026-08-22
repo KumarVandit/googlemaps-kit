@@ -414,6 +414,10 @@ export class IntentApi {
         destination,
         mode: options.mode,
         includeSteps: options.includeSteps,
+        departureTime: options.departureTime,
+        arrivalTime: options.arrivalTime,
+        transitModes: options.transitModes,
+        transitRoutingPreference: options.transitRoutingPreference,
       });
     });
   }

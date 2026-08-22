@@ -2,6 +2,10 @@ import type { PassiveAssistChip, PassiveAssistResult } from '../types/passiveass
 import type { PbNode } from '../types/protobuf.js';
 import { safeGet } from '../utils/safe-get.js';
 
+function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 /** The chipless ~212 B response carries only a personalization cache key at root[1]["62"]. */
 function hasCacheMetadataMarker(root: PbNode): boolean {
   const cacheBlock = safeGet<PbNode>(root, 1, '62');
@@ -14,7 +18,7 @@ function parseChipEntry(entry: unknown): PassiveAssistChip | undefined {
   const name = entry[1];
   if (typeof name !== 'string' || name.length === 0) return undefined;
 
-  const chip: PassiveAssistChip = { name };
+  const chip: PassiveAssistChip = { name, raw: entry };
 
   const cacheKey = safeGet<string>(entry, 0, 2);
   if (typeof cacheKey === 'string') chip.cacheKey = cacheKey;
@@ -31,6 +35,35 @@ function parseChipEntry(entry: unknown): PassiveAssistChip | undefined {
     if (typeof temp === 'string') chip.weatherTemp = temp;
     if (typeof label === 'string') chip.weatherLabel = label;
   }
+
+  // Location data — live chips for transit/weather cards carry placeData-like coords
+  // at entry[2] (place node) or entry[6] (coord block).
+  const coordBlock = safeGet<PbNode>(entry, 2, 9);
+  if (!coordBlock) {
+    // Alternative: coordinates embedded at entry[6]
+    const altCoord = safeGet<PbNode>(entry, 6);
+    const altLat = asNumber(safeGet<number>(altCoord, 2));
+    const altLng = asNumber(safeGet<number>(altCoord, 3));
+    if (altLat != null && altLng != null) {
+      chip.lat = altLat;
+      chip.lng = altLng;
+    }
+  } else {
+    const lat = asNumber(safeGet<number>(coordBlock, 2));
+    const lng = asNumber(safeGet<number>(coordBlock, 3));
+    if (lat != null && lng != null) {
+      chip.lat = lat;
+      chip.lng = lng;
+    }
+  }
+
+  // hexId at entry[2][10] (place node hex feature id)
+  const hexId = safeGet<string>(entry, 2, 10);
+  if (typeof hexId === 'string' && hexId.includes(':0x')) chip.hexId = hexId;
+
+  // placeId at entry[2][78]
+  const placeId = safeGet<string>(entry, 2, 78);
+  if (typeof placeId === 'string' && placeId.startsWith('ChIJ')) chip.placeId = placeId;
 
   return chip;
 }
@@ -57,5 +90,5 @@ export function extractPassiveAssistChips(data: PbNode): PassiveAssistResult {
     }
   }
 
-  return { chips, isStub: chips.length === 0 && hasCacheMetadataMarker(data) };
+  return { chips, isStub: chips.length === 0 && hasCacheMetadataMarker(data), raw: data };
 }

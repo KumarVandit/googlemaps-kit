@@ -16,6 +16,7 @@ import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient } from '../rpc/batch-rpc.js';
 import type { GMapsConfig } from '../types/common.js';
 import type {
+  CategoryHierarchyResult,
   CategoryNode,
   CategorySuggestion,
   GetCategorySuggestionsOptions,
@@ -37,10 +38,11 @@ export class CategoriesService {
   }
 
   /** Full Maps place category taxonomy (LocalRapService.GetCategoryHierarchy). */
-  async getHierarchy(): Promise<CategoryNode[]> {
+  async getHierarchy(): Promise<CategoryHierarchyResult> {
     const rpc = await createRpcClient(this.http, this.config);
     const data = await rpc.call(BATCH_SERVICES.CATEGORY_HIERARCHY, []);
-    return extractCategoryHierarchy(data);
+    const nodes = extractCategoryHierarchy(data);
+    return { nodes };
   }
 
   /** Autocomplete category suggestions for a query string. */

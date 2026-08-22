@@ -47,6 +47,13 @@ export interface ElevationSummary {
 export interface ElevationProfileSample {
   /** Cumulative distance along the route in meters (delta-decoded from directions payload). */
   distanceMeters: number;
+  /**
+   * Elevation in meters above sea level at this sample.
+   * Currently `undefined` — the directions elevation block encodes only the
+   * summary (min/max/start/end) and grade per sample, not per-sample absolute elevation.
+   * Reserved for a future payload that provides it.
+   */
+  elevationMeters?: number;
   /** Grade at this sample in percent when present. */
   gradePercent?: number;
 }
@@ -58,6 +65,11 @@ export interface ElevationPathResult {
   profile?: ElevationProfileSample[];
   /** Total route distance in meters from decoded profile distances. */
   pathDistanceMeters?: number;
+  /**
+   * Elevation at the start of the route in meters — same as `summary.startElevationMeters`.
+   * Provided as a convenience field directly on the result for quick access.
+   */
+  startElevationMeters?: number;
   mode: Extract<TravelMode, 'bicycling' | 'walking'>;
   error?: string;
   raw?: unknown;

@@ -30,6 +30,8 @@ export function extractTransitStationBoard(placeData: PlaceDataNode): TransitSta
   const modes: TransitModeBoard[] = [];
   for (const tab of modeTabs) {
     const mode = safeGet<string>(tab, 1);
+    // Mode label: e.g. "Tube", "Bus" at tab[0] or tab[3]
+    const modeLabel = safeGet<string>(tab, 0) ?? safeGet<string>(tab, 3);
     const groups = safeGet<PbNode[]>(tab, 2);
     if (!mode || !Array.isArray(groups)) continue;
 
@@ -40,13 +42,36 @@ export function extractTransitStationBoard(placeData: PlaceDataNode): TransitSta
     }
 
     if (departures.length > 0) {
-      modes.push({ mode, departures });
+      modes.push({
+        mode,
+        modeLabel: typeof modeLabel === 'string' && modeLabel !== mode ? modeLabel : undefined,
+        departures,
+        raw: tab,
+      });
     }
   }
 
   if (modes.length === 0) return undefined;
 
-  return { stationName, hexId, lat, lng, timezone, modes };
+  return { stationName, hexId, lat, lng, timezone, modes, raw: block };
+}
+
+/**
+ * Derive a short route identifier from headsign or line name.
+ * e.g. "Jubilee line towards Stratford" → "Jubilee", "N1 to City" → "N1"
+ */
+function deriveRouteShortName(headsign: string, lineName?: string): string | undefined {
+  if (lineName) {
+    // Strip trailing " line" from line names
+    const clean = lineName.replace(/\s+line$/i, '').trim();
+    if (clean.length > 0 && clean.length <= 30) return clean;
+  }
+  // First word of headsign if it looks like a route code (short, alphanumeric)
+  const firstWord = headsign.split(/\s+/)[0] ?? '';
+  if (firstWord.length >= 1 && firstWord.length <= 6 && /^[A-Z0-9]+$/i.test(firstWord)) {
+    return firstWord;
+  }
+  return undefined;
 }
 
 function parseDepartureGroup(group: PbNode, fallbackTz?: string): TransitDeparture | undefined {
@@ -72,10 +97,27 @@ function parseDepartureGroup(group: PbNode, fallbackTz?: string): TransitDepartu
   const vehicleType = safeGet<string>(vehicleBlock, 3) ?? undefined;
   const vehicleIconUrl = safeGet<string>(vehicleBlock, 4, 0, 0) ?? undefined;
 
+  // Derive ISO 8601 scheduledAt and minutesUntil from unix timestamp
+  let scheduledAt: string | undefined;
+  let minutesUntil: number | undefined;
+  if (scheduledUnix != null && scheduledUnix > 0) {
+    try {
+      scheduledAt = new Date(scheduledUnix * 1000).toISOString();
+      minutesUntil = Math.round((scheduledUnix * 1000 - Date.now()) / 60000);
+      if (minutesUntil < 0) minutesUntil = undefined; // already departed
+    } catch {
+      // ignore
+    }
+  }
+
+  const routeShortName = deriveRouteShortName(headsign, lineName);
+
   return {
     headsign,
     scheduledTime,
     scheduledUnix,
+    scheduledAt,
+    minutesUntil,
     timezone,
     platform,
     tripId,
@@ -85,5 +127,7 @@ function parseDepartureGroup(group: PbNode, fallbackTz?: string): TransitDepartu
     lineTextColor,
     vehicleType,
     vehicleIconUrl,
+    routeShortName,
+    raw: group,
   };
 }

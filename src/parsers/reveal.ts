@@ -84,6 +84,7 @@ function parseEntityBlock(block: PbNode): RevealedPlace | null {
     categoryHint: typeof categoryHint === 'string' ? categoryHint : undefined,
     streetViewThumbnailUrl:
       typeof streetViewThumbnailUrl === 'string' ? streetViewThumbnailUrl : undefined,
+    raw: block,
   };
 }
 
@@ -111,5 +112,5 @@ export function extractRevealPlace(data: PbNode): RevealPlaceResult {
     place = { ...place, plusCode };
   }
 
-  return { place, addressLines };
+  return { place, addressLines, raw: data };
 }
