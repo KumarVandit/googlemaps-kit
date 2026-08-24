@@ -1,9 +1,11 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractDirections } from '../parsers/directions.js';
 import { buildDirectionsUrls, directionsDataSuffix } from '../rpc/pb-builders.js';
-import type { Coordinates, DirectionsOptions, DirectionsResult, GMapsConfig } from '../types/common.js';
+import type { Coordinates, DirectionsResult, GMapsConfig } from '../types/common.js';
+import type { DirectionsOptions } from '../types/directions.js';
 import type { PbNode } from '../types/protobuf.js';
 import { resolveDirectionsEndpoints } from '../utils/place-ref.js';
+import { fetchSessionPsi } from '../rpc/batch-rpc.js';
 
 export interface DirectionsGetOptions extends DirectionsOptions {}
 
@@ -47,6 +49,20 @@ export class DirectionsService {
   }
 
   /**
+   * Page `ei` token for the directions pb.
+   *
+   * Transit routes are gated on it; the other modes ignore it. Failure to mint
+   * one is not fatal — the request still returns non-transit routes.
+   */
+  async sessionToken(anchor?: Coordinates): Promise<string | undefined> {
+    try {
+      return await fetchSessionPsi(this.http, anchor ? { lat: anchor.lat, lng: anchor.lng } : {});
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Fetch driving/walking directions via `/maps/preview/directions`.
    * Coordinates resolve in one round trip; address strings may need an extra resolve step.
    * Pass `includeSteps: true` for turn-by-turn steps when they are not in the preview payload.
@@ -60,6 +76,9 @@ export class DirectionsService {
     };
     let best: DirectionsResult = { legs: [] };
     const wantSteps = normalized.includeSteps === true;
+    const sessionToken = await this.sessionToken(
+      typeof origin === 'object' ? origin : undefined,
+    );
 
     const tryUrl = async (url: string): Promise<DirectionsResult | null> => {
       try {
@@ -80,6 +99,11 @@ export class DirectionsService {
       mode: normalized.mode,
       hl: this.hl,
       gl: this.gl,
+      departureTime: normalized.departureTime,
+      arrivalTime: normalized.arrivalTime,
+      transitModes: normalized.transitModes,
+      transitRoutingPreference: normalized.transitRoutingPreference,
+      sessionToken,
     })) {
       const parsed = await tryUrl(url);
       if (!parsed) continue;
@@ -104,6 +128,20 @@ export class DirectionsService {
     }
 
     return best;
+  }
+
+  /**
+   * Fetch alternative routes for directions.
+   * Returns multiple route options sorted by travel time.
+   * Respects alternatives count limit when specified (default: all available).
+   */
+  async getAlternatives(
+    options: DirectionsGetOptions & { alternatives?: number },
+  ): Promise<DirectionsResult['routes']> {
+    const result = await this.get(options);
+    const routes = result.routes ?? [];
+    const limit = options.alternatives ?? routes.length;
+    return routes.slice(0, Math.max(1, limit));
   }
 
   private hasMetrics(result: DirectionsResult): boolean {

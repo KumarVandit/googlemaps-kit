@@ -1,6 +1,6 @@
-import type { RevealedPlace, RevealPlaceResult } from '../types/reveal.js';
+import type { RevealedPlace, RevealPlaceResult } from '../types/viewport.js';
 import type { PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 
 function parseCoords(block: PbNode): { lat?: number; lng?: number } {
   for (const idx of [9, 12, 2]) {
@@ -84,6 +84,7 @@ function parseEntityBlock(block: PbNode): RevealedPlace | null {
     categoryHint: typeof categoryHint === 'string' ? categoryHint : undefined,
     streetViewThumbnailUrl:
       typeof streetViewThumbnailUrl === 'string' ? streetViewThumbnailUrl : undefined,
+    raw: block,
   };
 }
 
@@ -111,5 +112,5 @@ export function extractRevealPlace(data: PbNode): RevealPlaceResult {
     place = { ...place, plusCode };
   }
 
-  return { place, addressLines };
+  return { place, addressLines, raw: data };
 }

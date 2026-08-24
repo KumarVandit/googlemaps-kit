@@ -1,6 +1,6 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "TypeScript SDK + Bubble Tea TUI for Google Maps consumer surfaces",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,7 +26,7 @@
     "dist",
     "LICENSE",
     "README.md",
-    "assets/banner.png"
+    ".github/assets/banner.png"
   ],
   "sideEffects": false,
   "engines": {
@@ -38,8 +38,9 @@
     "clean": "rm -rf dist",
     "type-check": "tsc -p tsconfig.check.json --noEmit",
     "prepublishOnly": "npm run clean && npm run build && npm run type-check && npm test",
-    "test": "vitest run",
+    "test": "vitest run tests/unit",
     "test:watch": "vitest",
+    "test:live": "GMAPS_LIVE=1 vitest run tests/live",
     "preexample": "npm run build",
     "example:quick-start": "tsx examples/quick-start.ts",
     "example:search": "tsx examples/search-text.ts",
@@ -51,9 +52,12 @@
     "example:geocode": "tsx examples/geocode.ts",
     "example:suggest": "tsx examples/suggest.ts",
     "example:maps-url": "tsx examples/maps-url.ts",
+    "example:grid-search": "tsx examples/grid-search.ts",
     "examples:all": "npm run build && tsx examples/run-all.ts",
     "verify:all": "tsx scripts/verify-all.ts",
-    "smoke:daily": "tsx scripts/smoke-daily.ts"
+    "smoke:daily": "tsx scripts/smoke-daily.ts",
+    "api:serve": "tsx src/server/api-server.ts",
+    "api:build": "tsc -p tsconfig.server.json"
   },
   "keywords": [
     "google-maps",
@@ -64,7 +68,6 @@
     "google-maps-without-api-key",
     "unofficial-google-maps-api",
     "free-google-maps-api",
-    "reverse-engineering-google-maps",
     "google-maps-reviews-api",
     "google-maps-directions",
     "local-business-scraper",

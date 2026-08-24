@@ -4,7 +4,7 @@ import { extractPlacePhotos, extractPlacePreviewPhotos, resizePhotoUrl } from '.
 import { buildPlaceUrl, type PlacePbMode } from '../rpc/pb-builders.js';
 import { buildPlacePhotosUrl } from '../rpc/photos-pb.js';
 import { buildListEntityPhotosBatchArgs } from '../rpc/batch-request-builders.js';
-import { filterPhotosByCategory } from '../rpc/photo-category-tokens.js';
+import { filterPhotosByCategory } from '../rpc/photos-pb.js';
 import { BATCH_SERVICES } from '../rpc/batch-services.js';
 import { createRpcClient, fetchSessionPsi, isBatchErrorCode, parseBatchPayload } from '../rpc/batch-rpc.js';
 import type { GMapsConfig } from '../types/common.js';
@@ -18,6 +18,7 @@ import type {
 import type { PbNode } from '../types/protobuf.js';
 import { GMapsError } from '../types/common.js';
 import { dedupePhotos } from '../utils/photo-url.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 function isCompletePlacePayload(data: unknown): boolean {
   const details = extractPlaceDetails(data as PbNode);
@@ -215,9 +216,7 @@ export class PhotosService {
       mode,
     });
 
-    const referer = options.name
-      ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-      : 'https://www.google.com/maps/';
+    const referer = buildPlaceReferer(options.name);
 
     const data = await this.http.get(url, {
       referer,

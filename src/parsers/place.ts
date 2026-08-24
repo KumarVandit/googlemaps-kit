@@ -2,9 +2,10 @@ import type { BusinessHours, PlaceDetails, Review } from '../types/common.js';
 import type { MapsPreviewPlaceResponse, PlaceDataNode, PbNode } from '../types/protobuf.js';
 import { asPlaceDataNode, asPreviewResponse } from '../types/protobuf.js';
 import { dedupePhotos } from '../utils/photo-url.js';
-import { applyCoordAliases } from '../utils/coords.js';
-import { safeGet } from '../utils/safe-get.js';
+import { applyCoordAliases } from '../utils/place-ref.js';
+import { safeGet } from '../utils/payload.js';
 import { extractPlaceAggregateAttributes } from './place-attributes.js';
+import { applyExtendedFields } from './place-extended.js';
 import {
   collectHourDayEntries,
   type HourDayEntry,
@@ -19,7 +20,7 @@ import {
 } from './shared.js';
 
 function extractBusinessHoursFromEntries(dayEntries: HourDayEntry[]): BusinessHours | undefined {
-  const hours: BusinessHours = {};
+  const hours: Record<string, string> = {};
 
   for (const dayEntry of dayEntries) {
     if (!Array.isArray(dayEntry) || dayEntry.length < 4) continue;
@@ -40,12 +41,12 @@ function extractBusinessHoursFromEntries(dayEntries: HourDayEntry[]): BusinessHo
     }
   }
 
-  return Object.keys(hours).length > 0 ? hours : undefined;
+  return Object.keys(hours).length > 0 ? hours as BusinessHours : undefined;
 }
 
 function extractBusinessHoursOld(hoursData: PbNode[]): BusinessHours | undefined {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const hours: BusinessHours = {};
+  const hours: Record<string, string> = {};
 
   try {
     const schedule = Array.isArray(hoursData[1]) ? hoursData[1] : hoursData;
@@ -65,7 +66,7 @@ function extractBusinessHoursOld(hoursData: PbNode[]): BusinessHours | undefined
           typeof dayData[0] === 'string' ? normalizeHoursText(dayData[0]) : String(dayData[0]);
       }
     }
-    return Object.keys(hours).length > 0 ? hours : undefined;
+    return Object.keys(hours).length > 0 ? hours as BusinessHours : undefined;
   } catch {
     return undefined;
   }
@@ -245,16 +246,29 @@ function extractMapsUrl(placeData: PlaceDataNode): string | undefined {
   return `https://www.google.com/maps/place/${slug}/@${safeGet<number>(placeData, 9, 2) ?? ''},${safeGet<number>(placeData, 9, 3) ?? ''},17z/data=!3m1!4b1!4m6!3m5!1s${encodeURIComponent(hexId)}!8m2!3d${safeGet<number>(placeData, 9, 2)}!4d${safeGet<number>(placeData, 9, 3)}`;
 }
 
+export interface ExtractPlaceDetailsOptions {
+  /**
+   * When true, attach the full raw protobuf-over-JSON tree to `details.raw`.
+   * Incurs no extra HTTP request — uses the same response data.
+   * Default false (keeps the result lean).
+   */
+  raw?: boolean;
+  /**
+   * When false, skip the extended field extraction (popular times, review tags,
+   * people also search, hotel/restaurant data, gas prices, address decomposition,
+   * identifiers, closed flags). Default true — all fields extracted.
+   */
+  extended?: boolean;
+}
+
 /** Extract place details from `/maps/preview/place` response (data[6] is primary). */
-export function extractPlaceDetails(data: PbNode): PlaceDetails {
+export function extractPlaceDetails(data: PbNode, options?: ExtractPlaceDetailsOptions): PlaceDetails {
   const details: PlaceDetails = {};
   const preview = asPreviewResponse(data);
   let placeData = preview?.[6];
   if (!placeData) {
     placeData = asPlaceDataNode(data);
   }
-  if (!placeData) return details;
-
   if (!placeData) return details;
 
   const node = placeData as PlaceDataNode;
@@ -329,6 +343,18 @@ export function extractPlaceDetails(data: PbNode): PlaceDetails {
   const embeddedReviews = extractEmbeddedReviews(node);
   if (embeddedReviews.length > 0) {
     details.reviewSnippets = embeddedReviews;
+  }
+
+  // Extended fields: popular times, review tags, people also search, hotel/restaurant data,
+  // gas prices, address decomposition, identifiers, closed flags.
+  // Enabled by default; pass { extended: false } to skip (e.g. fast path search rows).
+  if (options?.extended !== false) {
+    applyExtendedFields(details, node, {
+      raw: options?.raw,
+      rawData: options?.raw ? data : undefined,
+    });
+  } else if (options?.raw) {
+    details.raw = data;
   }
 
   return details;

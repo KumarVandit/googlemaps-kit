@@ -6,7 +6,6 @@ import type { Coordinates } from '../types/common.js';
 import { GMapsError } from '../types/common.js';
 import type { NormalizedPlaceRef, PlaceRef } from '../types/dx.js';
 import { placeIdToFeatureId } from './ids.js';
-import { toCoordinates } from './coords.js';
 
 const HEX_ID_RE = /^0x[0-9a-f]+:0x[0-9a-f]+$/i;
 const PLACE_ID_RE = /^ChIJ[\w-]+$/;
@@ -155,3 +154,64 @@ export function resolveDirectionsEndpoints(options: {
     destination: resolveRouteEndpoint(destRaw),
   };
 }
+
+/**
+ * Build a `google.com/maps/place/…` referer for a place name.
+ *
+ * Percent-encodes the name so non-ASCII titles (accents, CJK, Indic scripts)
+ * cannot produce a header value `fetch` refuses to serialise as a ByteString.
+ */
+export function buildPlaceReferer(name?: string): string {
+  if (!name) return 'https://www.google.com/maps/';
+  const slug = encodeURIComponent(name.trim()).replace(/%20/g, '+');
+  return `https://www.google.com/maps/place/${slug}/`;
+}
+
+export interface CoordFields {
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+}
+
+export interface CoordinatesLike {
+  lat: number;
+  lng: number;
+}
+
+/** Copy latitude↔lat and longitude↔lng so both spellings are populated. */
+export function applyCoordAliases<T extends CoordFields>(obj: T): T {
+  const lat = obj.lat ?? obj.latitude;
+  const lng = obj.lng ?? obj.longitude;
+  if (lat != null) {
+    obj.lat = lat;
+    obj.latitude = lat;
+  }
+  if (lng != null) {
+    obj.lng = lng;
+    obj.longitude = lng;
+  }
+  return obj;
+}
+
+/**
+ * Normalize any coords-shaped object to `{ lat, lng }`.
+ * Accepts `lat`/`lng` or `latitude`/`longitude`.
+ */
+export function toCoordinates(
+  value: CoordFields | { lat: number; lng: number } | null | undefined,
+): CoordinatesLike | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const lat =
+    'lat' in value && typeof (value as { lat?: unknown }).lat === 'number'
+      ? (value as { lat: number }).lat
+      : (value as CoordFields).latitude;
+  const lng =
+    'lng' in value && typeof (value as { lng?: unknown }).lng === 'number'
+      ? (value as { lng: number }).lng
+      : (value as CoordFields).longitude;
+  if (typeof lat !== 'number' || typeof lng !== 'number') return undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return { lat, lng };
+}
+

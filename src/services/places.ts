@@ -19,6 +19,7 @@ import type {
 import type { MapsPreviewPlaceResponse, PlaceDataNode, PbNode } from '../types/protobuf.js';
 import { dedupePhotos } from '../utils/photo-url.js';
 import type { ReviewsService } from './reviews.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 export interface GetPlaceOptions {
   hexId: string;
@@ -42,6 +43,19 @@ export interface GetPlaceOptions {
    * truncated responses.
    */
   skipIncompleteRetry?: boolean;
+  /**
+   * Attach the full raw protobuf-over-JSON tree to `PlaceDetails.raw`.
+   * No extra HTTP request — uses the same response data.
+   * Default false.
+   */
+  raw?: boolean;
+  /**
+   * When false, skip extended field extraction (popular times, review tags,
+   * people also search, hotel/restaurant data, gas prices, address decomposition).
+   * Default true — all fields extracted.
+   * Set false for maximum parsing speed on bulk operations.
+   */
+  extended?: boolean;
 }
 
 export interface PlacePreviewFetchResult {
@@ -94,9 +108,7 @@ export class PlacesService {
     });
 
     const start = performance.now();
-    const referer = options.name
-      ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-      : 'https://www.google.com/maps/';
+    const referer = buildPlaceReferer(options.name);
     const data = await this.http.get(url, {
       referer,
       includeOrigin: true,
@@ -112,7 +124,10 @@ export class PlacesService {
 
   /** Parse place details from an already-fetched preview response. */
   parsePreview(data: PbNode, overrides?: Partial<GetPlaceOptions>): PlaceDetails {
-    const details = extractPlaceDetails(data);
+    const details = extractPlaceDetails(data, {
+      raw: overrides?.raw,
+      extended: overrides?.extended,
+    });
     if (overrides?.hexId) details.hexId = details.hexId ?? overrides.hexId;
     if (overrides?.ftid) details.ftid = details.ftid ?? overrides.ftid;
     details.photos = dedupePhotos(extractPhotosDeep(data, 50));

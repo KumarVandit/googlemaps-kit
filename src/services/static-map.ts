@@ -15,7 +15,7 @@ import {
   encodePng,
   type RgbaImage,
 } from '../utils/png.js';
-import { pooled, sleep } from '../utils/pooled.js';
+import { pooled, sleep } from '../utils/async.js';
 import {
   latLngToViewportPixel,
   MAP_TILE_PX,

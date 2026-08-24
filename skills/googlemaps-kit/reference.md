@@ -109,21 +109,48 @@ await maps.media(ref, { photos?: true, streetView?: false, pageSize?, category?,
 | `maps.places` / `.details` | `get`, `getMany`, `getFull`, `fetchPreview` |
 | `maps.places.reviews` | `list`, `listAll`, `listBoq`, `listEmbedded`, `listRpc` |
 | `maps.places.photos` | `list`, `listAll`, `listMany` |
+| `maps.places.knowledge` | `get` |
+| `maps.places.localPosts` | `list` |
+| `maps.places.attributes` | `getAll`, `byCategory`, `byType` |
 | `maps.location.geocode` | `geocode`, `reverseGeocode` |
 | `maps.location.timezone` | `get` |
+| `maps.location.reveal` | `revealAtClick` |
+| `maps.location.passiveAssist` | `getViewportChips` (needs caller-supplied viewport `psi`) |
+| `maps.location.context` | `getAreas`, `getRegions`, `getNearby` |
 | `maps.travel.directions` | `get` |
 | `maps.travel.distanceMatrix` | `getMatrix` |
-| `maps.travel.traffic` | `getAreaTraffic` |
-| `maps.travel.transit` | `getStationDepartures` |
-| `maps.map.panorama` | `findNearby`, `get`, `getByLocation` |
-| `maps.map.tiles` / `staticMap` | tile / PNG stitch |
-| `maps.meta.categories` | `suggest`, `getHierarchy`, … |
+| `maps.travel.elevation` | `getAtPoint`, `getAtPoints`, `getAlongPath` |
+| `maps.travel.traffic` | `getAreaTraffic`, `getIncidents` |
+| `maps.travel.transit` | `getStationDepartures`, `getRoute` |
+| `maps.travel.parking` | `search`; `getAvailability` / `getPricing` throw `GMapsError` unless Google publishes live data for that garage |
+| `maps.travel.ev` | `findCharging`; `getStatus` / `getPricing` always throw `GMapsError` (no Maps surface carries it) |
+| `maps.travel.bikeShare` | `getAvailability`, `getAvailabilityMany` (station hexId required) |
+| `maps.travel.searchAlongRoute` / `.alongRoute()` | `find` (corridor search along a route) |
+| `maps.travel.waypointOptimizer` / `.optimizeWaypoints()` | `optimize` (multi-stop ordering) |
+| `maps.map.tiles` / `staticMap` | `getTile`, `getTileByLatLng`, `getLayer`, `getOverlay`, `getOverlayByLatLng`, `getIcon`; PNG stitch |
+| `maps.map.panorama` | `findNearby`, `get`, `getByLocation`, `getTileGrid` |
+| `maps.map.layers` | `getTraffic`, `getTransit`, `getSchools`, `getBuildings`, `getTerrain`, `getViewportCapabilities` |
+| `maps.map.map3d` | `getMesh`, `getTerrain`, `getBuildings` (`planet: 'mars' \| 'moon'`) |
+| `maps.map.earth` | `getTiles`, `getImagery` |
+| `maps.meta.categories` | `suggest`, `getHierarchy`, `getPlaceInfo`, `getPotentialDuplicates`, `getSignedUrl` |
 | `maps.meta.links` | `expand`, `resolve` |
+| `maps.meta.ugcAggregates` | `getPlaceAggregates` (needs viewport `psi`) |
+| `maps.meta.lists` | `list`, `get`, `resolveListId` (signed-in) |
+| `maps.meta.batchUrl` | `decode`, `createShortUrl` |
+| `maps.meta.userPrefs` | `get` (signed-in; anonymous calls throw `AuthRequiredError`) |
 | `maps.agent` | `ask`, `listHistoryThreads` |
 
 Flat root aliases do not exist — use namespaces (`maps.places.search`, …).
 
-Also: `maps.auth.status()`, `maps.surfaces.working()`.
+Also: `maps.auth.status()`, plus the surface catalog:
+
+```ts
+maps.surfaces.list()                    // KnownSurfaceName[]
+maps.surfaces.listByStatus('working')   // KnownSurfaceName[]
+maps.surfaces.get('search')             // SurfaceInfo
+maps.surfaces.working()                 // shorthand for listByStatus('working')
+maps.surfaces.catalog()                 // full KNOWN_SURFACES object (read-only)
+```
 
 ## Auth and capabilities
 
@@ -141,12 +168,13 @@ type ClientCapabilities = {
   askMapsHistory: boolean
   privateLists: boolean
   legacyRpc: boolean
+  userPrefs: boolean
 }
 ```
 
 `signedIn` is SAPISID-family cookie presence, not a live Google login probe.
 
-`AuthRequiredError.capability` ∈ `askMaps` | `askMapsHistory` | `reviewsRpc` | `privateLists` | `legacyRpc`.
+`AuthRequiredError.capability` ∈ `askMaps` | `askMapsHistory` | `reviewsRpc` | `privateLists` | `legacyRpc` | `userPrefs`.
 
 ## What this SDK is not
 
@@ -171,7 +199,4 @@ type ClientCapabilities = {
 ```ts
 await maps.auth.status()       // AuthStatus — no cookie values
 await maps.auth.summarize()
-maps.surfaces.working()        // KnownSurfaceName[]
-maps.surfaces.get('search')    // SurfaceInfo
-maps.surfaces.listByStatus('auth-required')
 ```

@@ -3,7 +3,7 @@
  *
  * Run: npm run example:reviews
  */
-import { assertDefined, CEVI, createExampleClient } from './shared.js';
+import { run, assertDefined, CEVI, createExampleClient } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -33,7 +33,4 @@ async function main() {
   console.log('First:', first.rating, 'stars', first.author ?? '(embedded snippet)');
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

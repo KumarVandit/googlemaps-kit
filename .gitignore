@@ -16,6 +16,7 @@ cookies.txt
 auth-session*
 
 # Machine captures, probe dumps, browser profiles (device/session material)
+.probe/
 .cache/
 .playwright/
 chrome-profile/
@@ -41,13 +42,11 @@ scripts/verify-*.ts
 docs/internal/
 examples/internal/
 
-# Generated multi-lang SDKs (regenerate via Stainless)
-sdks/*
-!sdks/.gitkeep
-
-# Stainless local cache
-.stainless/.cache/
+# Local AI tool state
+.claude/
+.cursor/
+.agents/
+AGENTS.md
 
 # OS
 .DS_Store
-.cursor/

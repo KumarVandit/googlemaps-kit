@@ -1,5 +1,5 @@
 /**
- * Search filter types reverse-engineered from Maps client JS (FRNZOb.js / eH4Qrd.js).
+ * Search filter types matched against the Maps web client (FRNZOb.js / eH4Qrd.js).
  *
  * NOT EFFECTIVE for anonymous HTTP: live probing showed none of these encodings change
  * `search?tbm=map` results — parameters are silently ignored. Registered as `searchFilters`

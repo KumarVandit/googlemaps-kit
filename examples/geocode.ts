@@ -3,7 +3,7 @@
  *
  * Run: npm run example:geocode
  */
-import { assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
+import { run, assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -19,7 +19,4 @@ async function main() {
   console.log('Reverse:', rev.formattedAddress ?? rev.name);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

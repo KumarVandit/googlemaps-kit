@@ -1,18 +1,19 @@
 import { HttpClient } from './http-client.js';
-import { loadProjectEnv } from '../utils/load-env.js';
+import { loadProjectEnv } from '../utils/env.js';
 import { GMapsRpcClient } from '../rpc/rpc-client.js';
 import { IntentApi } from './intent.js';
 import {
   AgentNamespace,
+  AuthNamespace,
   createServiceBundle,
   LocationNamespace,
   MapNamespace,
   MetaNamespace,
   PlacesNamespace,
+  SurfacesNamespace,
   TravelNamespace,
   type ServiceBundle,
 } from './namespaces.js';
-import { AuthNamespace, SurfacesNamespace } from './product-namespaces.js';
 import { searchResultToPlaceDetails } from '../services/search.js';
 import type {
   DirectionsOptions,
@@ -27,7 +28,7 @@ import type {
   SearchOptions,
   SearchResult,
 } from '../types/common.js';
-import { GMapsAuthError } from '../types/common.js';
+import { GMapsAuthError, GMapsError } from '../types/common.js';
 import type {
   ClientCapabilities,
   DiscoverOptions,
@@ -40,6 +41,8 @@ import type {
   OpinionsPagesOptions,
   OpinionsResult,
   PipelineOptions,
+  GridOptions,
+  GridResult,
   PipelineResult,
   PlaceProfile,
   PlaceRef,
@@ -51,7 +54,8 @@ import type {
   RouteResult,
   SessionMode,
 } from '../types/dx.js';
-import { TtlCache } from '../utils/ttl-cache.js';
+import { TtlCache } from '../utils/async.js';
+import { boundsAround } from '../utils/geo.js';
 import { createMapsTools, type CreateMapsToolsOptions, type MapsTools } from './maps-tools.js';
 
 loadProjectEnv();
@@ -258,6 +262,46 @@ export class GMapsClient {
     return this.intent.pipeline(options);
   }
 
+  /**
+   * Area-coverage search: split a bounding box into zoom cells and merge the
+   * per-cell results, deduped. Beats single-query pagination caps in dense
+   * cities — pass `bounds`, or `near` + `spanKm` (default 3 km square).
+   */
+  async grid(options: GridOptions): Promise<GridResult> {
+    const start = performance.now();
+    const bounds =
+      options.bounds ??
+      (options.near
+        ? boundsAround(options.near.lat, options.near.lng, options.spanKm ?? 3)
+        : undefined);
+    if (!bounds) {
+      throw new GMapsError('grid() requires bounds or near (+ optional spanKm)');
+    }
+    const { onProgress } = options;
+    const result = await this.services.search.gridSearch({
+      ...options,
+      bounds,
+      onProgress: onProgress
+        ? (p) =>
+            onProgress({
+              type: 'grid',
+              index: p.cell,
+              total: p.totalCells,
+              loaded: p.uniqueResults,
+              key: `${p.x}/${p.y}`,
+            })
+        : undefined,
+    });
+    return {
+      places: result.results,
+      cellsSearched: result.cellsSearched,
+      cellsTotal: result.cellsTotal,
+      requestsMade: result.requestsMade,
+      cellZoom: result.cellZoom,
+      timingMs: performance.now() - start,
+    };
+  }
+
   /** Ready-made Intent tools for agents. */
   tools(options?: CreateMapsToolsOptions): MapsTools {
     return createMapsTools(this, options);
@@ -285,6 +329,7 @@ export class GMapsClient {
       askMapsHistory: signedIn,
       privateLists: signedIn,
       legacyRpc: signedIn,
+      userPrefs: signedIn,
     };
   }
 

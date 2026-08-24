@@ -1,19 +1,20 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractBoqReviews } from '../parsers/boq-reviews.js';
-import { applyReviewClientFilters } from '../parsers/review-client-filters.js';
+import { applyReviewClientFilters } from '../parsers/reviews.js';
+import { UgcAggregatesService } from './meta.js';
 import {
   placeAggregatesToRatingDistribution,
   sumRatingDistribution,
-} from '../parsers/review-aggregates.js';
+} from '../parsers/reviews.js';
 import { extractEmbeddedReviews, extractPlaceDetails } from '../parsers/place.js';
 import { extractListUgcReviews } from '../parsers/reviews.js';
-import { buildBoqReviewsUrl } from '../rpc/boq-reviews.js';
+import { buildBoqReviewsUrl } from '../rpc/feature-rpc.js';
 import { buildPlaceUrl, buildReviewsUrl } from '../rpc/pb-builders.js';
-import { UgcAggregatesService } from './ugc-aggregates.js';
 import type { GMapsConfig, ReviewSortOrder, ReviewsResult } from '../types/common.js';
 import type { ReviewClientFilters } from '../types/reviews.js';
 import type { PbNode } from '../types/protobuf.js';
 import { asPlaceDataNode } from '../types/protobuf.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 export interface GetReviewsOptions {
   hexId: string;
@@ -44,6 +45,11 @@ export interface GetReviewsOptions {
    * `rpc` requires signed-in SAPISID cookies.
    */
   source?: import('../types/dx.js').ReviewSource;
+  /**
+   * When true, attach the raw boq entry array to each `Review.raw`.
+   * Useful for debugging field discovery. Default false.
+   */
+  raw?: boolean;
 }
 
 export class ReviewsService {
@@ -193,6 +199,31 @@ export class ReviewsService {
   }
 
   /**
+   * Stream review pages as an async generator.
+   * Yields each page as it's fetched, with deduplication across pages.
+   */
+  async *listPages(options: GetReviewsOptions): AsyncGenerator<ReviewsResult> {
+    const firstPage = await this.list(options);
+    const seen = new Set<string>();
+    for (const review of firstPage.reviews) {
+      if (review.reviewId) seen.add(review.reviewId);
+    }
+    yield firstPage;
+
+    let nextToken = firstPage.nextPageToken;
+    while (nextToken) {
+      const page = await this.list({ ...options, paginationToken: nextToken });
+      const deduped = page.reviews.filter((r) => {
+        if (!r.reviewId || seen.has(r.reviewId)) return false;
+        seen.add(r.reviewId);
+        return true;
+      });
+      yield { ...page, reviews: deduped, reviewCount: deduped.length };
+      nextToken = page.nextPageToken;
+    }
+  }
+
+  /**
    * Full paginated reviews via GetLocalBoqProxy httpservice RPC.
    *
    * Responses are cumulative: passing page 1's `nextPageToken` returns page 1's reviews
@@ -213,11 +244,11 @@ export class ReviewsService {
         referer: 'https://www.google.com/maps/',
         includeOrigin: true,
       });
-      const parsed = extractBoqReviews(data as PbNode);
+      const parsed = extractBoqReviews(data as PbNode, { raw: options.raw });
       const withAggregates = await this.attachAggregates(parsed, options);
       return applyReviewClientFilters(withAggregates, options.filters);
-    } catch {
-      return { reviewCount: 0, reviews: [] };
+    } catch (error) {
+      return { reviewCount: 0, reviews: [], error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -241,9 +272,7 @@ export class ReviewsService {
     });
 
     const data = await this.http.get(url, {
-      referer: options.name
-        ? `https://www.google.com/maps/place/${options.name.replace(/ /g, '+')}/`
-        : 'https://www.google.com/maps/',
+      referer: buildPlaceReferer(options.name),
       includeOrigin: true,
     });
 
@@ -289,8 +318,8 @@ export class ReviewsService {
       }
       const withAggregates = await this.attachAggregates(result, options);
       return applyReviewClientFilters(withAggregates, options.filters);
-    } catch {
-      return { reviewCount: 0, reviews: [] };
+    } catch (error) {
+      return { reviewCount: 0, reviews: [], error: error instanceof Error ? error.message : String(error) };
     }
   }
 

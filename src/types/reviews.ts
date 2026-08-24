@@ -1,3 +1,5 @@
+
+
 /**
  * Extended review types — fields populated from GetLocalBoqProxy (boq) unless noted.
  */
@@ -8,6 +10,7 @@ export interface ReviewOwnerReply {
   date?: string;
   /** Plain-text owner reply — boq entry [4][2] (HTML stripped). */
   text?: string;
+  raw?: unknown;
 }
 
 /** Local Guide / contributor stats from boq entry [3]. */
@@ -20,6 +23,9 @@ export interface ReviewerCredibility {
   localGuideLevel?: number;
   /** True when avatar URL contains Local Guide badge markers. */
   isLocalGuide?: boolean;
+  /** Google user id of the reviewer (numeric string) when parseable. */
+  authorId?: string;
+  raw?: unknown;
 }
 
 /** Structured review-attached photo (boq entry [14][*]). */
@@ -35,6 +41,11 @@ export interface ReviewPhoto {
   aspectRatio?: number;
   videoUrl?: string;
   uploadDate?: string;
+  /** Width in pixels when available. */
+  width?: number;
+  /** Height in pixels when available. */
+  height?: number;
+  raw?: unknown;
 }
 
 /** Per-aspect or chip attribute on a review (boq entry [30][*]). */
@@ -47,6 +58,7 @@ export interface ReviewAttribute {
   value?: string;
   /** Numeric aspect rating 1–5 when the attribute is a star aspect. */
   rating?: number;
+  raw?: unknown;
 }
 
 /** Translation metadata (boq entry [44]). */
@@ -61,6 +73,7 @@ export interface ReviewTranslation {
   textPreview?: string;
   /** Original text when both original and translation are present — boq entry [32] when non-empty. */
   originalText?: string;
+  raw?: unknown;
 }
 
 /**
@@ -82,4 +95,23 @@ export interface PlaceReviewRatingDistribution {
   threeStar: number;
   twoStar: number;
   oneStar: number;
+}
+
+/** Place UGC/review aggregates from GetPlaceUgcPostAggregates batchexecute RPC. */
+export interface PlaceUgcAggregates {
+  rating?: number;
+  /**
+   * Star count histogram as a fixed 5-element tuple:
+   * `[fiveStar, fourStar, threeStar, twoStar, oneStar]` — index 0 = 5-star, index 4 = 1-star.
+   * Verified against Kake Di Hatti + duplicates fixtures.
+   */
+  ratingDistribution?: [number, number, number, number, number];
+  totalCount?: number;
+  raw?: unknown;
+}
+
+export interface GetPlaceUgcAggregatesOptions {
+  hexId: string;
+  /** Override session psi (scraped from Maps bootstrap when omitted). */
+  psi?: string;
 }

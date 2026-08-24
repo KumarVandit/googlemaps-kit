@@ -1,7 +1,7 @@
 import { htmlToPlainText } from './shared.js';
 import type { SuggestResult, Suggestion, SuggestionKind } from '../types/suggest.js';
-import { parseGoogleResponse } from '../utils/response-parser.js';
-import { safeGet } from '../utils/safe-get.js';
+import { parseGoogleResponse } from '../utils/payload.js';
+import { safeGet } from '../utils/payload.js';
 
 type PbNode = unknown;
 
@@ -82,8 +82,10 @@ function parseThumbnail(payload: PbNode): string | undefined {
   return undefined;
 }
 
-function classifyKind(hexId?: string, placeId?: string): SuggestionKind {
+function classifyKind(hexId?: string, placeId?: string, subtype?: number): SuggestionKind {
   if (hexId || placeId) return 'place';
+  // Subtype 3 is consistently used for route / directions suggestions
+  if (subtype === 3) return 'route';
   return 'query';
 }
 
@@ -98,6 +100,26 @@ function suggestionKey(suggestion: Suggestion): string {
   ].join('\0');
 }
 
+function parseDistanceText(payload: PbNode): string | undefined {
+  // Distance appears at [25][0] (e.g. "0.3 mi") in proximity-ranked results.
+  const direct = asPlainText(safeGet(payload, 25, 0));
+  if (direct) return direct;
+  // Alternative: [15][0] in some suggest variants
+  const alt = asPlainText(safeGet(payload, 15, 0));
+  if (alt && /\d/.test(alt) && alt.length < 20) return alt;
+  return undefined;
+}
+
+function parseTypeHint(payload: PbNode): string | undefined {
+  // Type hint at [16][0] (e.g. "Restaurant") — present on some place suggestions
+  const direct = asPlainText(safeGet(payload, 16, 0));
+  if (direct && direct.length < 60) return direct;
+  // Also at payload[5][0] in some variants
+  const alt = asPlainText(safeGet(payload, 5, 0));
+  if (alt && alt.length < 60 && !alt.startsWith('http')) return alt;
+  return undefined;
+}
+
 function parseSuggestionPayload(payload: PbNode): Suggestion | undefined {
   if (!Array.isArray(payload)) return undefined;
 
@@ -109,16 +131,26 @@ function parseSuggestionPayload(payload: PbNode): Suggestion | undefined {
 
   const hexFrom13 = parseHexId(safeGet(payload, 13, 0, 0));
   const hexFrom14 = parseHexId(safeGet(payload, 14, 1));
-  const hexId = hexFrom13 ?? hexFrom14;
+  // Also check payload[4][0] for alternative hex location
+  const hexFrom4 = parseHexId(safeGet(payload, 4, 0));
+  const hexId = hexFrom13 ?? hexFrom14 ?? hexFrom4;
 
-  const featureId = parseFeatureId(safeGet(payload, 13, 0, 10));
+  const featureIdFrom13 = parseFeatureId(safeGet(payload, 13, 0, 10));
+  // Also check payload[4][1] for feature id
+  const featureIdFrom4 = parseFeatureId(safeGet(payload, 4, 1));
+  const featureId = featureIdFrom13 ?? featureIdFrom4;
+
   const thumbnailUrl = parseThumbnail(payload);
   const countryCode = asPlainText(payload[34]);
+  const subtype = typeof payload[3] === 'number' ? payload[3] : undefined;
+  const score = typeof payload[9] === 'number' ? payload[9] : undefined;
+  const distanceText = parseDistanceText(payload);
+  const typeHint = parseTypeHint(payload);
 
   const text = fullText ?? primaryText;
   if (!text) return undefined;
 
-  const kind = classifyKind(hexId, placeId);
+  const kind = classifyKind(hexId, placeId, subtype);
 
   return {
     kind,
@@ -130,6 +162,11 @@ function parseSuggestionPayload(payload: PbNode): Suggestion | undefined {
     featureId,
     thumbnailUrl,
     countryCode: countryCode && countryCode.length === 2 ? countryCode.toUpperCase() : undefined,
+    subtype,
+    score,
+    distanceText,
+    typeHint,
+    raw: payload,
   };
 }
 

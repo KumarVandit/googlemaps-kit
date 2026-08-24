@@ -1,6 +1,6 @@
 import type { PlaceDataNode, PbNode } from '../types/protobuf.js';
-import { parseReviewCountLabel } from '../utils/feature-id.js';
-import { safeGet } from '../utils/safe-get.js';
+import { parseReviewCountLabel } from '../utils/ids.js';
+import { safeGet } from '../utils/payload.js';
 
 /** Rating block at placeData[4] / bizData[4]. */
 export type RatingBlockNode = PbNode[];
@@ -158,4 +158,14 @@ export function parseOpenStatus(hoursRoot: PbNode): string | undefined {
   }
 
   return walk(hoursRoot);
+}
+
+/** Coerce a wire value to a finite number, or `undefined`. */
+export function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** Coerce a wire value to a non-empty string, or `undefined`. */
+export function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

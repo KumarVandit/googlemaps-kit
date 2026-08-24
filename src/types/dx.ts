@@ -15,6 +15,7 @@ import type {
   SearchResult,
   TravelMode,
 } from './common.js';
+import type { TransitMode, TransitRoutingPreference } from './directions.js';
 import type { SearchClientFilters } from './search-filters.js';
 import type { ReviewClientFilters } from './reviews.js';
 import type { PhotoCategory, PlacePhoto, PhotosSource } from './photos.js';
@@ -55,9 +56,9 @@ export type PlaceRef =
       name?: string;
       lat?: number;
       lng?: number;
-      /** Search-row alias for lat. */
+      /** @deprecated Search-row alias for `lat` — use `lat`. */
       latitude?: number;
-      /** Search-row alias for lng. */
+      /** @deprecated Search-row alias for `lng` — use `lng`. */
       longitude?: number;
       placeId?: string;
       ftid?: string;
@@ -92,11 +93,12 @@ export interface ClientCapabilities {
   askMapsHistory: boolean;
   privateLists: boolean;
   legacyRpc: boolean;
+  userPrefs: boolean;
 }
 
 export type AuthCapability = keyof Pick<
   ClientCapabilities,
-  'askMaps' | 'askMapsHistory' | 'reviewsRpc' | 'privateLists' | 'legacyRpc'
+  'askMaps' | 'askMapsHistory' | 'reviewsRpc' | 'privateLists' | 'legacyRpc' | 'userPrefs'
 >;
 
 /** Input for `maps.discover()`. */
@@ -240,6 +242,25 @@ export interface RouteOptions extends IntentCallOptions {
    * Default false: duration/distance only.
    */
   includeSteps?: boolean;
+
+
+  /**
+   * Desired departure time as a Unix timestamp (seconds). For `mode: 'transit'`.
+   * Defaults to current time when omitted.
+   */
+  departureTime?: number;
+  /**
+   * Desired arrival time as a Unix timestamp (seconds). Mutually exclusive with `departureTime`.
+   */
+  arrivalTime?: number;
+  /**
+   * Restrict transit routes to these vehicle types. Only effective when `mode: 'transit'`.
+   */
+  transitModes?: TransitMode[];
+  /**
+   * Preference for transit routing: `'less_walking'` or `'fewer_transfers'`.
+   */
+  transitRoutingPreference?: TransitRoutingPreference;
 }
 
 /** Output of `maps.route()` — same as directions service. */
@@ -327,5 +348,36 @@ export interface PipelinePlaceRow {
 export interface PipelineResult {
   places: PipelinePlaceRow[];
   discover: DiscoverResult;
+  timingMs: number;
+}
+
+/** Input for Intent `grid()` — area-coverage search. */
+export interface GridOptions extends Omit<
+  import('./grid-search.js').GridSearchOptions,
+  'bounds' | 'onProgress'
+> {
+  /** Area to cover — either explicit bounds or a centre + span. */
+  bounds?: import('./grid-search.js').GridSearchBounds;
+  /**
+   * Bias center (Intent spelling); with `spanKm` this derives a square bounds.
+   * Ignored when `bounds` is set.
+   */
+  near?: Coordinates;
+  /** Full width of the derived square box in km (default 3). */
+  spanKm?: number;
+  /** Progress per cell — `{ type: 'grid', index, total, loaded }`. */
+  onProgress?: import('./hooks.js').ProgressCallback;
+}
+
+/** Result for Intent `grid()`. */
+export interface GridResult {
+  places: SearchResult[];
+  /** Cells actually searched (may be below plan due to caps / early exit). */
+  cellsSearched: number;
+  /** Cells the area expands to at `cellZoom`. */
+  cellsTotal: number;
+  /** Total search requests spent, including per-cell pagination. */
+  requestsMade: number;
+  cellZoom: number;
   timingMs: number;
 }

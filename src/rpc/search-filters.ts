@@ -61,7 +61,7 @@ export function encodePriceFilter(levels: SearchPriceLevel[]): FilterPbEntry {
 }
 
 /** Slot 14 — hotel check-in/out (kAb → rwb/nwb date protos). */
-export function encodeHotelDatesFilter(checkIn: string, checkOut: string): FilterPbEntry {
+function encodeHotelDatesFilter(checkIn: string, checkOut: string): FilterPbEntry {
   return {
     slot: SEARCH_FILTER_SLOT.hotelDates,
     payload: `!2m2!1s${checkIn}!2s${checkOut}`,
@@ -102,14 +102,3 @@ export function appendSearchFilterPb(basePb: string, filters?: SearchFilters): s
   if (entries.length === 0) return basePb;
   return basePb + wrapFilterEntries(entries);
 }
-
-/** SerpAPI-style tbs tokens — probed; server ignores on search?tbm=map. */
-export const PROBED_TBS_TOKENS = {
-  openNow: 'lf_od:1',
-  openNowWithLf: 'lf:1,lf_od:1',
-  priceLevel1: 'mr:1,price:1',
-  priceLevel2: 'mr:1,price:2',
-  minRating4: 'mr:1,avg:4',
-  minRating45: 'mr:1,avg:4.5',
-  hotelDates: 'hc:2026-08-01,2026-08-03',
-} as const;

@@ -9,7 +9,7 @@ import type {
   WeekdayName,
 } from '../types/common.js';
 import type { PlaceDataNode, PbNode } from '../types/protobuf.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { collectHourDayEntries, normalizeHoursText, parseOpenStatus, type HourDayEntry } from './shared.js';
 
 const WEEKDAY_NAMES: WeekdayName[] = [
@@ -190,7 +190,7 @@ function parseNestedPaymentBrands(
   return attributes;
 }
 
-export function parseAttributeItem(
+function parseAttributeItem(
   groupId: string,
   groupTitle: string,
   item: PbNode,
@@ -310,4 +310,64 @@ export function extractPlaceAggregateAttributes(placeData: PlaceDataNode): {
     timezone: extractTimezone(placeData),
     plusCode: extractPlusCode(placeData),
   };
+}
+
+import type { Attribute, AttributeCategory } from '../types/place-attributes.js';
+
+/**
+ * Reshape a place's attribute groups into the catalog view.
+ *
+ * Maps has no global attribute catalog RPC — attributes are published per place
+ * in the preview payload, so a "catalog" is always scoped to one place.
+ */
+export function attributeGroupsToCategories(groups: PlaceAttributeGroup[]): AttributeCategory[] {
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.title,
+    attributes: group.attributes.map((attr) => ({
+      id: attr.ontologyPath ?? `${group.id}:${attr.label}`,
+      name: attr.label,
+      category: group.id,
+      description: attr.available === false ? 'Not available at this place' : undefined,
+      valueType: 'boolean' as const,
+    })),
+  }));
+}
+
+export function getCategoryAttributes(
+  catalog: AttributeCategory[],
+  category: string,
+): Attribute[] {
+  const needle = category.toLowerCase();
+  const matches = catalog.filter(
+    (c) => c.id.toLowerCase() === needle || c.name.toLowerCase() === needle,
+  );
+  return matches.flatMap((c) => c.attributes);
+}
+
+export function getAttributesByType(
+  catalog: AttributeCategory[],
+  type: 'accessibility' | 'parking' | 'payment' | 'amenities',
+): Attribute[] {
+  const results: Attribute[] = [];
+  for (const cat of catalog) {
+    for (const attr of cat.attributes) {
+      if (mapAttributeType(`${cat.id} ${attr.id} ${attr.name}`) === type) {
+        results.push(attr);
+      }
+    }
+  }
+  return results;
+}
+
+function mapAttributeType(
+  haystack: string,
+): 'accessibility' | 'parking' | 'payment' | 'amenities' {
+  const label = haystack.toLowerCase();
+  if (label.includes('wheelchair') || label.includes('accessib')) return 'accessibility';
+  if (label.includes('parking')) return 'parking';
+  if (label.includes('payment') || label.includes('pay_') || label.includes('credit card')) {
+    return 'payment';
+  }
+  return 'amenities';
 }

@@ -6,7 +6,7 @@
  * Usage: npm run smoke:daily
  */
 
-import { loadProjectEnv } from '../src/utils/load-env.js';
+import { loadProjectEnv } from '../src/utils/env.js';
 import { sdk } from '../src/index.js';
 
 loadProjectEnv();

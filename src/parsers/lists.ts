@@ -2,7 +2,7 @@ import { htmlToPlainText } from './shared.js';
 import { GMapsParseError } from '../types/common.js';
 import type { PlaceList, PlaceListEntry } from '../types/lists.js';
 import { toFeatureId } from '../utils/ids.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import type { PbNode } from '../types/protobuf.js';
 
 /** Known getlist error envelope codes returned with HTTP 200. */
@@ -139,8 +139,16 @@ function parsePlaceListEntry(raw: PbNode): PlaceListEntry | null {
   if (typeof nameRaw !== 'string' || nameRaw.length === 0) return null;
 
   const addressBlock = safeGet<PbNode>(raw, 1);
-  const streetRaw = safeGet<string>(addressBlock, 2);
-  const formattedRaw = safeGet<string>(addressBlock, 4);
+  // Verified slot layout from lists-tokyo-trimmed.json fixture (2026-07-31):
+  //   addressBlock[2] = full formatted address including place name prefix
+  //                     e.g. "Marcy Land Omotesando Ramen Bar, 屋台 ... Tokyo 107-0061, Japan"
+  //   addressBlock[4] = locale-format reverse address (country-first, not useful as street)
+  //                     e.g. "Japan, 〒107-0061 Tokyo, Minato City, ..."
+  //   addressBlock[5] = [null, null, lat, lng]
+  //   addressBlock[6] = ["hi_decimal", "lo_decimal"] for hex id reconstruction
+  //   addressBlock[7] = "/g/featureId"
+  //   addressBlock[8] = "ChIJ..." placeId when present
+  const fullAddressRaw = safeGet<string>(addressBlock, 2);
   const lat = safeGet<number>(addressBlock, 5, 2);
   const lng = safeGet<number>(addressBlock, 5, 3);
 
@@ -150,6 +158,10 @@ function parsePlaceListEntry(raw: PbNode): PlaceListEntry | null {
   const featureIdRaw =
     safeGet<string>(addressBlock, 7) ??
     safeGet<string>(addressBlock, 5, 5);
+  // placeId at addressBlock[8] or addressBlock[5][6]
+  const placeIdRaw =
+    safeGet<string>(addressBlock, 8) ??
+    safeGet<string>(addressBlock, 5, 6);
 
   const noteRaw = safeGet<string>(raw, 3);
   const addedBy =
@@ -161,16 +173,17 @@ function parsePlaceListEntry(raw: PbNode): PlaceListEntry | null {
 
   const entry: PlaceListEntry = {
     name: htmlToPlainText(nameRaw),
+    raw,
   };
 
   if (typeof noteRaw === 'string' && noteRaw.length > 0) {
     entry.note = htmlToPlainText(noteRaw);
   }
-  if (typeof streetRaw === 'string' && streetRaw.length > 0) {
-    entry.streetAddress = htmlToPlainText(streetRaw);
-  }
-  if (typeof formattedRaw === 'string' && formattedRaw.length > 0) {
-    entry.address = htmlToPlainText(formattedRaw);
+  // fullAddressRaw (ab[2]) is the full address string — may be prefixed with the place name.
+  // Populate `address` from it; `streetAddress` is no longer populated because ab[4]
+  // is the locale-format reverse address (country-first), not a street-level line.
+  if (typeof fullAddressRaw === 'string' && fullAddressRaw.length > 0) {
+    entry.address = htmlToPlainText(fullAddressRaw);
   }
   if (typeof lat === 'number' && Number.isFinite(lat)) entry.lat = lat;
   if (typeof lng === 'number' && Number.isFinite(lng)) entry.lng = lng;
@@ -179,6 +192,9 @@ function parsePlaceListEntry(raw: PbNode): PlaceListEntry | null {
   if (hexId) entry.hexId = hexId;
   if (typeof featureIdRaw === 'string' && featureIdRaw.length > 0) {
     entry.featureId = featureIdRaw;
+  }
+  if (typeof placeIdRaw === 'string' && placeIdRaw.startsWith('ChIJ')) {
+    entry.placeId = placeIdRaw;
   }
   if (typeof addedBy === 'string' && addedBy.length > 0) {
     entry.addedBy = addedBy;
@@ -216,12 +232,12 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
 
   const bundle = listBundleRoot(data);
   if (!bundle) {
-    return { listId: '', entries: [], raw: options?.raw ? data : undefined };
+    return { entries: [], raw: options?.raw ? data : undefined };
   }
 
   const listIdFromNested = safeGet<string>(bundle, 0, 0);
   const listIdDirect = Array.isArray(bundle) && typeof bundle[0] === 'string' ? bundle[0] : undefined;
-  const listId = listIdFromNested ?? listIdDirect ?? '';
+  const listId = listIdFromNested ?? listIdDirect;
 
   const title = safeGet<string>(bundle, 4);
   const ownerName = safeGet<string>(bundle, 3, 0);
@@ -241,8 +257,7 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
     }
   }
 
-  return {
-    listId,
+  const result: PlaceList = {
     title: typeof title === 'string' ? title : undefined,
     ownerName: typeof ownerName === 'string' ? ownerName : undefined,
     ownerAvatarUrl: typeof ownerAvatarUrl === 'string' ? ownerAvatarUrl : undefined,
@@ -251,4 +266,6 @@ export function extractPlaceList(data: unknown, options?: { raw?: boolean }): Pl
     entries,
     raw: options?.raw ? data : undefined,
   };
+  if (listId) result.listId = listId;
+  return result;
 }

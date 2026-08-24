@@ -13,8 +13,17 @@ import type {
 import type { PbNode } from '../types/protobuf.js';
 import { asBoqRoot } from '../types/protobuf.js';
 import { normalizePhotoUrl } from '../utils/photo-url.js';
-import { safeGet } from '../utils/safe-get.js';
+import { safeGet } from '../utils/payload.js';
 import { htmlToPlainText } from './shared.js';
+import { buildReviewDetailedRating } from './place-extended.js';
+
+export interface ExtractBoqReviewsOptions {
+  /**
+   * When true, attach the raw boq entry array to each `Review.raw`.
+   * Useful for debugging field discovery. Default false.
+   */
+  raw?: boolean;
+}
 
 function isGoogleUserContentUrl(value: PbNode): value is string {
   return typeof value === 'string' && value.includes('googleusercontent.com');
@@ -38,6 +47,12 @@ function parseReviewerCredibility(authorInfo: PbNode[] | undefined): ReviewerCre
   const photoCount = typeof authorInfo[4] === 'number' ? authorInfo[4] : undefined;
   const authorPhoto = typeof authorInfo[1] === 'string' ? authorInfo[1] : undefined;
   const localGuideLevel = parseLocalGuideLevel(authorPhoto, authorInfo[5]);
+  const authorId =
+    typeof authorInfo[6] === 'string' && /^\d+$/.test(authorInfo[6])
+      ? authorInfo[6]
+      : typeof authorInfo[7] === 'string' && /^\d+$/.test(authorInfo[7])
+        ? authorInfo[7]
+        : undefined;
   const isLocalGuide =
     localGuideLevel != null ||
     (typeof authorPhoto === 'string' && /-ba\d+-/i.test(authorPhoto));
@@ -46,12 +61,20 @@ function parseReviewerCredibility(authorInfo: PbNode[] | undefined): ReviewerCre
     reviewCount == null &&
     photoCount == null &&
     localGuideLevel == null &&
+    authorId == null &&
     !isLocalGuide
   ) {
     return undefined;
   }
 
-  return { reviewCount, photoCount, localGuideLevel, isLocalGuide: isLocalGuide || undefined };
+  return {
+    reviewCount,
+    photoCount,
+    localGuideLevel,
+    isLocalGuide: isLocalGuide || undefined,
+    authorId,
+    raw: authorInfo,
+  };
 }
 
 function parseOwnerReply(block: PbNode): ReviewOwnerReply | undefined {
@@ -60,7 +83,7 @@ function parseOwnerReply(block: PbNode): ReviewOwnerReply | undefined {
   const rawText = typeof block[2] === 'string' ? block[2] : undefined;
   const text = rawText ? htmlToPlainText(rawText) : undefined;
   if (!date && !text) return undefined;
-  return { date, text };
+  return { date, text, raw: block };
 }
 
 function parseReviewPhotos(review: PbNode[]): ReviewPhoto[] {
@@ -81,6 +104,9 @@ function parseReviewPhotos(review: PbNode[]): ReviewPhoto[] {
       aspectRatio: typeof entry[4] === 'number' ? entry[4] : undefined,
       videoUrl: typeof entry[5] === 'string' ? entry[5] : undefined,
       uploadDate: typeof entry[6] === 'string' ? entry[6] : undefined,
+      width: typeof entry[7] === 'number' ? entry[7] : undefined,
+      height: typeof entry[8] === 'number' ? entry[8] : undefined,
+      raw: entry,
     });
   }
 
@@ -152,6 +178,7 @@ function parseReviewAttributes(review: PbNode[]): ReviewAttribute[] {
       label,
       value,
       rating: rating != null && rating >= 1 && rating <= 5 ? rating : undefined,
+      raw: entry,
     });
   }
 
@@ -175,10 +202,10 @@ function parseTranslation(review: PbNode[]): ReviewTranslation | undefined {
     return undefined;
   }
 
-  return { language, isTranslated, text, textPreview, originalText };
+  return { language, isTranslated, text, textPreview, originalText, raw: review[44] };
 }
 
-function parseSingleReview(review: PbNode): Review | null {
+function parseSingleReview(review: PbNode, options?: ExtractBoqReviewsOptions): Review | null {
   if (!Array.isArray(review) || review.length < 6) {
     return null;
   }
@@ -195,6 +222,11 @@ function parseSingleReview(review: PbNode): Review | null {
   const helpfulCount = typeof review[29] === 'number' ? review[29] : undefined;
   const permalink = typeof review[12] === 'string' ? review[12] : undefined;
   const timestampMs = Array.isArray(timeInfo) && typeof timeInfo[2] === 'string' ? timeInfo[2] : undefined;
+  // visited context label — boq entry [31] in some variants
+  const visited = typeof review[31] === 'string' ? review[31] : undefined;
+
+  const parsedAttributes = attributes.length > 0 ? attributes : undefined;
+  const reviewDetailedRating = buildReviewDetailedRating(parsedAttributes);
 
   const parsed: Review = {
     reviewId: typeof reviewId === 'string' ? reviewId : undefined,
@@ -217,10 +249,13 @@ function parseSingleReview(review: PbNode): Review | null {
     ownerReply,
     helpfulCount,
     permalink,
-    attributes: attributes.length > 0 ? attributes : undefined,
+    visited,
+    attributes: parsedAttributes,
+    reviewDetailedRating,
     photoItems: structuredPhotos.length > 0 ? structuredPhotos : undefined,
     photos: structuredPhotos.length > 0 ? structuredPhotos.map((p) => p.normalizedUrl) : undefined,
     source: 'boq',
+    raw: options?.raw ? review : undefined,
   };
 
   if (!parsed.author && !parsed.text) {
@@ -272,15 +307,29 @@ function buildRatingDistribution(reviews: Review[]): ReviewRatingDistribution | 
 }
 
 /** Parse GetLocalBoqProxy JSON response into reviews. */
-export function extractBoqReviews(data: PbNode): ReviewsResult {
+export function extractBoqReviews(data: PbNode, options?: ExtractBoqReviewsOptions): ReviewsResult {
   const root = asBoqRoot(data);
   const reviewsNode = root ? safeGet<PbNode[]>(root, 1, 10) : undefined;
   const reviewsArray = Array.isArray(reviewsNode?.[2]) ? (reviewsNode[2] as PbNode[]) : [];
   const nextPageToken = typeof reviewsNode?.[6] === 'string' ? reviewsNode[6] : undefined;
 
+  // Total review count may appear at root[1][10][1] (string) or root[1][1] (number)
+  let totalReviews: number | undefined;
+  const totalFromNode = reviewsNode?.[1];
+  if (typeof totalFromNode === 'number' && Number.isFinite(totalFromNode)) {
+    totalReviews = totalFromNode;
+  } else if (typeof totalFromNode === 'string') {
+    const parsed = parseInt(totalFromNode, 10);
+    if (Number.isFinite(parsed)) totalReviews = parsed;
+  }
+  if (totalReviews == null) {
+    const altTotal = root ? safeGet<number>(root, 1, 1) : undefined;
+    if (typeof altTotal === 'number' && Number.isFinite(altTotal)) totalReviews = altTotal;
+  }
+
   const reviews: Review[] = [];
   for (const entry of reviewsArray) {
-    const review = parseSingleReview(entry);
+    const review = parseSingleReview(entry, options);
     if (review) {
       reviews.push(review);
     }
@@ -290,6 +339,7 @@ export function extractBoqReviews(data: PbNode): ReviewsResult {
     reviewCount: reviews.length,
     reviews,
     nextPageToken,
+    totalReviews,
     pageRatingDistribution: buildRatingDistribution(reviews),
   };
 }

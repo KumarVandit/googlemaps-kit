@@ -38,6 +38,12 @@ export interface PlacePhoto {
   maxHeight?: number;
   /** Uploader or business attribution label when present. */
   attribution?: string;
+  /** Google user id of the uploader when present (numeric string). */
+  authorId?: string;
+  /** Display name of the uploader when present (e.g. "John Smith"). */
+  authorName?: string;
+  /** Uploader profile URL on Google Maps. */
+  authorProfileUrl?: string;
   caption?: string;
   /** Human-readable category (e.g. Street View, Menu) when present. */
   categoryLabel?: string;
@@ -46,6 +52,8 @@ export interface PlacePhoto {
   lng?: number;
   isVideo: boolean;
   isStreetView: boolean;
+  /** True when uploaded by the business owner (not a visitor). */
+  isOwnerPhoto?: boolean;
   /** Street View pano id — pass to PanoramaService for tile URLs. */
   panoId?: string;
   /** YouTube or hosted video id when `isVideo` (batchexecute only). */
@@ -54,6 +62,10 @@ export interface PlacePhoto {
   videoThumbnailUrl?: string;
   /** Duration in seconds when present in gallery metadata. */
   durationSec?: number;
+  /** Like / thumbs-up count when available. */
+  likeCount?: number;
+  /** Raw entry from the gallery RPC when `raw: true` was passed. */
+  raw?: unknown;
 }
 
 export interface PhotosListResult {
@@ -153,7 +165,7 @@ export const PHOTOS_SOURCE_METADATA: Record<
       'isStreetView',
       'panoId',
     ],
-    absent: ['videoId', 'videoThumbnailUrl', 'durationSec'],
+    absent: ['authorName', 'videoId', 'videoThumbnailUrl', 'durationSec'],
   },
   batchexecute: {
     populated: [
@@ -161,6 +173,7 @@ export const PHOTOS_SOURCE_METADATA: Record<
       'url',
       'normalizedUrl',
       'attribution',
+      'authorName',
       'caption',
       'categoryLabel',
       'uploadDate',

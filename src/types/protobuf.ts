@@ -1,6 +1,6 @@
 /**
  * Google Maps protobuf-over-JSON wire types.
- * Positional tuple indices are reverse-engineered from network traffic + parsers.
+ * Positional tuple indices are observed on live network traffic and verified by parsers/tests.
  *
  * Index reference (PlaceDataNode):
  *   [4] rating block, [7] contact, [9] geo, [10] hexId, [11] name,

@@ -1,5 +1,5 @@
 import { HttpClient } from '../client/http-client.js';
-import { extractDirectionsElevation } from '../parsers/elevation-directions.js';
+import { extractDirectionsElevation } from '../parsers/directions.js';
 import { buildDirectionsUrls } from '../rpc/pb-builders.js';
 import { DirectionsService } from './directions.js';
 import type { Coordinates, GMapsConfig } from '../types/common.js';
@@ -8,9 +8,9 @@ import type {
   ElevationPathResult,
   ElevationPointOptions,
   ElevationPointResult,
-} from '../types/elevation.js';
+} from '../types/directions.js';
 import type { PbNode } from '../types/protobuf.js';
-import { pooled } from '../utils/pooled.js';
+import { pooled } from '../utils/async.js';
 
 const MICRO_ROUTE_OFFSET = 0.002;
 
@@ -140,6 +140,7 @@ export class ElevationService {
         summary: parsed.summary,
         profile: parsed.profile,
         pathDistanceMeters: parsed.pathDistanceMeters,
+        startElevationMeters: parsed.startElevationMeters,
         raw: options.raw ? raw : undefined,
         timingMs: performance.now() - start,
       };

@@ -1,28 +1,11 @@
-import type {
-  PlaceAttributeGroup,
-  PlaceOpeningSchedule,
-  SearchResult,
-} from '../types/common.js';
-import type {
-  PlaceDataNode,
-  PbNode,
-  SearchMapResponseRoot,
-  SearchResultWrapper,
-} from '../types/protobuf.js';
-import { asPlaceDataNode, asSearchRoot } from '../types/protobuf.js';
-import { applyCoordAliases } from '../utils/coords.js';
-import { safeGet } from '../utils/safe-get.js';
-import {
-  extractAttributeGroups,
-  extractOpeningSchedule,
-} from './place-attributes.js';
-import {
-  parsePhone,
-  parseReviewCountFromBlock,
-  parseWebsiteFromContact,
-  parseOpenStatus,
-  parsePriceLevel,
-} from './shared.js';
+import { type PlaceAttributeGroup, type PlaceOpeningSchedule, type SearchResult } from '../types/common.js';
+import { type PbNode, type PlaceDataNode, type SearchMapResponseRoot, type SearchResultWrapper, asPlaceDataNode, asSearchRoot } from '../types/protobuf.js';
+import { applyCoordAliases } from '../utils/place-ref.js';
+import { safeGet } from '../utils/payload.js';
+import { extractAttributeGroups, extractOpeningSchedule } from './place-attributes.js';
+import { extractPlaceIdentifiers, extractStructuredAddress } from './place-extended.js';
+import { parseOpenStatus, parsePhone, parsePriceLevel, parsePriceRange, parseReviewCountFromBlock, parseWebsiteFromContact } from './shared.js';
+import type { SearchClientFilters, SearchPriceLevel } from '../types/search-filters.js';
 
 export interface ExtractBusinessesOptions {
   /**
@@ -78,6 +61,7 @@ function resolvePlaceDataFromWrapper(entry: PbNode): PlaceDataNode | null {
 function extractSingleBusiness(
   bizData: PlaceDataNode,
   options?: ExtractBusinessesOptions,
+  rank?: number,
 ): SearchResult | null {
   if (!Array.isArray(bizData) || bizData.length < 12) return null;
 
@@ -97,7 +81,27 @@ function extractSingleBusiness(
     reviewCount: parseReviewCountFromBlock(bizData[4]),
     latitude: safeGet<number>(bizData, 9, 2),
     longitude: safeGet<number>(bizData, 9, 3),
+    rank,
   });
+
+  // cid: numeric content-id from placeData[75][0]
+  const cidBlock = safeGet<PbNode>(bizData, 75);
+  if (Array.isArray(cidBlock) && typeof cidBlock[0] === 'string') {
+    business.cid = cidBlock[0];
+  }
+
+  const { cid, kgmid, ownerId } = extractPlaceIdentifiers(bizData);
+  if (cid) business.cid = business.cid ?? cid;
+  if (kgmid) business.kgmid = business.kgmid ?? kgmid;
+  if (ownerId) business.ownerId = ownerId;
+
+  const structuredAddress = extractStructuredAddress(bizData, business.address);
+  if (structuredAddress.street) business.street = structuredAddress.street;
+  if (structuredAddress.neighborhood) business.neighborhood = structuredAddress.neighborhood;
+  if (structuredAddress.city) business.city = structuredAddress.city;
+  if (structuredAddress.state) business.state = structuredAddress.state;
+  if (structuredAddress.postalCode) business.postalCode = structuredAddress.postalCode;
+  if (structuredAddress.countryCode) business.countryCode = structuredAddress.countryCode;
 
   if (!lite) {
     business.phone = parsePhone(bizData);
@@ -124,6 +128,7 @@ function extractSingleBusiness(
   const ratingBlock = bizData[4];
   if (Array.isArray(ratingBlock)) {
     business.priceLevel = parsePriceLevel(ratingBlock);
+    business.priceRange = parsePriceRange(ratingBlock);
   }
 
   if (!lite) {
@@ -139,6 +144,19 @@ function extractSingleBusiness(
 
     const attributeGroups: PlaceAttributeGroup[] = extractAttributeGroups(bizData);
     if (attributeGroups.length > 0) business.attributeGroups = attributeGroups;
+
+    const closedBlock = safeGet<PbNode>(bizData, 34, 4);
+    if (Array.isArray(closedBlock)) {
+      if (closedBlock[4] === 1) business.isPermanentlyClosed = true;
+      if (closedBlock[5] === 1) business.isTemporarilyClosed = true;
+    }
+    const perma = safeGet<PbNode>(bizData, 88);
+    if (perma === 1 || perma === true) business.isPermanentlyClosed = true;
+
+    const claimedBlock = safeGet<PbNode>(bizData, 211);
+    if (claimedBlock === 1 || claimedBlock === true || (Array.isArray(claimedBlock) && claimedBlock[0] === 1)) {
+      business.isClaimed = true;
+    }
   }
 
   return business;
@@ -249,10 +267,11 @@ function extractFromWrappers(
   options?: ExtractBusinessesOptions,
 ): SearchResult[] {
   const businesses: SearchResult[] = [];
-  for (const entry of wrappers) {
+  for (let i = 0; i < wrappers.length; i++) {
+    const entry = wrappers[i]!;
     const bizData = resolvePlaceDataFromWrapper(entry);
     if (!bizData) continue;
-    const business = extractSingleBusiness(bizData, options);
+    const business = extractSingleBusiness(bizData, options, i + 1);
     if (business?.name) businesses.push(business);
   }
   return businesses;
@@ -286,4 +305,102 @@ export function extractBusinesses(data: PbNode, options?: ExtractBusinessesOptio
   } catch {
     return [];
   }
+}
+
+export interface SearchPaginationMeta {
+  /** Session id from response (maps to APP_OPTIONS psi / ech). */
+  psi?: string;
+  /** Suggested next offset when using !8i pagination. */
+  nextOffset?: number;
+  /** Whether more results likely exist. */
+  hasMore?: boolean;
+}
+
+/** Extract pagination metadata from a search?tbm=map response. */
+export function extractSearchPagination(
+  data: PbNode,
+  currentOffset = 0,
+  pageSize = 20,
+): SearchPaginationMeta {
+  const root = asSearchRoot(data);
+  if (!root) return {};
+
+  const psiEntry = root[0];
+  let psi: PbNode | undefined;
+  if (Array.isArray(psiEntry) && Array.isArray(psiEntry[1])) {
+    const firstRow = psiEntry[1][0];
+    if (Array.isArray(firstRow)) {
+      psi = firstRow[8];
+    }
+  }
+  const resultCount = countSearchEntries(root);
+
+  return {
+    psi: typeof psi === 'string' ? psi : undefined,
+    nextOffset: currentOffset + pageSize,
+    hasMore: resultCount >= pageSize,
+  };
+}
+
+function countSearchEntries(root: SearchMapResponseRoot): number {
+  const querySection = root[0];
+  const section =
+    Array.isArray(querySection) && Array.isArray(querySection[1]) ? querySection[1] : undefined;
+  if (!Array.isArray(section)) return 0;
+  return section.filter((entry) => {
+    if (!Array.isArray(entry)) return false;
+    const place = entry[14];
+    return Array.isArray(place) || place != null;
+  }).length;
+}
+
+/** Maps parsed dollar-count (1–4) to the client bitmask used in filter encodings. */
+function priceLevelToBitmask(level: number): SearchPriceLevel | undefined {
+  switch (level) {
+    case 1:
+      return 1;
+    case 2:
+      return 2;
+    case 3:
+      return 4;
+    case 4:
+      return 8;
+    default:
+      return undefined;
+  }
+}
+
+/** True when Google's open-status label indicates the place is open right now. */
+export function isOpenNowStatus(openStatus: string | undefined): boolean {
+  if (!openStatus) return false;
+  return /^open\b/i.test(openStatus.trim());
+}
+
+/** Apply client-side filters to already-parsed search results. */
+export function applyClientSearchFilters(
+  results: SearchResult[],
+  filters: SearchClientFilters | undefined,
+): SearchResult[] {
+  if (!filters) return results;
+
+  let out = results;
+
+  if (filters.openNow) {
+    out = out.filter((r) => r.isOpenNow === true);
+  }
+
+  if (filters.minRating != null) {
+    out = out.filter((r) => r.rating != null && r.rating >= filters.minRating!);
+  }
+
+  if (filters.priceLevels?.length) {
+    const allowed = new Set(filters.priceLevels);
+    out = out.filter((r) => {
+      if (r.priceLevel == null) return false;
+      const bitmask = priceLevelToBitmask(r.priceLevel);
+      return bitmask != null && allowed.has(bitmask);
+    });
+  }
+
+  return out;
 }

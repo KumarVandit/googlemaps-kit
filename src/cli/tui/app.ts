@@ -17,6 +17,7 @@ import {
 } from '@oakoliver/bubbletea';
 import {
   TextInputModel,
+  TextInputStyles,
   newTextInput,
   SpinnerModel,
   newSpinner,
@@ -27,20 +28,49 @@ import {
   withViewportWidth,
   withViewportHeight,
 } from '@oakoliver/bubbles';
+import { Style } from '@oakoliver/lipgloss';
 import { sdk, type GMapsClient } from '../../client/gmaps-client.js';
 import {
   ACTIONS,
   type ActionId,
   runCapabilities,
   runDiscover,
+  runGeocode,
+  runGrid,
   runMedia,
   runOpinions,
   runPipeline,
   runProfile,
   runResolve,
   runRoute,
+  runStreetView,
+  runSurfaces,
+  runTerrain,
+  parseBounds,
 } from '../run.js';
+import { parseCoords } from '../args.js';
+import { asciiFallback, isPlainOutput } from '../output.js';
 import * as S from './styles.js';
+
+const HINT_MENU = asciiFallback('↑↓ navigate · enter · q quit');
+const HINT_FORM = asciiFallback('tab next · enter run · esc back');
+const HINT_LOADING = asciiFallback('esc cancel · q quit');
+const HINT_ERROR = asciiFallback('enter retry · esc back · q quit');
+const HINT_RESULT = asciiFallback('↑↓ scroll · esc back · q quit');
+
+function plainInputStyles(): TextInputStyles {
+  const state = () => ({
+    text: new Style(),
+    placeholder: new Style(),
+    suggestion: new Style(),
+    prompt: new Style(),
+  });
+  return {
+    focused: state(),
+    blurred: state(),
+    cursor: { color: null, blink: false, blinkSpeed: 0 },
+  };
+}
 
 type Screen = 'menu' | 'form' | 'loading' | 'result' | 'error';
 
@@ -79,6 +109,30 @@ const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
     { key: 'query', label: 'query', placeholder: 'Third Wave Coffee Indiranagar', defaultValue: '' },
     { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
   ],
+  grid: [
+    { key: 'query', label: 'query', placeholder: 'cafes', defaultValue: 'cafes' },
+    { key: 'near', label: 'near (center)', placeholder: 'lat,lng', defaultValue: '12.9625,77.6350' },
+    { key: 'span', label: 'span km', placeholder: '3', defaultValue: '3' },
+    { key: 'cellZoom', label: 'cell zoom', placeholder: '15 (14 districts · 17 blocks)', defaultValue: '15' },
+  ],
+  geocode: [
+    { key: 'query', label: 'address / place', placeholder: '10 Downing Street London', defaultValue: '' },
+    { key: 'reverse', label: 'or reverse lat,lng', placeholder: '48.8584,2.2945', defaultValue: '' },
+  ],
+  streetview: [
+    { key: 'at', label: 'at lat,lng', placeholder: '48.8584,2.2945', defaultValue: '' },
+    { key: 'query', label: 'or place name', placeholder: 'Eiffel Tower', defaultValue: '' },
+    { key: 'radiusMeters', label: 'radius m', placeholder: '200', defaultValue: '200' },
+  ],
+  terrain: [
+    { key: 'bounds', label: 'bounds N,S,E,W', placeholder: '48.8622,48.8546,2.2994,2.2896', defaultValue: '' },
+    { key: 'planet', label: 'planet', placeholder: 'earth|mars|moon', defaultValue: 'earth' },
+    { key: 'resolution', label: 'resolution', placeholder: 'low|medium|high', defaultValue: 'medium' },
+    { key: 'detail', label: 'detail', placeholder: 'low|medium|high|max', defaultValue: 'high' },
+  ],
+  surfaces: [
+    { key: 'status', label: 'status filter', placeholder: 'working|auth-required|blocked|… (empty = all)', defaultValue: '' },
+  ],
   pipeline: [
     { key: 'query', label: 'query', placeholder: 'cafes', defaultValue: 'cafes' },
     { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
@@ -115,10 +169,12 @@ export class MapsTui implements Model {
   status = '';
   width = 80;
   height = 24;
+  anim: boolean;
   private maps: GMapsClient;
 
-  constructor(maps?: GMapsClient) {
+  constructor(maps?: GMapsClient, opts?: { anim?: boolean }) {
     this.maps = maps ?? createClient();
+    this.anim = opts?.anim ?? !isPlainOutput();
     this.viewport = newViewport(withViewportWidth(78), withViewportHeight(16));
   }
 
@@ -151,8 +207,12 @@ export class MapsTui implements Model {
     }
 
     if (this.screen === 'loading') {
-      const [sp, spCmd] = this.spinner.update(msg);
-      this.spinner = sp;
+      let spCmd: Cmd = null;
+      if (this.anim) {
+        const [sp, cmd] = this.spinner.update(msg);
+        this.spinner = sp;
+        spCmd = cmd;
+      }
       if (msg instanceof KeyPressMsg) {
         const key = msg.toString();
         if (key === 'q' || key === 'ctrl+c') return [this, Quit];
@@ -168,7 +228,6 @@ export class MapsTui implements Model {
       const key = msg.toString();
       if (key === 'ctrl+c' || key === 'q') {
         if (this.screen === 'menu') return [this, Quit];
-        // q from nested screens also quits when not typing — except form
         if (this.screen !== 'form') return [this, Quit];
       }
 
@@ -241,11 +300,15 @@ export class MapsTui implements Model {
       ti.placeholder = def.placeholder;
       ti.prompt = `${def.label}: `;
       ti.charLimit = 120;
+      if (!this.anim) {
+        ti.setStyles(plainInputStyles());
+        ti.setVirtualCursor(false);
+      }
       if (def.defaultValue) ti.setValue(def.defaultValue);
       ti.blur();
       return ti;
     });
-    this.status = 'tab next · enter run · esc back';
+    this.status = HINT_FORM;
   }
 
   private focusCurrentField(): Cmd {
@@ -274,13 +337,6 @@ export class MapsTui implements Model {
       return this.startRun();
     }
 
-    // Forward typing to focused input (skip navigation keys already handled)
-    if (key !== 'q') {
-      const [next, cmd] = this.fields[this.fieldIndex]!.update(msg);
-      this.fields[this.fieldIndex] = next;
-      return [this, cmd];
-    }
-    // q while typing inserts via textinput — only quit if empty field?
     const [next, cmd] = this.fields[this.fieldIndex]!.update(msg);
     this.fields[this.fieldIndex] = next;
     return [this, cmd];
@@ -297,8 +353,8 @@ export class MapsTui implements Model {
     if (!action) return [this, null];
 
     this.screen = 'loading';
-    this.status = `running ${action}…`;
-    const startSpinner: Cmd = () => this.spinner.tickMsg();
+    this.status = `running ${action}${asciiFallback('…')}`;
+    const startSpinner: Cmd | null = this.anim ? () => this.spinner.tickMsg() : null;
 
     const runCmd: Cmd = async () => {
       try {
@@ -309,7 +365,7 @@ export class MapsTui implements Model {
       }
     };
 
-    return [this, Batch(startSpinner, runCmd)];
+    return [this, startSpinner ? Batch(startSpinner, runCmd) : runCmd];
   }
 
   private async execute(action: ActionId): Promise<string> {
@@ -360,6 +416,44 @@ export class MapsTui implements Model {
           max: Number(this.fieldValue('max') || '3'),
           format: 'pretty',
         });
+      case 'grid': {
+        const near = this.fieldValue('near');
+        const boundsRaw = this.fieldValue('bounds');
+        return runGrid(this.maps, {
+          query: this.fieldValue('query') || 'cafes',
+          near: near || undefined,
+          spanKm: Number(this.fieldValue('span') || '3'),
+          bounds: boundsRaw ? parseBounds(boundsRaw) : undefined,
+          cellZoom: Number(this.fieldValue('cellZoom') || '15'),
+          format: 'table',
+        });
+      }
+      case 'geocode':
+        return runGeocode(this.maps, {
+          query: this.fieldValue('query') || undefined,
+          reverse: this.fieldValue('reverse') || undefined,
+          format: 'pretty',
+        });
+      case 'streetview':
+        return runStreetView(this.maps, {
+          at: this.fieldValue('at') || undefined,
+          query: this.fieldValue('query') || undefined,
+          radiusMeters: Number(this.fieldValue('radiusMeters') || '200'),
+          format: 'pretty',
+        });
+      case 'terrain':
+        return runTerrain(this.maps, {
+          bounds: parseBounds(this.fieldValue('bounds')),
+          planet: (this.fieldValue('planet') as 'earth' | 'mars' | 'moon') || 'earth',
+          resolution: (this.fieldValue('resolution') as 'low' | 'medium' | 'high') || 'medium',
+          detail: (this.fieldValue('detail') as 'low' | 'medium' | 'high' | 'max') || 'high',
+          format: 'pretty',
+        });
+      case 'surfaces':
+        return runSurfaces(this.maps, {
+          status: this.fieldValue('status') || undefined,
+          format: 'pretty',
+        });
       case 'capabilities':
         return runCapabilities(this.maps, { format: 'pretty' });
       default:
@@ -376,8 +470,9 @@ export class MapsTui implements Model {
 
     if (this.screen === 'menu') {
       const items = ACTIONS.map((a, i) => {
-        const marker = i === this.cursor ? S.selected.render('› ') : '  ';
-        const name = i === this.cursor ? S.selected.render(a.title) : a.title;
+        const isCursor = i === this.cursor;
+        const marker = isCursor ? `${asciiFallback('›')} ` : '  ';
+        const name = isCursor ? S.selected.render(a.title) : a.title;
         return `${marker}${name}  ${S.muted.render(a.description)}`;
       }).join('\n');
       return [
@@ -385,7 +480,7 @@ export class MapsTui implements Model {
         S.accent.render('actions'),
         items,
         '',
-        S.muted.render('↑↓ navigate · enter · q quit'),
+        S.muted.render(HINT_MENU),
       ].join('\n');
     }
 
@@ -404,11 +499,12 @@ export class MapsTui implements Model {
     }
 
     if (this.screen === 'loading') {
+      const status = S.warn.render(this.status || asciiFallback('loading…'));
       return [
         header,
-        `${this.spinner.view()} ${S.warn.render(this.status || 'loading…')}`,
+        this.anim ? `${this.spinner.view()} ${status}` : `[running] ${status}`,
         '',
-        S.muted.render('esc cancel · q quit'),
+        S.muted.render(HINT_LOADING),
       ].join('\n');
     }
 
@@ -418,22 +514,24 @@ export class MapsTui implements Model {
         S.err.render('error'),
         this.status,
         '',
-        S.muted.render('enter retry · esc back · q quit'),
+        S.muted.render(HINT_ERROR),
       ].join('\n');
     }
 
-    // result
     return [
       header,
       S.ok.render(this.action ?? 'result'),
       this.viewport.view(),
       '',
-      S.muted.render('↑↓ scroll · esc back · q quit'),
+      S.muted.render(HINT_RESULT),
     ].join('\n');
   }
 }
 
-export async function runTui(maps?: GMapsClient): Promise<void> {
-  const program = new Program(new MapsTui(maps), WithAltScreen());
+export async function runTui(
+  maps?: GMapsClient,
+  opts?: { anim?: boolean },
+): Promise<void> {
+  const program = new Program(new MapsTui(maps, opts), WithAltScreen());
   await program.run();
 }

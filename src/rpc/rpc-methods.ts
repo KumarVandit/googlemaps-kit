@@ -3,9 +3,7 @@
  * Reverse-engineered from APP_OPTIONS, JS bundles (_ModuleManager_initialize), and probes.
  */
 
-// ============================================================================
 // batchexecute (WIZ eptZe → /maps/_/MapsWizUi/data/batchexecute)
-// ============================================================================
 
 export const MAPS_WIZ_UI_APP = 'MapsWizUi';
 export const MAPS_WIZ_UI_PATH = '/maps/_/MapsWizUi/';
@@ -45,15 +43,11 @@ export const MAPS_AI_AGENT_RPC = {
   AGENT_10: 'UrFsZc',
 } as const;
 
-// ============================================================================
 // GET /maps/rpc/* (pb query param — not in APP_OPTIONS but confirmed working)
-// ============================================================================
 
 export const RPC_LIST_UGC_POSTS = 'listugcposts';
 
-// ============================================================================
 // GET /maps/preview/* (from APP_OPTIONS)
-// ============================================================================
 
 export const PREVIEW = {
   PLACE: '/maps/preview/place',
@@ -73,9 +67,7 @@ export const RPC_HTTP = {
   LIST_UGC_POSTS: '/maps/rpc/listugcposts',
 } as const;
 
-// ============================================================================
 // httpservice/web/* (JSON reqpld — not batchexecute)
-// ============================================================================
 
 export const SERVICE_GET_LOCAL_BOQ_PROXY = 'PrivateLocalSearchUiDataService/GetLocalBoqProxy';
 export const BOQ_PROXY_MSC = 'gwsrpc';
@@ -86,37 +78,6 @@ export const REVIEW_SORT = {
   HIGHEST_RATING: 3,
   LOWEST_RATING: 4,
 } as const;
-
-/** Protobuf Jd service IDs found in dEsJDd.js bundle */
-export const PROTO_SERVICE_IDS = [
-  'C1qV3',
-  'CEnkte',
-  'CNWU5e',
-  'DzddFf',
-  'GkHlod',
-  'KpfDkf',
-  'MgyuKd',
-  'N3FmZb',
-  'R6fnef',
-  'TyFfQb',
-  'WTNmv',
-  'We9Kzc',
-  'WwTQs',
-  'aRnFrf',
-  'cCHt5d',
-  'dhHkVc',
-  'fOkEif',
-  'hZJcjf',
-  'jCvsMd',
-  'mgzXhd',
-  'moasRd',
-  'nvNove',
-  'pUMjxc',
-  'rTCZff',
-  'uRsS0c',
-  'v3Bbmc',
-  'zNdXX',
-] as const;
 
 /** Initial JS modules loaded on Maps bootstrap (m= param) */
 export const INITIAL_MODULES = [

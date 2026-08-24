@@ -3,7 +3,7 @@
  *
  * Run: npm run example:quick-start
  */
-import { assertDefined, createExampleClient, HSR_CENTER } from './shared.js';
+import { assertDefined, createExampleClient, run } from './shared.js';
 
 async function main() {
   const maps = createExampleClient();
@@ -22,11 +22,7 @@ async function main() {
 
   console.log(place.name, place.rating, depth, reviews.reviews.length, 'reviews');
   console.log('discover timingMs:', timingMs);
-  console.log('HSR sanity check location:', HSR_CENTER.lat, HSR_CENTER.lng);
   console.log('capabilities:', await maps.capabilities());
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+await run(main);

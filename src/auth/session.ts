@@ -27,9 +27,10 @@ let cachedSession: CookieJarState | null = null;
 
 function parseSetCookieHeader(setCookie: string): { name: string; value: string } | null {
   const part = setCookie.split(';')[0];
-  const eq = part?.indexOf('=');
+  if (part === undefined) return null;
+  const eq = part.indexOf('=');
   if (!eq || eq <= 0) return null;
-  return { name: part!.slice(0, eq), value: part!.slice(eq + 1) };
+  return { name: part.slice(0, eq), value: part.slice(eq + 1) };
 }
 
 function mergeSetCookies(jar: Record<string, string>, headers: Headers): void {
@@ -44,6 +45,19 @@ export function cookiesToHeader(jar: Record<string, string>): string {
   return Object.entries(jar)
     .map(([k, v]) => `${k}=${v}`)
     .join('; ');
+}
+
+/**
+ * Make a header value safe for `fetch`.
+ *
+ * Header values are serialised as ByteStrings, so any code point above 255
+ * throws. Referers built from place names routinely carry accents or non-Latin
+ * scripts, so percent-encode anything outside the safe range.
+ */
+function toHeaderSafe(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (!/[^\u0020-\u007e]/.test(value)) return value;
+  return value.replace(/[^\u0020-\u007e]/g, (ch) => encodeURIComponent(ch));
 }
 
 export function buildBrowserHeaders(options?: {
@@ -69,7 +83,7 @@ export function buildBrowserHeaders(options?: {
     headers['Sec-Fetch-Site'] = 'none';
     headers['Sec-Fetch-User'] = '?1';
   } else {
-    headers.Referer = options?.referer ?? 'https://www.google.com/maps/';
+    headers.Referer = toHeaderSafe(options?.referer ?? 'https://www.google.com/maps/');
     headers['Sec-Fetch-Dest'] = 'empty';
     headers['Sec-Fetch-Mode'] = 'cors';
     headers['Sec-Fetch-Site'] = 'same-origin';

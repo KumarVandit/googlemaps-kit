@@ -6,10 +6,10 @@
 import type { BatchExecuteConfig, RPCCall, RPCResponse } from '../types/common.js';
 import { GMapsAuthError, GMapsError, GMapsNetworkError } from '../types/common.js';
 import { isServicePath, rpcidForService } from './batch-services.js';
-import { parseChunkedResponse } from '../utils/chunked-decoder.js';
-import { sleep as sleepAbortable, throwIfAborted } from '../utils/abort.js';
+import { parseChunkedResponse } from '../utils/payload.js';
+import { sleepAbortable, throwIfAborted } from '../utils/async.js';
 import { fireError, fireRetry } from '../utils/hooks.js';
-import { getRequestSignal } from '../utils/request-context.js';
+import { getRequestSignal } from '../utils/async.js';
 
 class ReqIdGenerator {
   private readonly base: number;

@@ -30,6 +30,8 @@ export const BATCH_SERVICES = {
   DELETE_ASK_MAPS_HISTORY: '/MapsAskMapsHistoryService.DeleteAskMapsHistoryThreads',
   CREATE_SHARED_ASK_MAPS_HISTORY: '/MapsAskMapsHistoryService.CreateSharedAskMapsHistoryThread',
   SUBMIT_GENAI_FEEDBACK: '/MapsGenAiSearchService.SubmitUserFeedback',
+  GET_USER_PREFS: '/MapsUserPrefsService.GetUserPrefs',
+  WRITE_USER_PREFS: '/MapsUserPrefsService.WriteUserPrefs',
 } as const;
 
 export type BatchServicePath = (typeof BATCH_SERVICES)[keyof typeof BATCH_SERVICES];
@@ -63,6 +65,8 @@ export const BATCH_SERVICE_RPCIDS: Record<BatchServicePath, string> = {
   [BATCH_SERVICES.DELETE_ASK_MAPS_HISTORY]: 'zRtNVd',
   [BATCH_SERVICES.CREATE_SHARED_ASK_MAPS_HISTORY]: 'HbcvDd',
   [BATCH_SERVICES.SUBMIT_GENAI_FEEDBACK]: 'NxKdBf',
+  [BATCH_SERVICES.GET_USER_PREFS]: 'JGUSi',
+  [BATCH_SERVICES.WRITE_USER_PREFS]: 'PDqRpc',
 };
 
 export function isServicePath(id: string): boolean {

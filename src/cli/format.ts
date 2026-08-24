@@ -7,6 +7,7 @@ import type { DirectionsResult } from '../types/directions.js';
 import type { PlaceProfile, ResolvedPlace, MediaResult, DiscoverResult } from '../types/dx.js';
 import type { PlacePhoto } from '../types/photos.js';
 import { toCsv, toGeoJSON } from '../utils/export-results.js';
+import { dot, emdash, ellipsis, padToWidth as pad, rule, truncateToWidth as truncate } from './output.js';
 
 export type OutputFormat = 'table' | 'pretty' | 'json' | 'csv' | 'geojson';
 
@@ -24,24 +25,13 @@ export function printJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2));
 }
 
-function truncate(text: string, max: number): string {
-  const t = text.replace(/\s+/g, ' ').trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, Math.max(0, max - 1))}…`;
-}
-
-function pad(text: string, width: number): string {
-  const t = text.length > width ? truncate(text, width) : text;
-  return t.padEnd(width);
-}
-
 function stars(rating: number | undefined): string {
-  if (rating == null || Number.isNaN(rating)) return '—';
+  if (rating == null || Number.isNaN(rating)) return emdash();
   return rating.toFixed(1);
 }
 
 function reviews(n: number | undefined): string {
-  if (n == null) return '—';
+  if (n == null) return emdash();
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
   return String(n);
 }
@@ -50,7 +40,7 @@ function openLabel(place: SearchResult): string {
   if (place.isOpenNow === true) return 'Open';
   if (place.isOpenNow === false) return 'Closed';
   if (place.openStatus) return truncate(place.openStatus, 18);
-  return '—';
+  return emdash();
 }
 
 export function formatDiscoverTable(result: DiscoverResult): string {
@@ -68,21 +58,21 @@ export function formatDiscoverTable(result: DiscoverResult): string {
     `${pad('#', cols.n)}  ${pad('NAME', cols.name)}  ${pad('RATING', cols.rating)}  ` +
     `${pad('REVIEWS', cols.reviews)}  ${pad('CATEGORY', cols.category)}  ${pad('OPEN', cols.open)}`;
 
-  const sep = '─'.repeat(header.length);
+  const sep = rule(header.length);
   const lines = [header, sep];
 
   rows.forEach((p, i) => {
     lines.push(
-      `${pad(String(i + 1), cols.n)}  ${pad(p.name ?? '—', cols.name)}  ${pad(stars(p.rating), cols.rating)}  ` +
-        `${pad(reviews(p.reviewCount), cols.reviews)}  ${pad(p.category ?? p.categories?.[0] ?? '—', cols.category)}  ` +
+      `${pad(String(i + 1), cols.n)}  ${pad(p.name ?? emdash(), cols.name)}  ${pad(stars(p.rating), cols.rating)}  ` +
+        `${pad(reviews(p.reviewCount), cols.reviews)}  ${pad(p.category ?? p.categories?.[0] ?? emdash(), cols.category)}  ` +
         `${pad(openLabel(p), cols.open)}`,
     );
   });
 
   lines.push('');
-  lines.push(`${rows.length} place${rows.length === 1 ? '' : 's'} · ${Math.round(result.timingMs)}ms · mode ${result.mode}`);
+  lines.push(`${rows.length} place${rows.length === 1 ? '' : 's'} ${dot()} ${Math.round(result.timingMs)}ms ${dot()} mode ${result.mode}`);
   if (result.pagination.hasMore) {
-    lines.push(`more available (offset ${result.pagination.nextOffset ?? '—'})`);
+    lines.push(`more available (offset ${result.pagination.nextOffset ?? emdash()})`);
   }
   return lines.join('\n');
 }
@@ -108,7 +98,7 @@ export function formatProfilePretty(result: PlaceProfile): string {
   if (p.rating != null) meta.push(`★ ${stars(p.rating)}`);
   if (p.reviewCount != null) meta.push(`(${reviews(p.reviewCount)})`);
   if (p.categories?.[0]) meta.push(p.categories[0]);
-  if (meta.length) lines.push(meta.join(' · '));
+  if (meta.length) lines.push(meta.join(` ${dot()} `));
 
   if (p.address) lines.push(truncate(p.address, 72));
   if (p.openStatus) lines.push(p.openStatus);
@@ -153,7 +143,7 @@ export function formatOpinionsTable(result: ReviewsResult): string {
   const agg =
     result.aggregateRating != null ? ` · ★ ${stars(result.aggregateRating)}` : '';
   lines.push(`Reviews · ${total}${agg}`);
-  lines.push('─'.repeat(56));
+  lines.push(rule(56));
 
   for (const r of result.reviews) {
     lines.push(formatReviewLine(r));
@@ -183,9 +173,9 @@ function wrapText(text: string, width: number, indent = '  '): string {
 
 function formatReviewLine(r: Review): string {
   const head = [
-    r.rating != null ? `★ ${r.rating}` : '★ —',
+    r.rating != null ? `★ ${r.rating}` : `★ ${emdash()}`,
     r.author ?? 'Anonymous',
-    r.date ? `· ${r.date}` : undefined,
+    r.date ? `${dot()} ${r.date}` : undefined,
   ]
     .filter(Boolean)
     .join('  ');
@@ -197,17 +187,17 @@ function formatReviewLine(r: Review): string {
 
 export function formatMediaPretty(result: MediaResult): string {
   const lines: string[] = [`${result.photoCount} photo${result.photoCount === 1 ? '' : 's'}`];
-  if (result.photoSource) lines[0] += ` · ${result.photoSource}`;
-  lines.push('─'.repeat(56));
+  if (result.photoSource) lines[0] += ` ${dot()} ${result.photoSource}`;
+  lines.push(rule(56));
 
   result.photos.slice(0, 6).forEach((photo: PlacePhoto, i) => {
-    const url = photo.normalizedUrl ?? photo.url ?? '—';
-    const cap = photo.caption ? ` — ${truncate(photo.caption, 40)}` : '';
+    const url = photo.normalizedUrl ?? photo.url ?? emdash();
+    const cap = photo.caption ? ` ${emdash()} ${truncate(photo.caption, 40)}` : '';
     lines.push(`${i + 1}. ${truncate(url, 64)}${cap}`);
   });
 
   if (result.photos.length > 6) {
-    lines.push(`… ${result.photos.length - 6} more`);
+    lines.push(`${ellipsis()} ${result.photos.length - 6} more`);
   }
   if (result.nextPageToken) lines.push('(more pages available)');
   return lines.join('\n');

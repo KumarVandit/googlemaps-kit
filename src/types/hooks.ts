@@ -19,21 +19,21 @@ export type HookActionType =
   | 'batchexecute';
 
 export interface HookActionEvent {
-  type: HookActionType | string;
+  type: HookActionType;
   status: 'ok' | 'error';
   durationMs: number;
   error?: unknown;
 }
 
 export interface HookRetryEvent {
-  type: HookActionType | string;
+  type: HookActionType;
   attempt: number;
   delayMs?: number;
   error?: unknown;
 }
 
 export interface HookErrorEvent {
-  type: HookActionType | string;
+  type: HookActionType;
   error: unknown;
 }
 

@@ -5,8 +5,34 @@
  * omitting any block returns HTTP 400.
  */
 
-const PHOTOMETA_SUFFIX_457 =
-  '!4m57!1e1!1e2!1e3!1e4!1e5!1e6!1e8!1e12!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2';
+/**
+ * Sections of the photometa payload to return, one `!1e{n}` per section.
+ *
+ * Probed 2026-08-23: sections 7, 10, 11 and 13 are accepted but come back
+ * empty for every pano sampled; 18 adds the depth raster and is the only
+ * optional one worth asking for.
+ */
+const PHOTOMETA_SECTIONS = [1, 2, 3, 4, 5, 6, 8, 12] as const;
+
+/**
+ * `!4m{n}` prefix for the default section list.
+ *
+ * The number is not a literal item count — the block holds 19 items — but the
+ * server rejects a block whose prefix drifts from the list it wraps, so it
+ * moves one for one with the section count.
+ */
+const PHOTOMETA_BASE_BLOCK_SIZE = 57;
+
+/** Section id for the quantised depth raster (photometa node[20]). */
+const PHOTOMETA_DEPTH_SECTION = 18;
+
+const PHOTOMETA_TAIL_457 = '!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2';
+
+function buildSectionBlock(sections: readonly number[]): string {
+  const list = sections.map((id) => `!1e${id}`).join('');
+  const size = PHOTOMETA_BASE_BLOCK_SIZE + (sections.length - PHOTOMETA_SECTIONS.length);
+  return `!4m${size}${list}${PHOTOMETA_TAIL_457}`;
+}
 const PHOTOMETA_SUFFIX_936 =
   '!9m36!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e3!2b1!3e2!1m3!1e3!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e1!2b0!3e3!1m3!1e4!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e3';
 
@@ -38,11 +64,19 @@ export function buildPhotometaPb(params: {
   panoId: string;
   hl?: string;
   gl?: string;
+  /** Also request the depth raster (photometa node[20]). */
+  includeDepth?: boolean;
 }): string {
   const hl = params.hl ?? 'en';
   const gl = params.gl ?? 'us';
   const ctx = buildPhotometaLocale(hl, gl);
-  return `${ctx}!3m3!1m2!1e2!2s${params.panoId}${PHOTOMETA_SUFFIX_457}${PHOTOMETA_SUFFIX_936}`;
+  const sections = params.includeDepth
+    ? [...PHOTOMETA_SECTIONS, PHOTOMETA_DEPTH_SECTION]
+    : PHOTOMETA_SECTIONS;
+  return (
+    `${ctx}!3m3!1m2!1e2!2s${params.panoId}` +
+    `${buildSectionBlock(sections)}${PHOTOMETA_SUFFIX_936}`
+  );
 }
 
 /** Pb for `/maps/photometa/ac/v1` — coverage tile at Web Mercator z17. */
@@ -74,8 +108,14 @@ export function buildPhotometaUrl(params: {
   panoId: string;
   hl: string;
   gl: string;
+  includeDepth?: boolean;
 }): string {
-  const pb = buildPhotometaPb({ panoId: params.panoId, hl: params.hl, gl: params.gl });
+  const pb = buildPhotometaPb({
+    panoId: params.panoId,
+    hl: params.hl,
+    gl: params.gl,
+    includeDepth: params.includeDepth,
+  });
   return (
     `https://www.google.com/maps/photometa/v1` +
     `?authuser=0&hl=${params.hl}&gl=${params.gl}` +

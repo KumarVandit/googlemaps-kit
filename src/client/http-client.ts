@@ -6,7 +6,7 @@ import {
   randomUserAgent,
   type CookieJarState,
 } from '../auth/session.js';
-import { parseMapsPageTokens } from '../rpc/app-options.js';
+import { parseMapsPageTokens } from '../rpc/descriptors.js';
 import { GMapsRpcClient } from '../rpc/rpc-client.js';
 import {
   GMapsAuthError,
@@ -18,13 +18,13 @@ import {
   type MapsPageTokens,
 } from '../types/common.js';
 import type { GMapsHooks } from '../types/hooks.js';
-import { sleep as sleepAbortable, throwIfAborted } from '../utils/abort.js';
+import { sleepAbortable, throwIfAborted } from '../utils/async.js';
 import { fireError, fireRetry } from '../utils/hooks.js';
-import { getRequestSignal } from '../utils/request-context.js';
-import { RequestScheduler } from '../utils/request-scheduler.js';
-import { backoffWithJitter, parseRetryAfterMs } from '../utils/retry-backoff.js';
-import { classifyThrottleFailure, isAutomatedQueryBlock } from '../utils/throttle-detection.js';
-import { isValidResponseBody, parseGoogleResponse } from '../utils/response-parser.js';
+import { getRequestSignal } from '../utils/async.js';
+import { RequestScheduler } from '../utils/net.js';
+import { backoffWithJitter, parseRetryAfterMs } from '../utils/net.js';
+import { classifyThrottleFailure, isAutomatedQueryBlock } from '../utils/net.js';
+import { isValidResponseBody, parseGoogleResponse } from '../utils/payload.js';
 
 /** Install once — Node's global fetch is undici; this keeps TLS sockets warm. */
 let keepAliveInstalled = false;
@@ -641,9 +641,10 @@ export class HttpClient {
     const setCookies = headers.getSetCookie?.() ?? [];
     for (const raw of setCookies) {
       const part = raw.split(';')[0];
-      const eq = part?.indexOf('=');
-      if (eq && eq > 0) {
-        this.cookieJar[part!.slice(0, eq)] = part!.slice(eq + 1);
+      if (part === undefined) continue;
+      const eq = part.indexOf('=');
+      if (eq > 0) {
+        this.cookieJar[part.slice(0, eq)] = part.slice(eq + 1);
       }
     }
   }

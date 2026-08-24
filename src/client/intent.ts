@@ -31,18 +31,18 @@ import type {
   RouteResult,
 } from '../types/dx.js';
 import { AuthRequiredError } from '../types/common.js';
-import type { GMapsHooks } from '../types/hooks.js';
+import type { GMapsHooks, HookActionType } from '../types/hooks.js';
 import {
   normalizePlaceRef,
   resolveDirectionsEndpoints,
   resolveSearchCenter,
 } from '../utils/place-ref.js';
 import { isShortMapsLink, parseMapsUrl } from '../parsers/maps-url.js';
-import { throwIfAborted } from '../utils/abort.js';
+import { throwIfAborted } from '../utils/async.js';
 import { withActionHook } from '../utils/hooks.js';
-import { pooledMap } from '../utils/pooled.js';
-import { runWithRequestContext } from '../utils/request-context.js';
-import type { TtlCache } from '../utils/ttl-cache.js';
+import { pooledMap } from '../utils/async.js';
+import { runWithRequestContext } from '../utils/async.js';
+import type { TtlCache } from '../utils/async.js';
 
 export class IntentApi {
   constructor(
@@ -67,7 +67,7 @@ export class IntentApi {
   }
 
   private runIntent<T>(
-    type: string,
+    type: HookActionType,
     signal: AbortSignal | undefined,
     fn: () => Promise<T>,
   ): Promise<T> {
@@ -92,8 +92,8 @@ export class IntentApi {
         this.cache &&
         `discover:${mode}:${options.query}:${near.lat},${near.lng}:${options.offset ?? 0}:${options.limit ?? ''}`;
       if (cacheKey) {
-        const hit = this.cache!.get(cacheKey) as DiscoverResult | undefined;
-        if (hit) return hit;
+        const hit = this.cache!.get(cacheKey);
+        if (isDiscoverResult(hit)) return hit;
       }
 
       const result = await this.services.search.searchText({
@@ -321,8 +321,8 @@ export class IntentApi {
           ? `profile:card:${place.hexId}`
           : undefined;
       if (cacheKey) {
-        const hit = this.cache!.get(cacheKey) as PlaceProfile | undefined;
-        if (hit) return hit;
+        const hit = this.cache!.get(cacheKey);
+        if (isPlaceProfile(hit)) return hit;
       }
 
       const skipIncompleteRetry = place.reviewCount != null;
@@ -414,6 +414,10 @@ export class IntentApi {
         destination,
         mode: options.mode,
         includeSteps: options.includeSteps,
+        departureTime: options.departureTime,
+        arrivalTime: options.arrivalTime,
+        transitModes: options.transitModes,
+        transitRoutingPreference: options.transitRoutingPreference,
       });
     });
   }
@@ -633,4 +637,23 @@ export class IntentApi {
       };
     });
   }
+}
+
+/** Structural guard so a colliding cache key can never masquerade as a result. */
+function isDiscoverResult(value: unknown): value is DiscoverResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as DiscoverResult).places)
+  );
+}
+
+/** Structural guard for cached place profiles. */
+function isPlaceProfile(value: unknown): value is PlaceProfile {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as PlaceProfile).place === 'object' &&
+    (value as PlaceProfile).place !== null
+  );
 }

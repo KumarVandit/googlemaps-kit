@@ -28,7 +28,10 @@ export interface CreateMapsToolsOptions {
    * Hosts should check `requireApproval` before calling execute.
    */
   requireApproval?: Partial<
-    Record<'discover' | 'resolve' | 'profile' | 'route' | 'opinions' | 'media' | 'pipeline', boolean>
+    Record<
+      'discover' | 'resolve' | 'profile' | 'route' | 'opinions' | 'media' | 'pipeline' | 'gridSearch',
+      boolean
+    >
   >;
 }
 
@@ -262,6 +265,66 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
     },
   };
 
+  const gridSearch: MapsToolDefinition<
+    {
+      query: string;
+      north?: number;
+      south?: number;
+      east?: number;
+      west?: number;
+      nearLat?: number;
+      nearLng?: number;
+      spanKm?: number;
+      cellZoom?: number;
+      maxResults?: number;
+    },
+    unknown
+  > = {
+    description:
+      'Exhaustively search an area: splits the bounding box into ~2 km cells and merges ' +
+      'deduped results. Use instead of discover when coverage matters (lead lists, market ' +
+      'mapping). Pass bounds (north/south/east/west) OR nearLat/nearLng + spanKm.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        north: { type: 'number' },
+        south: { type: 'number' },
+        east: { type: 'number' },
+        west: { type: 'number' },
+        nearLat: { type: 'number' },
+        nearLng: { type: 'number' },
+        spanKm: { type: 'number', description: 'Square box width in km when using nearLat/nearLng (default 3)' },
+        cellZoom: { type: 'number', description: 'Grid subdivision zoom 10-18; 14 districts, 17 blocks (default 15)' },
+        maxResults: { type: 'number' },
+      },
+      required: ['query'],
+    },
+    execute: async (args) => {
+      assertApproval(requireApproval, 'gridSearch');
+      const hasBounds =
+        args.north != null && args.south != null && args.east != null && args.west != null;
+      if (!hasBounds && (args.nearLat == null || args.nearLng == null)) {
+        throw new Error('gridSearch requires bounds (north/south/east/west) or nearLat/nearLng');
+      }
+      return maps.grid({
+        query: args.query,
+        ...(hasBounds
+          ? {
+              bounds: {
+                north: args.north!,
+                south: args.south!,
+                east: args.east!,
+                west: args.west!,
+              },
+            }
+          : { near: { lat: args.nearLat!, lng: args.nearLng! }, spanKm: args.spanKm }),
+        cellZoom: args.cellZoom,
+        maxResults: args.maxResults,
+      });
+    },
+  };
+
   return {
     discover,
     resolve,
@@ -270,6 +333,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
     opinions,
     media,
     pipeline,
+    gridSearch,
   } as const;
 }
 

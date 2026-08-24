@@ -1,6 +1,6 @@
 import type { HttpClient } from './http-client.js';
 import { extractPlacePhotos } from '../parsers/photos.js';
-import { extractPlaceUgcAggregates } from '../parsers/ugc-aggregates.js';
+import { extractPlaceUgcAggregates } from '../parsers/reviews.js';
 import {
   buildListEntityPhotosBatchArgs,
   buildPlaceUgcAggregatesArgs,

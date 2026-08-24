@@ -10,8 +10,8 @@ import { cookiesToHeader, randomUserAgent } from './session.js';
 import type { HttpClient } from '../client/http-client.js';
 import { GMapsCookiesExpiredError, type AuthStatus } from '../types/common.js';
 import { buildReviewsUrl } from '../rpc/pb-builders.js';
-import { isListUgcUnauthenticatedStub } from '../utils/throttle-detection.js';
-import { parseGoogleResponse } from '../utils/response-parser.js';
+import { isListUgcUnauthenticatedStub } from '../utils/net.js';
+import { parseGoogleResponse } from '../utils/payload.js';
 import type { PbNode } from '../types/protobuf.js';
 
 export interface AuthStatusOptions {
