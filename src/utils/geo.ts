@@ -39,6 +39,20 @@ export function webMercatorTile(
   };
 }
 
+/** Inverse of {@link webMercatorTile} — centre point of a tile, clamped to valid latitude. */
+export function webMercatorTileCenter(
+  x: number,
+  y: number,
+  zoom: number,
+): { lat: number; lng: number } {
+  const scale = 2 ** zoom;
+  const n = Math.PI - (2 * Math.PI * (y + 0.5)) / scale;
+  return {
+    lng: ((x + 0.5) / scale) * 360 - 180,
+    lat: (Math.atan(Math.sinh(n)) * 180) / Math.PI,
+  };
+}
+
 /** Great-circle distance in metres, used to rank panoramas by proximity. */
 export function haversineMeters(
   lat1: number,
@@ -53,4 +67,20 @@ export function haversineMeters(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Square bounding box of the given full width around a centre point. */
+export function boundsAround(
+  lat: number,
+  lng: number,
+  spanKm: number,
+): { north: number; south: number; east: number; west: number } {
+  const halfLat = spanKm / 2 / 111.32;
+  const halfLng = spanKm / 2 / (111.32 * Math.max(0.01, Math.cos((lat * Math.PI) / 180)));
+  return {
+    north: lat + halfLat,
+    south: lat - halfLat,
+    east: lng + halfLng,
+    west: lng - halfLng,
+  };
 }

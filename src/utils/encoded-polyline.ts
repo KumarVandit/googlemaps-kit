@@ -81,8 +81,6 @@ function encodeUnsigned(value: number): string {
   return output;
 }
 
-// ─── Human-readable helpers ────────────────────────────────────────────────
-
 /**
  * Decode an encoded polyline string to an array of `{ lat, lng }` objects.
  * Alias of `decodeEncodedPolyline` with a friendlier name.

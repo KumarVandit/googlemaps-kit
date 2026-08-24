@@ -2,9 +2,15 @@
  * Fire lifecycle hooks without letting user callbacks break the call path.
  */
 
-import type { GMapsHooks, HookActionEvent, HookErrorEvent, HookRetryEvent } from '../types/hooks.js';
+import type {
+  GMapsHooks,
+  HookActionEvent,
+  HookActionType,
+  HookErrorEvent,
+  HookRetryEvent,
+} from '../types/hooks.js';
 
-export function fireAction(hooks: GMapsHooks | undefined, event: HookActionEvent): void {
+function fireAction(hooks: GMapsHooks | undefined, event: HookActionEvent): void {
   try {
     hooks?.onAction?.(event);
   } catch {
@@ -31,7 +37,7 @@ export function fireError(hooks: GMapsHooks | undefined, event: HookErrorEvent):
 /** Wrap an Intent call with onAction / onError timing. */
 export async function withActionHook<T>(
   hooks: GMapsHooks | undefined,
-  type: string,
+  type: HookActionType,
   fn: () => Promise<T>,
 ): Promise<T> {
   const start = performance.now();
