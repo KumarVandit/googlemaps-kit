@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<!--
+  Instant Pano — official API (fully client-side, static)
+  No server required. Works as a single HTML file:
+    - open directly, or
+    - deploy to Vercel / Cloudflare Pages / any static host.
+
+  Vercel: set Root Directory = apps/pano-viewer/official  (Framework: Other, Output: .)
+           or run `vercel --prod` from that folder.
+  API key: defaults to the bundled key; override per-deploy with ?key=YOUR_KEY
+           or by editing the fallback in the loader below.
+  Untitled fix: StreetViewPanorama created with { addressControl:false } so
+  Google's header never renders "Untitled / View on Google Maps".
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instant Pano — official API</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f1115;
+    color: #e8eaed;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 12px; align-items: center;
+    padding: 14px 20px;
+    background: rgba(15, 17, 21, 0.95);
+    border-bottom: 1px solid #262a33;
+  }
+  header h1 { font-size: 18px; margin: 0 16px 0 0; font-weight: 600; white-space: nowrap; }
+  header h1 i { color: #8ab4f8; font-style: normal; }
+  form { flex: 1; display: flex; gap: 8px; max-width: 720px; }
+  input {
+    flex: 1; padding: 10px 16px; font-size: 15px;
+    background: #1b1f27; color: inherit;
+    border: 1px solid #333945; border-radius: 24px; outline: none;
+  }
+  input:focus { border-color: #8ab4f8; }
+  button {
+    padding: 10px 22px; font-size: 15px; cursor: pointer;
+    background: #8ab4f8; color: #0f1115; border: 0; border-radius: 24px;
+    font-weight: 600;
+  }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #status { padding: 12px 20px; min-height: 22px; color: #9aa0a6; font-size: 14px; }
+
+  .panes {
+    display: grid; gap: 20px; padding: 4px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  }
+  figure { margin: 0; }
+  .pano {
+    width: 100%; aspect-ratio: 4 / 3;
+    border-radius: 10px; background: #1b1f27;
+  }
+  .placeholder {
+    width: 100%; aspect-ratio: 4 / 3; border-radius: 10px;
+    background: #161a21; border: 1px dashed #333945;
+    display: flex; align-items: center; justify-content: center;
+    color: #5f6368; font-size: 14px; text-align: center; padding: 16px;
+  }
+  figcaption { margin-top: 8px; line-height: 1.35; }
+  figcaption b { display: block; font-size: 14px; }
+  figcaption span { font-size: 13px; color: #9aa0a6; }
+  .embed { margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+  .embed input { flex: 1; font-size: 11px; padding: 6px 8px; border-radius: 6px; background: #1b1f27; color: #9aa0a6; border: 1px solid #333945; font-family: ui-monospace, monospace; }
+  .embed button { padding: 6px 10px; font-size: 11px; border-radius: 6px; background: #232833; color: #e8eaed; border: 1px solid #333945; cursor: pointer; white-space: nowrap; }
+  .embed button:active { transform: scale(0.97); }
+  .embed a { font-size: 11px; color: #8ab4f8; text-decoration: none; word-break: break-all; }
+  .embed a:hover { text-decoration: underline; }
+
+  .lists { columns: 4 240px; column-gap: 20px; padding: 20px; }
+  .cat { break-inside: avoid; margin-bottom: 20px; }
+  .cat h3 {
+    margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #9aa0a6;
+  }
+  .cat ul { list-style: none; margin: 0; padding: 0; }
+  .cat li button {
+    width: 100%; text-align: left; margin-bottom: 4px;
+    padding: 8px 12px; border-radius: 8px;
+    background: #1b1f27; color: inherit; border: 1px solid transparent;
+    font-weight: 400; font-size: 13px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .cat li button:hover { background: #232833; }
+  .cat li button.active { border-color: #8ab4f8; background: #1e2a3d; }
+  .cat li button .dist { color: #9aa0a6; white-space: nowrap; }
+  .cat .none { color: #5f6368; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><i>Instant</i> Pano <span style="font-size:11px;color:#5f6368">official</span></h1>
+  <form id="form">
+    <input id="q" type="text" placeholder="Type an address…" autocomplete="off" autofocus>
+    <button id="go" type="submit">Search</button>
+  </form>
+</header>
+<div id="status">Enter an address to see it in Street View.</div>
+
+<div class="panes">
+  <figure>
+    <div class="placeholder" id="main-slot">Type an address to see its Street View</div>
+    <figcaption><b>Location</b><span id="main-detail"></span><div class="embed" id="main-embed" style="display:none"><input id="main-embed-input" readonly><button id="main-embed-copy">Copy</button></div><a id="main-embed-link" style="display:none" target="_blank" rel="noopener"></a></figcaption>
+  </figure>
+  <figure>
+    <div class="placeholder" id="amenity-slot">Tap a nearby place to preview its Street View</div>
+    <div id="amenity-pano" class="pano" style="display:none"></div>
+    <figcaption><b>Nearby place</b><span id="amenity-detail"></span><div class="embed" id="amenity-embed" style="display:none"><input id="amenity-embed-input" readonly><button id="amenity-embed-copy">Copy</button></div><a id="amenity-embed-link" style="display:none" target="_blank" rel="noopener"></a></figcaption>
+  </figure>
+</div>
+
+<div class="lists" id="lists"></div>
+
+<script>
+  window.gm_authFailure = () => {
+    document.getElementById('status').textContent =
+      'AUTH FAILED — key rejected for this origin. Check referrer restrictions in Cloud Console. Pass ?key=YOUR_KEY to override.';
+  };
+  (function loadMaps() {
+    const key = new URLSearchParams(location.search).get('key') || 'YOUR_GOOGLE_MAPS_API_KEY';
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly&libraries=places,geometry&loading=async`;
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+</script>
+
+<script type="module">
+const CATEGORIES = ['Cafe', 'Park', 'School', 'Restaurant', 'Hospital', 'Supermarket', 'EV charging', 'Gym'];
+const KEYWORD = { 'EV charging': 'ev charging', Gym: 'gym' };
+const PLACES_PER_CATEGORY = 5;
+
+const $ = (id) => document.getElementById(id);
+const status = $('status');
+const form = $('form');
+const input = $('q');
+const go = $('go');
+const mainSlot = $('main-slot');
+const mainDetail = $('main-detail');
+const amenitySlot = $('amenity-slot');
+const amenityPano = $('amenity-pano');
+const amenityDetail = $('amenity-detail');
+const lists = $('lists');
+const mainEmbed = $('main-embed');
+const mainEmbedInput = $('main-embed-input');
+const mainEmbedCopy = $('main-embed-copy');
+const amenityEmbed = $('amenity-embed');
+const amenityEmbedInput = $('amenity-embed-input');
+const amenityEmbedCopy = $('amenity-embed-copy');
+
+function embedUrlFor(panoId, heading) {
+  const h = (heading ?? 0).toFixed(4);
+  return `https://www.google.com/maps/embed?pb=!4v1!6m8!1m7!1s${panoId}!2m2!1d0!2d0!3f${h}!4f0!5f0.7820865974627469`;
+}
+function setEmbed(inputEl, wrapEl, url) {
+  inputEl.value = url;
+  wrapEl.style.display = '';
+  wrapEl.title = url;
+}
+function hideEmbed(wrapEl, inputEl) {
+  wrapEl.style.display = 'none';
+  if (inputEl) inputEl.value = '';
+}
+function copyWithFeedback(btn, inputEl) {
+  const url = inputEl.value;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const prev = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = prev, 1200);
+  }).catch(() => {
+    inputEl.select();
+    document.execCommand('copy');
+  });
+}
+mainEmbedCopy.addEventListener('click', () => copyWithFeedback(mainEmbedCopy, mainEmbedInput));
+amenityEmbedCopy.addEventListener('click', () => copyWithFeedback(amenityEmbedCopy, amenityEmbedInput));
+
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtDistance = (m) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`);
+const waitMaps = () => new Promise((res, rej) => {
+  const t0 = Date.now();
+  const t = setInterval(() => {
+    if (window.google?.maps) { clearInterval(t); res(); }
+    else if (Date.now() - t0 > 10000) { clearInterval(t); rej(new Error('Maps API did not load')); }
+  }, 100);
+});
+
+let mainPano = null;
+let amenityPanoObj = null;
+let activeBtn = null;
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = input.value.trim();
+  if (!q) return;
+
+    go.disabled = true;
+  const t0 = performance.now();
+  status.textContent = `Looking up “${q}”…`;
+  if (!mainPano || !document.getElementById('main-pano')) {
+    mainSlot.innerHTML = '<div class="placeholder">Loading…</div>';
+  }
+  mainDetail.textContent = '';
+  hideEmbed(mainEmbed, mainEmbedInput);
+  lists.innerHTML = '';
+  resetAmenity();
+
+  try {
+    await waitMaps();
+    const { Geocoder, StreetViewService, StreetViewSource } = google.maps;
+    const { results } = await new Geocoder().geocode({ address: q });
+    const loc = results[0].geometry.location;
+    const address = results[0].formatted_address;
+
+    const { data: pano } = await new StreetViewService().getPanorama({
+      location: loc, radius: 100, source: StreetViewSource.OUTDOOR,
+    });
+
+    const panoOpts = {
+      addressControl: false,
+      showRoadLabels: false,
+      enableCloseButton: false,
+      motionTracking: false,
+      motionTrackingControl: false,
+      fullscreenControl: true,
+      zoomControl: true,
+    };
+    const panoId = pano.location?.pano ?? pano.panoId;
+    const panoHeading = pano.heading ?? 0;
+    const hasContainer = !!document.getElementById('main-pano');
+    if (mainPano && hasContainer) {
+      mainPano.setPano(panoId);
+      mainPano.setPov({ heading: panoHeading, pitch: 0 });
+    } else {
+      mainSlot.innerHTML = '<div id="main-pano" class="pano"></div>';
+      mainPano = new google.maps.StreetViewPanorama($('main-pano'), {
+        pano: panoId, pov: { heading: panoHeading, pitch: 0 },
+        ...panoOpts,
+      });
+    }
+    mainDetail.textContent =
+      `${address}${pano.location?.description ? ` — ${pano.location.description}` : ''}` +
+      `${pano.imageDate ? ` (captured ${pano.imageDate})` : ''}`;
+    const mainUrl = embedUrlFor(panoId, panoHeading);
+    setEmbed(mainEmbedInput, mainEmbed, mainUrl);
+
+    const ms = Math.round(performance.now() - t0);
+    status.textContent = `${address} · search ${ms} ms · loading amenities…`;
+    loadAmenities(loc, address);
+  } catch (err) {
+    status.textContent =
+      err?.code === 'ZERO_RESULTS' ? 'No Street View coverage at this address.' :
+      err.message || 'Lookup failed';
+    mainSlot.innerHTML = '<div class="placeholder">No result</div>';
+  } finally {
+    go.disabled = false;
+  }
+});
+
+function resetAmenity() {
+  amenityPano.style.display = 'none';
+  amenitySlot.style.display = '';
+  amenitySlot.textContent = 'Tap a nearby place to preview its Street View';
+  amenityDetail.textContent = '';
+  hideEmbed(amenityEmbed, amenityEmbedInput);
+}
+
+async function loadAmenities(loc, address) {
+  const t0 = performance.now();
+  const { places: { PlacesService, PlacesServiceStatus } } = google.maps;
+  const service = new PlacesService(document.createElement('div'));
+
+  const categories = await Promise.all(
+    CATEGORIES.map(async (label) => {
+      try {
+        const places = await new Promise((res, rej) => {
+          service.nearbySearch(
+            { location: loc, radius: 2000, keyword: KEYWORD[label] ?? label },
+            (r, s) => (s === PlacesServiceStatus.OK || s === PlacesServiceStatus.ZERO_RESULTS)
+              ? res(r ?? [])
+              : rej(new Error(s)),
+          );
+        });
+        return {
+          label,
+          places: places
+            .sort((a, b) =>
+              google.maps.geometry.spherical.computeDistanceBetween(loc, a.geometry.location) -
+              google.maps.geometry.spherical.computeDistanceBetween(loc, b.geometry.location))
+            .slice(0, PLACES_PER_CATEGORY),
+        };
+      } catch { return { label, places: [] }; }
+    }),
+  );
+
+  const ms = Math.round(performance.now() - t0);
+  const count = categories.reduce((n, c) => n + c.places.length, 0);
+  status.textContent = `${address} · ${count} nearby places · amenities ${ms} ms`;
+
+  for (const cat of categories) {
+    const div = document.createElement('div');
+    div.className = 'cat';
+    div.innerHTML =
+      `<h3>${esc(cat.label)}</h3><ul>` +
+      (cat.places.length
+        ? cat.places.map((p) => {
+            const d = Math.round(google.maps.geometry.spherical.computeDistanceBetween(loc, p.geometry.location));
+            return `<li><button data-lat="${p.geometry.location.lat()}" data-lng="${p.geometry.location.lng()}" data-name="${esc(p.name)}">
+                      <span>${esc(p.name)}</span><span class="dist">${fmtDistance(d)}</span>
+                    </button></li>`;
+          }).join('')
+        : '<li class="none">none found</li>') +
+      '</ul>';
+    div.querySelectorAll('button').forEach((btn) =>
+      btn.addEventListener('click', () => selectAmenity(btn)),
+    );
+    lists.appendChild(div);
+  }
+}
+
+async function selectAmenity(btn) {
+  if (activeBtn) activeBtn.classList.remove('active');
+  activeBtn = btn;
+  btn.classList.add('active');
+
+  const { lat, lng, name } = btn.dataset;
+  amenityPano.style.display = 'none';
+  amenitySlot.style.display = '';
+  amenitySlot.textContent = `Finding Street View near ${name}…`;
+  amenityDetail.textContent = '';
+
+  try {
+    const { data: pano } = await new google.maps.StreetViewService().getPanorama({
+      location: { lat: Number(lat), lng: Number(lng) },
+      radius: 100, source: google.maps.StreetViewSource.OUTDOOR,
+    });
+
+    const target = new google.maps.LatLng(Number(lat), Number(lng));
+    const heading = google.maps.geometry.spherical.computeHeading(pano.location.latLng, target);
+
+    const amenityOpts = {
+      addressControl: false,
+      showRoadLabels: false,
+      enableCloseButton: false,
+      motionTracking: false,
+      motionTrackingControl: false,
+      fullscreenControl: true,
+      zoomControl: true,
+    };
+    if (amenityPanoObj) {
+      amenityPanoObj.setPano(pano.location?.pano ?? pano.panoId);
+      amenityPanoObj.setPov({ heading, pitch: 0 });
+    } else {
+      amenityPanoObj = new google.maps.StreetViewPanorama(amenityPano, {
+        pano: pano.location?.pano ?? pano.panoId, pov: { heading, pitch: 0 },
+        ...amenityOpts,
+      });
+    }
+    amenityPano.style.display = '';
+    amenitySlot.style.display = 'none';
+    amenityDetail.textContent =
+      `${name} — looking at it from ${Math.round(heading)}°` +
+      `${pano.imageDate ? ` · captured ${pano.imageDate}` : ''}`;
+    const amenityPanoId = pano.location?.pano ?? pano.panoId;
+    const amenityUrl = embedUrlFor(amenityPanoId, heading);
+    setEmbed(amenityEmbedInput, amenityEmbed, amenityUrl);
+  } catch {
+    amenitySlot.textContent = `No Street View coverage near ${name}`;
+  }
+}
+</script>
+</body>
+</html>

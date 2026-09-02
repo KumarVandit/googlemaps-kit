@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instant Pano</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f1115;
+    color: #e8eaed;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 12px; align-items: center;
+    padding: 14px 20px;
+    background: rgba(15, 17, 21, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #262a33;
+  }
+  header h1 { font-size: 18px; margin: 0 16px 0 0; font-weight: 600; white-space: nowrap; }
+  header h1 i { color: #8ab4f8; font-style: normal; }
+  form { flex: 1; display: flex; gap: 8px; max-width: 720px; }
+  input {
+    flex: 1; padding: 10px 16px; font-size: 15px;
+    background: #1b1f27; color: inherit;
+    border: 1px solid #333945; border-radius: 24px; outline: none;
+  }
+  input:focus { border-color: #8ab4f8; }
+  button {
+    padding: 10px 22px; font-size: 15px; cursor: pointer;
+    background: #8ab4f8; color: #0f1115; border: 0; border-radius: 24px;
+    font-weight: 600;
+  }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #status { padding: 12px 20px; min-height: 22px; color: #9aa0a6; font-size: 14px; }
+
+  .frames {
+    display: grid; gap: 20px; padding: 4px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  }
+  figure { margin: 0; }
+  iframe {
+    width: 100%; aspect-ratio: 4 / 3;
+    border: 0; border-radius: 10px; background: #1b1f27;
+    display: block;
+  }
+  figcaption { margin-top: 8px; line-height: 1.35; }
+  figcaption b { display: block; font-size: 14px; }
+  figcaption span { font-size: 13px; color: #9aa0a6; }
+  figcaption small { display: block; font-size: 11px; color: #5f6368; margin-top: 2px; }
+  .placeholder {
+    width: 100%; aspect-ratio: 4 / 3; border-radius: 10px;
+    background: #161a21; border: 1px dashed #333945;
+    display: flex; align-items: center; justify-content: center;
+    color: #5f6368; font-size: 14px; text-align: center; padding: 16px;
+  }
+
+  .lists {
+    columns: 4 240px; column-gap: 20px;
+    padding: 20px;
+  }
+  .cat { break-inside: avoid; margin-bottom: 20px; }
+  .cat h3 {
+    margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #9aa0a6;
+  }
+  .cat ul { list-style: none; margin: 0; padding: 0; }
+  .cat li button {
+    width: 100%; text-align: left; margin-bottom: 4px;
+    padding: 8px 12px; border-radius: 8px;
+    background: #1b1f27; color: inherit; border: 1px solid transparent;
+    font-weight: 400; font-size: 13px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .cat li button:hover { background: #232833; }
+  .cat li button.active { border-color: #8ab4f8; background: #1e2a3d; }
+  .cat li button .dist { color: #9aa0a6; white-space: nowrap; }
+  .cat li button:disabled { opacity: 0.6; cursor: wait; }
+</style>
+</head>
+<body>
+<header>
+  <h1><i>Instant</i> Pano</h1>
+  <form id="form">
+    <input id="q" type="text" placeholder="Type an address…" autocomplete="off" autofocus>
+    <button id="go" type="submit">Search</button>
+  </form>
+</header>
+<div id="status">Enter an address to see it in Street View.</div>
+
+<div class="frames">
+  <figure>
+    <div id="main-slot"><div class="placeholder">Main view appears here</div></div>
+    <figcaption><b>Location</b><span id="main-detail"></span></figcaption>
+  </figure>
+  <figure>
+    <iframe id="amenity-frame" style="display:none" allowfullscreen
+      referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="placeholder" id="amenity-slot">Tap a place below to preview its Street View</div>
+    <figcaption><b>Nearby place</b><span id="amenity-detail"></span></figcaption>
+  </figure>
+</div>
+
+<div class="lists" id="lists"></div>
+
+<script type="module">
+const CATEGORIES = [
+  'Cafe', 'Park', 'School', 'Restaurant',
+  'Hospital', 'Supermarket', 'EV charging', 'Gym',
+];
+const PLACES_PER_CATEGORY = 5;
+
+const $ = (id) => document.getElementById(id);
+const status = $('status');
+const form = $('form');
+const input = $('q');
+const go = $('go');
+const mainSlot = $('main-slot');
+const mainDetail = $('main-detail');
+const amenityFrame = $('amenity-frame');
+const amenitySlot = $('amenity-slot');
+const amenityDetail = $('amenity-detail');
+const lists = $('lists');
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function api(path) {
+  const res = await fetch(path);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Request failed: ${path}`);
+  return data;
+}
+
+function haversineMeters(fromLat, fromLng, toLat, toLng) {
+  const rad = Math.PI / 180;
+  const dφ = (toLat - fromLat) * rad;
+  const dλ = (toLng - fromLng) * rad;
+  const a =
+    Math.sin(dφ / 2) ** 2 +
+    Math.cos(fromLat * rad) * Math.cos(toLat * rad) * Math.sin(dλ / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const fmtDistance = (m) => m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
+
+async function panoFor(lat, lng, aimLat, aimLng) {
+  const params = new URLSearchParams({ lat, lng });
+  if (aimLat != null && aimLng != null) params.set('aimLat', aimLat), params.set('aimLng', aimLng);
+  return api(`/api/panorama?${params}`);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = input.value.trim();
+  if (!q) return;
+
+  go.disabled = true;
+  const t0 = performance.now();
+  status.textContent = `Looking up “${q}”…`;
+  mainSlot.innerHTML = '<div class="placeholder">Loading…</div>';
+  mainDetail.textContent = '';
+  resetAmenityFrame();
+  lists.innerHTML = '';
+
+  try {
+    const place = await api('/api/geocode?q=' + encodeURIComponent(q));
+
+    const mainPano = await panoFor(place.lat, place.lng);
+    renderMain(mainPano, place.name);
+
+    const totalMs = Math.round(performance.now() - t0);
+    status.textContent =
+      `${place.name} · search ${totalMs} ms · loading amenities…`;
+
+    loadAmenities(place.lat, place.lng, place.name);
+  } catch (err) {
+    status.textContent = err.message;
+    mainSlot.innerHTML = '<div class="placeholder">No result</div>';
+  } finally {
+    go.disabled = false;
+  }
+});
+
+function renderMain(pano, name) {
+  mainSlot.innerHTML =
+    `<iframe src="${esc(pano.embedUrl)}" loading="lazy" allowfullscreen
+      referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+  mainDetail.textContent =
+    `${name}${pano.captureDate ? ` — captured ${pano.captureDate}` : ''}`;
+}
+
+function resetAmenityFrame() {
+  amenityFrame.style.display = 'none';
+  amenityFrame.src = '';
+  amenitySlot.style.display = '';
+  amenitySlot.textContent = 'Tap a place below to preview its Street View';
+  amenityDetail.textContent = '';
+}
+
+let activeBtn = null;
+
+async function loadAmenities(lat, lng, address) {
+  const t0 = performance.now();
+
+  const categories = await Promise.all(
+    CATEGORIES.map(async (label) => {
+      try {
+        const places = await api(
+          `/api/discover?q=${encodeURIComponent(label)}&lat=${lat}&lng=${lng}&limit=${PLACES_PER_CATEGORY}`,
+        );
+        return {
+          label,
+          places: places.map((p) => ({
+            ...p,
+            distanceMeters: Math.round(haversineMeters(lat, lng, p.lat, p.lng)),
+          })),
+        };
+      } catch {
+        return { label, places: [] };
+      }
+    }),
+  );
+
+  const ms = Math.round(performance.now() - t0);
+  const count = categories.reduce((n, c) => n + c.places.length, 0);
+  status.textContent = `${address} · ${count} nearby places · amenities ${ms} ms`;
+
+  for (const cat of categories) {
+    const div = document.createElement('div');
+    div.className = 'cat';
+    div.innerHTML =
+      `<h3>${esc(cat.label)}</h3><ul>` +
+      (cat.places.length
+        ? cat.places.map(p =>
+            `<li><button data-lat="${p.lat}" data-lng="${p.lng}" data-name="${esc(p.name)}">
+               <span>${esc(p.name)}</span><span class="dist">${fmtDistance(p.distanceMeters)}</span>
+             </button></li>`).join('')
+        : '<li style="color:#5f6368;font-size:13px">none found</li>') +
+      '</ul>';
+    div.querySelectorAll('button').forEach(btn =>
+      btn.addEventListener('click', () => selectAmenity(btn)),
+    );
+    lists.appendChild(div);
+  }
+}
+
+async function selectAmenity(btn) {
+  if (activeBtn) activeBtn.classList.remove('active');
+  activeBtn = btn;
+  btn.classList.add('active');
+
+  const { lat, lng, name } = btn.dataset;
+  amenityFrame.style.display = 'none';
+  amenitySlot.style.display = '';
+  amenitySlot.textContent = `Finding Street View near ${name}…`;
+  amenityDetail.textContent = '';
+
+  try {
+    const pano = await panoFor(lat, lng, lat, lng);
+    amenityFrame.src = pano.embedUrl;
+    amenityFrame.style.display = '';
+    amenitySlot.style.display = 'none';
+    amenityDetail.textContent =
+      `${name}${pano.captureDate ? ` — captured ${pano.captureDate}` : ''}`;
+  } catch (err) {
+    amenitySlot.textContent = err.message;
+  }
+}
+</script>
+</body>
+</html>

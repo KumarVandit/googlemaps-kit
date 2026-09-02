@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instant Pano — fully client-side</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f1115;
+    color: #e8eaed;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 12px; align-items: center;
+    padding: 14px 20px;
+    background: rgba(15, 17, 21, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #262a33;
+  }
+  header h1 { font-size: 18px; margin: 0 16px 0 0; font-weight: 600; white-space: nowrap; }
+  header h1 i { color: #8ab4f8; font-style: normal; }
+  form { flex: 1; display: flex; gap: 8px; max-width: 720px; }
+  input {
+    flex: 1; padding: 10px 16px; font-size: 15px;
+    background: #1b1f27; color: inherit;
+    border: 1px solid #333945; border-radius: 24px; outline: none;
+  }
+  input:focus { border-color: #8ab4f8; }
+  button {
+    padding: 10px 22px; font-size: 15px; cursor: pointer;
+    background: #8ab4f8; color: #0f1115; border: 0; border-radius: 24px;
+    font-weight: 600;
+  }
+
+  .frames {
+    display: grid; gap: 20px; padding: 4px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  }
+  figure { margin: 0; }
+  iframe {
+    width: 100%; aspect-ratio: 4 / 3;
+    border: 0; border-radius: 10px; background: #161a21;
+    display: block;
+  }
+  figcaption { margin-top: 8px; line-height: 1.35; }
+  figcaption b { display: block; font-size: 14px; }
+  figcaption span { font-size: 13px; color: #9aa0a6; }
+  .placeholder {
+    width: 100%; aspect-ratio: 4 / 3; border-radius: 10px;
+    background: #161a21; border: 1px dashed #333945;
+    display: flex; align-items: center; justify-content: center;
+    color: #5f6368; font-size: 14px; text-align: center; padding: 16px;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 20px 12px; }
+  .chips button {
+    padding: 7px 16px; font-size: 13px; font-weight: 500;
+    background: #1b1f27; color: inherit; border: 1px solid #333945;
+  }
+  .chips button.active { border-color: #8ab4f8; background: #1e2a3d; color: #8ab4f8; }
+</style>
+</head>
+<body>
+<header>
+  <h1><i>Instant</i> Pano <span style="font-size:11px;color:#5f6368">client-side</span></h1>
+  <form id="form">
+    <input id="q" type="text" placeholder="Type an address…" autocomplete="off" autofocus>
+    <button type="submit">Search</button>
+  </form>
+</header>
+
+<div class="frames">
+  <figure>
+    <div class="placeholder" id="main-slot">Type an address to see its Street View</div>
+    <figcaption><b>Location</b><span id="main-detail"></span></figcaption>
+  </figure>
+  <figure>
+    <iframe id="amenity-frame" style="display:none" allowfullscreen loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="placeholder" id="amenity-slot">Pick a category below to browse nearby places</div>
+    <figcaption><b>Nearby</b><span id="amenity-detail"></span></figcaption>
+  </figure>
+</div>
+
+<div class="chips" id="chips"></div>
+
+<script type="module">
+const CATEGORIES = ['Cafe', 'Park', 'School', 'Restaurant', 'Hospital', 'Supermarket', 'EV charging', 'Gym'];
+
+const form = document.getElementById('form');
+const input = document.getElementById('q');
+const mainSlot = document.getElementById('main-slot');
+const mainDetail = document.getElementById('main-detail');
+const amenityFrame = document.getElementById('amenity-frame');
+const amenitySlot = document.getElementById('amenity-slot');
+const amenityDetail = document.getElementById('amenity-detail');
+const chips = document.getElementById('chips');
+
+let address = '';
+let activeChip = null;
+
+/*
+ * Fully client-side via keyless iframe-native Google endpoints — no fetch(),
+ * so CORS never applies:
+ *
+ *   Street View by address:
+ *     maps.google.com/maps?output=svembed&q=<address>&layer=c&cbp=12,<heading>,,,<pitch>
+ *
+ *   Search results (Google renders its own list + map):
+ *     maps.google.com/maps?output=embed&q=<what>+near+<address>
+ */
+function svEmbedUrl(query) {
+  return 'https://maps.google.com/maps?output=svembed' +
+    `&q=${encodeURIComponent(query)}&layer=c&cbp=12,90,,,5`;
+}
+
+function searchEmbedUrl(what) {
+  return 'https://maps.google.com/maps?output=embed' +
+    `&q=${encodeURIComponent(`${what} near ${address}`)}`;
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  address = input.value.trim();
+  if (!address) return;
+
+  mainSlot.outerHTML =
+    `<iframe src="${svEmbedUrl(address)}" allowfullscreen
+      referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+  mainDetail.textContent = address;
+
+  resetAmenity();
+});
+
+function resetAmenity() {
+  amenityFrame.style.display = 'none';
+  amenityFrame.src = '';
+  amenitySlot.style.display = '';
+  amenityDetail.textContent = 'pick a category below';
+}
+
+for (const cat of CATEGORIES) {
+  const btn = document.createElement('button');
+  btn.textContent = cat;
+  btn.addEventListener('click', () => {
+    if (!address) return;
+    if (activeChip) activeChip.classList.remove('active');
+    activeChip = btn;
+    btn.classList.add('active');
+
+    amenityFrame.style.display = 'none';
+    amenitySlot.style.display = '';
+    amenitySlot.textContent = `Loading ${cat.toLowerCase()}s nearby…`;
+    amenityFrame.onload = () => {
+      amenityFrame.style.display = '';
+      amenitySlot.style.display = 'none';
+      amenityDetail.textContent =
+        `${cat}s near ${address} — tap a result inside Google's list`;
+    };
+    amenityFrame.src = searchEmbedUrl(cat);
+  });
+  chips.appendChild(btn);
+}
+</script>
+</body>
+</html>
