@@ -80,7 +80,7 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 
 | Method | Input | Output | Latency notes |
 |--------|-------|--------|---------------|
-| `discover({ query, near })` | query + coords (`near` or `location`) | `{ places, timingMs, mode, pagination }` | Default `mode:'fast'` ~400 ms; pass `offset` to paginate |
+| `discover({ query, near })` | query + `near` (coords, `"lat,lng"`, or place name) | `{ places, timingMs, mode, pagination }` | Default `mode:'fast'` ~400 ms; pass `offset` to paginate |
 | `discoverPages(…)` | same + `maxPages` | async iterable of `DiscoverResult` | Streams pages; dedupes across pages |
 | `resolve({ query \| url, near? })` | text or URL | `{ hexId?, name?, lat?, lng?, source }` | Identity only — check `hexId` before `profile` |
 | `profile(ref, { depth? })` | PlaceRef | `{ place, depth, reviews?, … }` | Use **`place.name`** (not top-level `.name`) |
@@ -297,6 +297,7 @@ npx googlemaps-kit tui
 
 # Scripted
 npx googlemaps-kit discover "cafes in indiranagar" --near 12.98,77.64 --limit 5
+npx googlemaps-kit grid "dentists" --near "Indiranagar, Bengaluru" --span 5 --format table
 npx googlemaps-kit resolve --query "Cubbon Park Bangalore"
 npx googlemaps-kit profile --query "Third Wave Coffee Indiranagar" --near 12.98,77.64
 npx googlemaps-kit route --from "Cubbon Park, Bangalore" --to "Indiranagar, Bangalore"

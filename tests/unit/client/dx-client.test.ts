@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { sdk, GMaps } from '../../../src/client/gmaps-client.js';
 import {
   normalizePlaceRef,
+  parseLatLngString,
+  resolveBiasCenter,
   resolveRouteEndpoint,
   resolveSearchCenter,
   resolveDirectionsEndpoints,
@@ -39,6 +41,8 @@ describe('PlaceRef helpers', () => {
   it('accepts near or location for search center', () => {
     expect(resolveSearchCenter({ near: { lat: 1, lng: 2 } })).toEqual({ lat: 1, lng: 2 });
     expect(resolveSearchCenter({ location: { lat: 3, lng: 4 } })).toEqual({ lat: 3, lng: 4 });
+    expect(resolveSearchCenter({ near: '12.98, 77.64' })).toEqual({ lat: 12.98, lng: 77.64 });
+    expect(() => resolveSearchCenter({ near: 'Indiranagar' })).toThrow(GMapsError);
     expect(() => resolveSearchCenter({})).toThrow(GMapsError);
   });
 
@@ -47,6 +51,30 @@ describe('PlaceRef helpers', () => {
       origin: 'A',
       destination: 'B',
     });
+  });
+});
+
+describe('resolveBiasCenter', () => {
+  it('parses lat,lng strings without calling geocode', async () => {
+    expect(parseLatLngString('Indiranagar, Bengaluru')).toBeUndefined();
+    let calls = 0;
+    await expect(
+      resolveBiasCenter('12.98,77.64', async () => {
+        calls += 1;
+        return null;
+      }),
+    ).resolves.toEqual({ lat: 12.98, lng: 77.64 });
+    expect(calls).toBe(0);
+  });
+
+  it('geocodes place names and throws on a miss', async () => {
+    await expect(
+      resolveBiasCenter('Indiranagar', async (q) => {
+        expect(q).toBe('Indiranagar');
+        return { lat: 12.978, lng: 77.64 };
+      }),
+    ).resolves.toEqual({ lat: 12.978, lng: 77.64 });
+    await expect(resolveBiasCenter('nowhere-xyz', async () => null)).rejects.toThrow(GMapsError);
   });
 });
 

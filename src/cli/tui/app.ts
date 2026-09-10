@@ -48,7 +48,6 @@ import {
   runTerrain,
   parseBounds,
 } from '../run.js';
-import { parseCoords } from '../args.js';
 import { asciiFallback, isPlainOutput } from '../output.js';
 import * as S from './styles.js';
 
@@ -84,7 +83,7 @@ interface FieldDef {
 const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
   discover: [
     { key: 'query', label: 'query', placeholder: 'cafes in indiranagar', defaultValue: 'cafes' },
-    { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
+    { key: 'near', label: 'near', placeholder: 'lat,lng or place', defaultValue: '12.98,77.64' },
     { key: 'limit', label: 'limit', placeholder: '5', defaultValue: '5' },
     { key: 'mode', label: 'mode', placeholder: 'fast|full', defaultValue: 'full' },
   ],
@@ -93,7 +92,7 @@ const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
   ],
   profile: [
     { key: 'query', label: 'query', placeholder: 'Third Wave Coffee Indiranagar', defaultValue: '' },
-    { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
+    { key: 'near', label: 'near', placeholder: 'lat,lng or place', defaultValue: '12.98,77.64' },
     { key: 'depth', label: 'depth', placeholder: 'card|full|complete', defaultValue: 'card' },
   ],
   route: [
@@ -102,16 +101,16 @@ const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
   ],
   opinions: [
     { key: 'query', label: 'query', placeholder: 'Third Wave Coffee Indiranagar', defaultValue: '' },
-    { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
+    { key: 'near', label: 'near', placeholder: 'lat,lng or place', defaultValue: '12.98,77.64' },
     { key: 'limit', label: 'limit', placeholder: '5', defaultValue: '5' },
   ],
   media: [
     { key: 'query', label: 'query', placeholder: 'Third Wave Coffee Indiranagar', defaultValue: '' },
-    { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
+    { key: 'near', label: 'near', placeholder: 'lat,lng or place', defaultValue: '12.98,77.64' },
   ],
   grid: [
     { key: 'query', label: 'query', placeholder: 'cafes', defaultValue: 'cafes' },
-    { key: 'near', label: 'near (center)', placeholder: 'lat,lng', defaultValue: '12.9625,77.6350' },
+    { key: 'near', label: 'near (center)', placeholder: 'lat,lng or place', defaultValue: 'Indiranagar, Bengaluru' },
     { key: 'span', label: 'span km', placeholder: '3', defaultValue: '3' },
     { key: 'cellZoom', label: 'cell zoom', placeholder: '15 (14 districts · 17 blocks)', defaultValue: '15' },
   ],
@@ -120,7 +119,7 @@ const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
     { key: 'reverse', label: 'or reverse lat,lng', placeholder: '48.8584,2.2945', defaultValue: '' },
   ],
   streetview: [
-    { key: 'at', label: 'at lat,lng', placeholder: '48.8584,2.2945', defaultValue: '' },
+    { key: 'at', label: 'at lat,lng or place', placeholder: '48.8584,2.2945', defaultValue: '' },
     { key: 'query', label: 'or place name', placeholder: 'Eiffel Tower', defaultValue: '' },
     { key: 'radiusMeters', label: 'radius m', placeholder: '200', defaultValue: '200' },
   ],
@@ -135,7 +134,7 @@ const FORMS: Record<Exclude<ActionId, 'capabilities'>, FieldDef[]> = {
   ],
   pipeline: [
     { key: 'query', label: 'query', placeholder: 'cafes', defaultValue: 'cafes' },
-    { key: 'near', label: 'near', placeholder: 'lat,lng', defaultValue: '12.98,77.64' },
+    { key: 'near', label: 'near', placeholder: 'lat,lng or place', defaultValue: '12.98,77.64' },
     { key: 'max', label: 'max', placeholder: '3', defaultValue: '3' },
   ],
 };

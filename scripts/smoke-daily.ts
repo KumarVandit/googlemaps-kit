@@ -8,6 +8,7 @@
 
 import { loadProjectEnv } from '../src/utils/env.js';
 import { sdk } from '../src/index.js';
+import { ratingDistributionWeightedMean } from '../src/parsers/reviews.js';
 
 loadProjectEnv();
 
@@ -76,7 +77,22 @@ async function main(): Promise<void> {
     const reviews = await maps.places.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
     if (reviews.reviews.length === 0) throw new Error('no reviews');
     if (reviews.totalReviews == null) throw new Error('no aggregate total');
-    return `${reviews.reviews.length} reviews, total=${reviews.totalReviews}`;
+    if (reviews.ratingDistribution == null) throw new Error('no ratingDistribution');
+    if (reviews.aggregateRating == null) throw new Error('no aggregateRating');
+    const sum =
+      reviews.ratingDistribution.oneStar +
+      reviews.ratingDistribution.twoStar +
+      reviews.ratingDistribution.threeStar +
+      reviews.ratingDistribution.fourStar +
+      reviews.ratingDistribution.fiveStar;
+    if (sum !== reviews.totalReviews) {
+      throw new Error(`histogram sum ${sum} != total ${reviews.totalReviews}`);
+    }
+    const mean = ratingDistributionWeightedMean(reviews.ratingDistribution);
+    if (Math.abs(mean - reviews.aggregateRating) >= 0.15) {
+      throw new Error(`histogram mean ${mean.toFixed(2)} != rating ${reviews.aggregateRating}`);
+    }
+    return `${reviews.reviews.length} reviews, total=${reviews.totalReviews}, rating=${reviews.aggregateRating}`;
   });
 
   await sleep(PACE_MS);
@@ -91,7 +107,7 @@ async function main(): Promise<void> {
   await sleep(PACE_MS);
 
   await smoke('directions', async () => {
-    const route = await maps.getDirections({
+    const route = await maps.travel.directions.get({
       origin: HSR,
       destination: { lat: 12.9352, lng: 77.6245 },
       mode: 'driving',

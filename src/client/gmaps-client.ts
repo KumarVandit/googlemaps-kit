@@ -6,6 +6,7 @@ import {
   AgentNamespace,
   AuthNamespace,
   createServiceBundle,
+  EnvironmentNamespace,
   LocationNamespace,
   MapNamespace,
   MetaNamespace,
@@ -14,20 +15,7 @@ import {
   TravelNamespace,
   type ServiceBundle,
 } from './namespaces.js';
-import { searchResultToPlaceDetails } from '../services/search.js';
-import type {
-  DirectionsOptions,
-  DirectionsResult,
-  EnrichedSearchResult,
-  GetPlaceCompleteOptions,
-  GetPlaceFullOptions,
-  GMapsConfig,
-  KnowledgeEntity,
-  PlaceCompleteResult,
-  PlaceFullResult,
-  SearchOptions,
-  SearchResult,
-} from '../types/common.js';
+import type { GMapsConfig } from '../types/common.js';
 import { GMapsAuthError, GMapsError } from '../types/common.js';
 import type {
   ClientCapabilities,
@@ -59,22 +47,6 @@ import { boundsAround } from '../utils/geo.js';
 import { createMapsTools, type CreateMapsToolsOptions, type MapsTools } from './maps-tools.js';
 
 loadProjectEnv();
-
-export interface EnrichSearchOptions extends SearchOptions {
-  /**
-   * Prefer search-row fields only (Places Text Search Enterprise parity in 1 RPC).
-   * When true, skips place-preview round-trips unless includeReviews is also set.
-   */
-  fromSearchOnly?: boolean;
-  /** Fetch full place details for each result (gallery-scale photos, stub-retry). */
-  includeDetails?: boolean;
-  /** Fetch reviews for each result */
-  includeReviews?: boolean;
-  /** Max Boq review pages per place when includeReviews is true */
-  maxReviewPages?: number;
-  /** Max parallel enrichment requests (default 10) */
-  concurrency?: number;
-}
 
 function normalizeConfig(config: GMapsConfig = {}): GMapsConfig {
   const hl = config.locale?.hl ?? config.hl ?? process.env.GMAPS_HL ?? 'en';
@@ -127,8 +99,8 @@ function jarHasSapisid(jar: Record<string, string>): boolean {
  *
  * Create with `sdk()` or `GMaps.create()`.
  *
- * **Intent:** `discover`, `resolve`, `profile`, `route`, `opinions`, `media`
- * **Namespaces:** `places`, `location`, `travel`, `map`, `meta`, `agent`, `auth`, `surfaces`
+ * **Intent (app flows):** `discover`, `resolve`, `profile`, `route`, `opinions`, `media`, `grid`
+ * **Namespaces (full control):** `places`, `location`, `travel`, `map`, `environment`, `meta`, `agent`, `auth`, `surfaces`
  */
 export class GMapsClient {
   /** POI discovery & details namespace. */
@@ -139,13 +111,15 @@ export class GMapsClient {
   readonly travel: TravelNamespace;
   /** Tiles, static map, Street View. */
   readonly map: MapNamespace;
+  /** Air quality, weather, solar, pollen. */
+  readonly environment: EnvironmentNamespace;
   /** Categories, lists, links, aggregates. */
   readonly meta: MetaNamespace;
   /** Signed-in Ask Maps. */
   readonly agent: AgentNamespace;
   /** Session status (cookie presence / live probe — no secrets). */
   readonly auth: AuthNamespace;
-  /** Catalog of Maps surfaces this kit supports. */
+  /** Catalog of Maps surfaces and platform products this kit supports. */
   readonly surfaces: SurfacesNamespace;
 
   private http: HttpClient;
@@ -169,22 +143,17 @@ export class GMapsClient {
     this.services = createServiceBundle(this.http, this.config);
     const signedIn = () => this.isSignedIn();
 
-    this.places = new PlacesNamespace(this.services);
+    this.places = new PlacesNamespace(this.services, this.config);
     this.location = new LocationNamespace(this.services);
     this.travel = new TravelNamespace(this.services);
     this.map = new MapNamespace(this.services);
+    this.environment = new EnvironmentNamespace(this.services);
     this.meta = new MetaNamespace(this.services);
     this.agent = new AgentNamespace(this.services, signedIn);
     this.auth = new AuthNamespace(this.http, this.config);
     this.surfaces = new SurfacesNamespace();
 
-    this.intent = new IntentApi(
-      this.services,
-      this.config,
-      signedIn,
-      (opts) => this.getPlaceComplete(opts),
-      this.intentCache,
-    );
+    this.intent = new IntentApi(this.services, this.config, signedIn, this.intentCache);
   }
 
   // ——— Intent API ———
@@ -269,16 +238,16 @@ export class GMapsClient {
    */
   async grid(options: GridOptions): Promise<GridResult> {
     const start = performance.now();
-    const bounds =
-      options.bounds ??
-      (options.near
-        ? boundsAround(options.near.lat, options.near.lng, options.spanKm ?? 3)
-        : undefined);
+    let bounds = options.bounds;
+    if (!bounds && options.near) {
+      const pin = await this.location.geocode.resolveBias(options.near);
+      bounds = boundsAround(pin.lat, pin.lng, options.spanKm ?? 3);
+    }
     if (!bounds) {
       throw new GMapsError('grid() requires bounds or near (+ optional spanKm)');
     }
     const { onProgress } = options;
-    const result = await this.services.search.gridSearch({
+    const result = await this.services.search.grid({
       ...options,
       bounds,
       onProgress: onProgress
@@ -356,47 +325,6 @@ export class GMapsClient {
     return this.runtimePromise;
   }
 
-  async getPlaceFull(options: GetPlaceFullOptions): Promise<PlaceFullResult> {
-    return this.places.getFull(options);
-  }
-
-  /**
-   * Fetch maximum available place data: rich preview, paginated Boq reviews,
-   * local posts, and knowledge entity (when available).
-   */
-  async getPlaceComplete(options: GetPlaceCompleteOptions): Promise<PlaceCompleteResult> {
-    const includeKnowledge = options.includeKnowledge !== false;
-    const maxReviewPages = options.maxReviewPages ?? 3;
-
-    const full = await this.getPlaceFull({
-      ...options,
-      maxReviewPages,
-      richPreview: options.richPreview === true,
-      includeLocalPosts: options.includeLocalPosts !== false,
-    });
-
-    let knowledge: KnowledgeEntity | undefined;
-    if (includeKnowledge) {
-      const start = performance.now();
-      const entity = await this.places.knowledge.get({
-        hexId: options.hexId,
-        ftid: options.ftid,
-        placeId: full.details.placeId,
-        fallbackDetails: full.details,
-      });
-      full.meta.timingMs = full.meta.timingMs ?? {};
-      full.meta.timingMs.knowledge = performance.now() - start;
-      full.meta.sources.knowledge = entity != null;
-      knowledge = entity ?? undefined;
-    }
-
-    return { ...full, knowledge };
-  }
-
-  async getDirections(options: DirectionsOptions): Promise<DirectionsResult> {
-    return this.travel.directions.get(options);
-  }
-
   /** Wait until the client is ready for requests. */
   ready(): Promise<void> {
     return this.http.warmSession();
@@ -405,107 +333,6 @@ export class GMapsClient {
   /** Request/session counters for harness scripts (no secrets). */
   getHttpStats() {
     return this.http.getStats();
-  }
-
-  async searchEnriched(options: EnrichSearchOptions): Promise<EnrichedSearchResult[]> {
-    const results = await this.places.search.search(options);
-
-    if (options.fromSearchOnly || (!options.includeDetails && !options.includeReviews)) {
-      return results.map((result) => ({
-        ...result,
-        details: searchResultToPlaceDetails(result),
-      }));
-    }
-
-    const concurrency = options.concurrency ?? this.config.concurrency ?? 10;
-    const enriched: EnrichedSearchResult[] = [];
-
-    for (let i = 0; i < results.length; i += concurrency) {
-      const chunk = results.slice(i, i + concurrency);
-      const batch = await Promise.all(chunk.map((result) => this.enrichSingle(result, options)));
-      enriched.push(...batch);
-    }
-
-    return enriched;
-  }
-
-  private async enrichSingle(
-    result: SearchResult,
-    options: EnrichSearchOptions,
-  ): Promise<EnrichedSearchResult> {
-    const enriched: EnrichedSearchResult = {
-      ...result,
-      details: searchResultToPlaceDetails(result),
-    };
-
-    if (!result.hexId || !result.name) {
-      return enriched;
-    }
-
-    const lat = result.lat ?? result.latitude ?? options.location?.lat ?? options.near?.lat;
-    const lng = result.lng ?? result.longitude ?? options.location?.lng ?? options.near?.lng;
-
-    if (options.includeDetails && options.includeReviews) {
-      const full = await this.getPlaceFull({
-        hexId: result.hexId,
-        name: result.name,
-        lat,
-        lng,
-        ftid: result.ftid,
-        maxReviewPages: options.maxReviewPages ?? 1,
-      });
-      enriched.details = {
-        ...enriched.details,
-        ...full.details,
-        photos:
-          full.details.photos && full.details.photos.length > 0
-            ? full.details.photos
-            : enriched.details?.photos,
-        reviewCount: full.details.reviewCount ?? enriched.details?.reviewCount,
-        phone: full.details.phone ?? enriched.details?.phone,
-        openStatus: full.details.openStatus ?? enriched.details?.openStatus,
-        openingSchedule: full.details.openingSchedule ?? enriched.details?.openingSchedule,
-      };
-      enriched.reviews = full.reviews;
-      enriched.localPosts = full.localPosts;
-      return enriched;
-    }
-
-    if (options.includeDetails) {
-      const preview = await this.places.get({
-        hexId: result.hexId,
-        name: result.name,
-        lat,
-        lng,
-        ftid: result.ftid,
-        mode: 'live',
-      });
-      enriched.details = {
-        ...enriched.details,
-        ...preview,
-        photos:
-          preview.photos && preview.photos.length > 0
-            ? preview.photos
-            : enriched.details?.photos,
-        reviewCount: preview.reviewCount ?? enriched.details?.reviewCount,
-        phone: preview.phone ?? enriched.details?.phone,
-        openStatus: preview.openStatus ?? enriched.details?.openStatus,
-        openingSchedule: preview.openingSchedule ?? enriched.details?.openingSchedule,
-      };
-    }
-
-    if (options.includeReviews) {
-      enriched.reviews = await this.places.reviews.list({
-        hexId: result.hexId,
-        name: result.name,
-        lat,
-        lng,
-        ftid: result.ftid,
-        limit: 10,
-      });
-    }
-
-    return enriched;
   }
 }
 

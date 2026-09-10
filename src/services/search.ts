@@ -4,7 +4,7 @@ import { buildSearchUrl } from '../rpc/pb-builders.js';
 import { GMapsError, type GMapsConfig, type PlaceDetails, type SearchFieldMask, type SearchMode, type SearchOptions, type SearchPageResult, type SearchResult, type SearchTextOptions, type SearchTextResult } from '../types/common.js';
 import type { GridSearchOptions, GridSearchResult } from '../types/grid-search.js';
 import type { PbNode } from '../types/protobuf.js';
-import { resolveSearchCenter } from '../utils/place-ref.js';
+import { GeocodeService } from './geocode.js';
 import { webMercatorTile, webMercatorTileCenter } from '../utils/geo.js';
 import { extractSuggestions } from '../parsers/suggest.js';
 import { DEFAULT_SUGGEST_LAT, DEFAULT_SUGGEST_LNG, buildSuggestUrl } from '../rpc/feature-pb.js';
@@ -71,11 +71,18 @@ export class SearchService {
   private http: HttpClient;
   private hl: string;
   private gl: string;
+  private geocode: GeocodeService;
 
-  constructor(http: HttpClient, config: GMapsConfig) {
+  constructor(http: HttpClient, config: GMapsConfig, geocode?: GeocodeService) {
     this.http = http;
     this.hl = config.hl ?? 'en';
     this.gl = config.gl ?? 'us';
+    this.geocode = geocode ?? new GeocodeService(http, config);
+  }
+
+  /** Resolve `near`/`location` to coordinates (geocodes place names). */
+  resolveBias(near: Parameters<GeocodeService['resolveBias']>[0]) {
+    return this.geocode.resolveBias(near);
   }
 
   async search(options: SearchOptions): Promise<SearchResult[]> {
@@ -106,7 +113,13 @@ export class SearchService {
   async searchPage(
     options: SearchOptions & { fieldMask?: SearchFieldMask },
   ): Promise<SearchPageResult> {
-    const location = resolveSearchCenter(options);
+    const raw = options.near ?? options.location;
+    if (raw == null || raw === '') {
+      throw new GMapsError(
+        'Search requires a bias center — pass near: { lat, lng } or a place name',
+      );
+    }
+    const location = await this.geocode.resolveBias(raw);
     const resolved = resolveSearchRequest(options, 'full');
     const pageSize = resolved.pageSize;
     const offset = options.offset ?? 0;
@@ -205,11 +218,11 @@ export class SearchService {
    * Results are deduped by hexId / placeId / name across cells in encounter
    * order. Stops early once `maxResults` is reached; `onProgress` fires per cell.
    */
-  async gridSearch(options: GridSearchOptions): Promise<GridSearchResult> {
+  async grid(options: GridSearchOptions): Promise<GridSearchResult> {
     const { bounds } = options;
     const cellZoom = options.cellZoom ?? 15;
     if (!Number.isInteger(cellZoom) || cellZoom < 10 || cellZoom > 18) {
-      throw new GMapsError(`gridSearch: cellZoom must be an integer between 10 and 18, got ${cellZoom}`);
+      throw new GMapsError(`grid: cellZoom must be an integer between 10 and 18, got ${cellZoom}`);
     }
     if (
       !(
@@ -222,7 +235,7 @@ export class SearchService {
       bounds.east <= bounds.west
     ) {
       throw new GMapsError(
-        'gridSearch: bounds must satisfy north > south and east > west (decimal degrees)',
+        'grid: bounds must satisfy north > south and east > west (decimal degrees)',
       );
     }
 
@@ -322,17 +335,26 @@ export class SuggestService {
   private http: HttpClient;
   private hl: string;
   private gl: string;
+  private geocode: GeocodeService;
 
-  constructor(http: HttpClient, config: GMapsConfig) {
+  constructor(http: HttpClient, config: GMapsConfig, geocode?: GeocodeService) {
     this.http = http;
     this.hl = config.hl ?? 'en';
     this.gl = config.gl ?? 'us';
+    this.geocode = geocode ?? new GeocodeService(http, config);
   }
 
   /** Maps omnibox autocomplete — query completions and place suggestions. */
   async suggest(options: SuggestOptions): Promise<SuggestResult> {
-    const lat = options.location?.lat ?? options.lat ?? DEFAULT_SUGGEST_LAT;
-    const lng = options.location?.lng ?? options.lng ?? DEFAULT_SUGGEST_LNG;
+    let lat = options.lat;
+    let lng = options.lng;
+    if (options.location != null && options.location !== '') {
+      const pin = await this.geocode.resolveBias(options.location);
+      lat = pin.lat;
+      lng = pin.lng;
+    }
+    lat ??= DEFAULT_SUGGEST_LAT;
+    lng ??= DEFAULT_SUGGEST_LNG;
     const hl = options.hl ?? this.hl;
     const gl = options.gl ?? this.gl;
 

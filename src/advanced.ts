@@ -9,7 +9,7 @@
  */
 
 export { GMapsClient, sdk, GMaps } from './client/gmaps-client.js';
-export type { EnrichSearchOptions } from './client/gmaps-client.js';
+export type { EnrichSearchOptions } from './types/common.js';
 
 export * from './advanced/http.js';
 
@@ -159,6 +159,7 @@ export type { ParsedMapsUrl } from './types/links.js';
 export type {
   GMapsConfig,
   Coordinates,
+  LocationRef,
   AuthStatus,
   AuthCapabilities,
   SearchOptions,

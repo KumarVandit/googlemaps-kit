@@ -6,6 +6,7 @@
 
 import type {
   Coordinates,
+  LocationRef,
   KnowledgeEntity,
   LocalPost,
   PlaceDetails,
@@ -107,13 +108,13 @@ export interface DiscoverOptions extends IntentCallOptions {
   query: string;
   /**
    * Bias center (Intent spelling). Required unless `location` is set.
-   * Same meaning as search service `location`.
+   * Coords, `"lat,lng"`, or a place/address geocoded to a pin.
    */
-  near?: Coordinates;
+  near?: LocationRef;
   /**
    * Alias for `near` — accepted so agents can copy search-service examples.
    */
-  location?: Coordinates;
+  location?: LocationRef;
   /**
    * `fast` (default) — ~5 rows, name/rating/coords/thumbnail, ~400 ms warm.
    * `full` — up to 20 rows with hours/phone/attributes.
@@ -163,9 +164,9 @@ export interface ResolveOptions extends IntentCallOptions {
   /** Short or full Maps URL. */
   url?: string;
   /** Bias for suggest / search (strongly recommended for queries). */
-  near?: Coordinates;
+  near?: LocationRef;
   /** Alias for `near`. */
-  location?: Coordinates;
+  location?: LocationRef;
 }
 
 /**
@@ -196,6 +197,11 @@ export interface ProfileOptions extends IntentCallOptions {
   depth?: ProfileDepth;
   maxReviewPages?: number;
   includeLocalPosts?: boolean;
+  /**
+   * Attach place-wide rating histogram on `reviews` when depth is `full` or `complete`.
+   * Extra batchexecute — default false for latency.
+   */
+  includeAggregates?: boolean;
 }
 
 /** Input for `maps.profileMany()`. */
@@ -212,8 +218,11 @@ export interface ProfileManyOptions extends ProfileOptions {
  * (Contrast: `maps.places.get()` returns bare PlaceDetails.)
  *
  * @example
- * const { place, reviews, depth } = await maps.profile(hit, { depth: 'full' });
- * console.log(place.name, place.rating, reviews?.totalReviews ?? reviews?.reviews.length);
+ * const { place, reviews, depth } = await maps.profile(hit, {
+ *   depth: 'full',
+ *   includeAggregates: true,
+ * });
+ * console.log(place.name, place.rating, reviews?.ratingDistribution?.fiveStar);
  */
 export interface PlaceProfile {
   /** Place card fields (name, rating, hours, photos URLs, …). */
@@ -302,6 +311,10 @@ export interface MediaOptions extends IntentCallOptions {
   streetView?: boolean;
   pageSize?: number;
   category?: PhotoCategory;
+  /**
+   * Photo transport. When omitted and coords are set, uses batchexecute and falls back to
+   * `combined` when the gallery RPC returns no rows.
+   */
   source?: PhotosSource;
 }
 
@@ -359,10 +372,11 @@ export interface GridOptions extends Omit<
   /** Area to cover — either explicit bounds or a centre + span. */
   bounds?: import('./grid-search.js').GridSearchBounds;
   /**
-   * Bias center (Intent spelling); with `spanKm` this derives a square bounds.
+   * Bias center; with `spanKm` this derives a square bounds.
+   * Coords, `"lat,lng"`, or a place name geocoded to a pin.
    * Ignored when `bounds` is set.
    */
-  near?: Coordinates;
+  near?: LocationRef;
   /** Full width of the derived square box in km (default 3). */
   spanKm?: number;
   /** Progress per cell — `{ type: 'grid', index, total, loaded }`. */

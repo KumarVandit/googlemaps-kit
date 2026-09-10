@@ -9,6 +9,10 @@
 
 import { mintViewportPsi } from './lib/mint-viewport-psi.js';
 import { buildPlaceLink, sdk, parseMapsUrl } from '../src/index.js';
+import {
+  placeAggregatesToRatingDistribution,
+  ratingDistributionWeightedMean,
+} from '../src/parsers/reviews.js';
 import { parseDistanceToMeters } from '../src/utils/directions-metrics.js';
 import { haversineMeters } from '../src/utils/geo.js';
 import { KNOWN_SURFACES, listSurfacesByStatus } from '../src/known-surfaces.js';
@@ -211,6 +215,7 @@ async function main(): Promise<void> {
     const reviews = await maps.places.reviews.listBoq({ hexId: HEX, limit: 5, includeAggregates: true });
     assert(reviews.ratingDistribution != null, 'no ratingDistribution');
     assert(reviews.totalReviews != null && reviews.totalReviews > 0, 'no totalReviews');
+    assert(reviews.aggregateRating != null, 'no aggregateRating');
     const sum =
       reviews.ratingDistribution!.oneStar +
       reviews.ratingDistribution!.twoStar +
@@ -218,7 +223,12 @@ async function main(): Promise<void> {
       reviews.ratingDistribution!.fourStar +
       reviews.ratingDistribution!.fiveStar;
     assert(sum === reviews.totalReviews, `histogram sum ${sum} != total ${reviews.totalReviews}`);
-    return `total=${reviews.totalReviews}, buckets=${reviews.ratingDistribution!.fiveStar}/${reviews.ratingDistribution!.fourStar}/${reviews.ratingDistribution!.threeStar}/${reviews.ratingDistribution!.twoStar}/${reviews.ratingDistribution!.oneStar}`;
+    const mean = ratingDistributionWeightedMean(reviews.ratingDistribution!);
+    assert(
+      Math.abs(mean - reviews.aggregateRating!) < 0.15,
+      `histogram mean ${mean.toFixed(2)} != aggregate ${reviews.aggregateRating}`,
+    );
+    return `total=${reviews.totalReviews}, rating=${reviews.aggregateRating}, mean=${mean.toFixed(2)}, buckets=${reviews.ratingDistribution!.fiveStar}/${reviews.ratingDistribution!.fourStar}/${reviews.ratingDistribution!.threeStar}/${reviews.ratingDistribution!.twoStar}/${reviews.ratingDistribution!.oneStar}`;
   });
 
   await check('reviews.listAll (2 pages)', async () => {
@@ -256,7 +266,7 @@ async function main(): Promise<void> {
       // checked against Amsterdam.
       const [origin, destination] =
         mode === 'bicycling' ? [AMSTERDAM_A, AMSTERDAM_B] : [HSR, KORAMANGALA];
-      const route = await maps.getDirections({
+      const route = await maps.travel.directions.get({
         origin,
         destination,
         mode,
@@ -301,8 +311,8 @@ async function main(): Promise<void> {
   });
 
   console.log('\n-- Composite --');
-  await check('getPlaceComplete (all sources)', async () => {
-    const complete = await maps.getPlaceComplete({
+  await check('places.getComplete (all sources)', async () => {
+    const complete = await maps.places.getComplete({
       hexId: HEX,
       name: NAME,
       lat: LAT,
@@ -319,14 +329,14 @@ async function main(): Promise<void> {
     return `sources: ${active.join(', ')}; ${complete.reviews.reviews.length} reviews`;
   });
 
-  await check('getPlaceComplete by hexId only', async () => {
-    const complete = await maps.getPlaceComplete({ hexId: HEX, maxReviewPages: 1 });
+  await check('places.getComplete by hexId only', async () => {
+    const complete = await maps.places.getComplete({ hexId: HEX, maxReviewPages: 1 });
     assert(complete.details.name, 'no details resolved from hexId alone');
     return `"${complete.details.name}", ${complete.reviews.reviews.length} reviews`;
   });
 
-  await check('searchEnriched (details for 3 results)', async () => {
-    const enriched = await maps.searchEnriched({
+  await check('places.enrichSearch (details for 3 results)', async () => {
+    const enriched = await maps.places.enrichSearch({
       query: 'restaurants',
       location: HSR,
       limit: 3,
@@ -657,11 +667,19 @@ async function main(): Promise<void> {
   await check('ugcAggregates.getPlaceAggregates returns a rating histogram', async () => {
     const aggregates = await maps.meta.ugcAggregates.getPlaceAggregates({ hexId: HEX });
     assert(aggregates.totalCount != null && aggregates.totalCount > 0, 'no review total');
+    assert(aggregates.rating != null, 'no aggregate rating');
     const buckets = aggregates.ratingDistribution ?? [];
     assert(buckets.length === 5, `expected 5 rating buckets, got ${buckets.length}`);
     const summed = buckets.reduce((total: number, count: number) => total + count, 0);
-    assert(summed > 0, 'rating distribution is all zeroes');
-    return `rating ${aggregates.rating ?? '?'}, total ${aggregates.totalCount}, buckets ${buckets.join('/')}`;
+    assert(summed === aggregates.totalCount, `bucket sum ${summed} != total ${aggregates.totalCount}`);
+    const dist = placeAggregatesToRatingDistribution(aggregates);
+    assert(dist != null, 'could not map histogram to named buckets');
+    const mean = ratingDistributionWeightedMean(dist!);
+    assert(
+      Math.abs(mean - aggregates.rating!) < 0.15,
+      `histogram mean ${mean.toFixed(2)} != rating ${aggregates.rating}`,
+    );
+    return `rating ${aggregates.rating}, mean ${mean.toFixed(2)}, total ${aggregates.totalCount}, buckets ${buckets.join('/')}`;
   });
 
   await check('batchUrl.decode resolves a Maps url server-side', async () => {

@@ -14,16 +14,18 @@ Accepted forms:
 
 Search hits are valid PlaceRefs. Passing them into `profile` enables `skipIncompleteRetry` when `reviewCount` is set (faster).
 
-## Coordinates
+## Coordinates / LocationRef
 
 | Surface | Preferred | Also accepted |
 |---------|-----------|---------------|
-| Intent inputs | `lat` / `lng` | `latitude` / `longitude` on PlaceRef |
-| Search bias | `near` or `location` | either |
-| Directions | `from`/`to` or `origin`/`destination` | either |
+| Intent `near` / `location` | `{ lat, lng }` | `"lat,lng"` string, or a place/address geocoded to a pin |
+| Search bias | `near` or `location` | either spelling |
+| Directions | `from`/`to` or `origin`/`destination` | address string or coords |
 | Search/place **results** | both spellings populated | prefer reading `lat`/`lng` |
 
-Helpers (public): `toCoordinates`, `applyCoordAliases`, `normalizePlaceRef`, `placeIdToFeatureId`.
+Helpers (public): `toCoordinates`, `applyCoordAliases`, `normalizePlaceRef`, `placeIdToFeatureId`, `parseLatLngString`, `resolveBiasCenter`.
+
+`resolveSearchCenter` is sync (coords / `"lat,lng"` only). Place names go through `maps.location.geocode.resolveBias` / `resolveBiasCenter`.
 
 ## Intent methods
 
@@ -32,8 +34,8 @@ Helpers (public): `toCoordinates`, `applyCoordAliases`, `normalizePlaceRef`, `pl
 ```ts
 await maps.discover({
   query: string,
-  near?: { lat, lng },      // required unless location
-  location?: { lat, lng },
+  near?: { lat, lng } | string,  // coords, "lat,lng", or place name
+  location?: { lat, lng } | string,
   mode?: 'fast' | 'full',   // default fast
   limit?, radiusMeters?, offset?, psi?, filters?: SearchClientFilters,
 })

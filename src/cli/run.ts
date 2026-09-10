@@ -67,7 +67,7 @@ export async function resolvePlaceRef(
   options: { hexId?: string; query?: string; name?: string; near?: string },
 ): Promise<PlaceRef> {
   const { hexId, query, name } = options;
-  const near = parseCoords(options.near);
+  const near = options.near?.trim() || undefined;
 
   if (hexId && (hexId.includes('0x') || hexId.startsWith('ChIJ') || /^[0-9a-fx:]+$/i.test(hexId))) {
     return { hexId, name };
@@ -100,8 +100,8 @@ export interface RunDiscoverInput {
 }
 
 export async function runDiscover(maps: GMapsClient, input: RunDiscoverInput): Promise<string> {
-  const near = parseCoords(input.near);
-  if (!near) throw new Error('discover requires near lat,lng');
+  const near = input.near.trim();
+  if (!near) throw new Error('discover requires --near <lat,lng|place>');
   const result = await maps.discover({
     query: input.query,
     near,
@@ -123,7 +123,7 @@ export async function runResolve(
   const result = await maps.resolve({
     query: input.query,
     url: input.url,
-    near: parseCoords(input.near),
+    near: input.near?.trim() || undefined,
   });
   if (input.format === 'json') return JSON.stringify(result, null, 2);
   return formatResolvePretty(result);
@@ -213,8 +213,8 @@ export async function runPipeline(
     format?: OutputFormat;
   },
 ): Promise<string> {
-  const near = parseCoords(input.near);
-  if (!near) throw new Error('pipeline requires near lat,lng');
+  const near = input.near.trim();
+  if (!near) throw new Error('pipeline requires --near <lat,lng|place>');
   const profileDepth = input.profile === false ? false : { depth: input.profile ?? 'card' };
   const result = await maps.pipeline({
     discover: { query: input.query, near, mode: 'fast' },
@@ -306,12 +306,12 @@ export async function runGrid(
   },
 ): Promise<string> {
   if (!input.bounds && !input.near) {
-    throw new Error('grid requires --bounds "N,S,E,W" or --near lat,lng (+ optional --span km)');
+    throw new Error('grid requires --bounds "N,S,E,W" or --near <lat,lng|place> (+ optional --span km)');
   }
   const result = await maps.grid({
     query: input.query,
     bounds: input.bounds,
-    near: parseCoords(input.near),
+    near: input.near?.trim() || undefined,
     spanKm: input.spanKm,
     cellZoom: input.cellZoom,
     maxResults: input.maxResults,
@@ -408,8 +408,7 @@ export async function runStreetView(
   let lng: number | undefined;
 
   if (input.at) {
-    const c = parseCoords(input.at);
-    if (!c) throw new Error('--at expects lat,lng');
+    const c = await maps.location.geocode.resolveBias(input.at);
     ({ lat, lng } = c);
   } else if (input.query) {
     const resolved = await maps.resolve({ query: input.query });

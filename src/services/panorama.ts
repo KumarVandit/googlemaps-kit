@@ -20,6 +20,9 @@ import type {
   PanoramaMetadata,
   PanoramaRef,
   PanoramaSearchOptions,
+  PanoramaStaticImageLocationOptions,
+  PanoramaStaticImageOptions,
+  PanoramaStaticImageResult,
   PanoramaTileGrid,
 } from '../types/panorama.js';
 import { haversineMeters, webMercatorTile } from '../utils/geo.js';
@@ -317,6 +320,64 @@ export class PanoramaService {
       x: options.x,
       y: options.y,
       zoom: options.zoom,
+    });
+  }
+
+  /**
+   * Fetch a static Street View JPEG (Maps Platform "Static Street View").
+   * Uses streetviewpixels /thumbnail — not /maps/api/streetview.
+   */
+  async fetchStaticImage(
+    options: PanoramaStaticImageOptions,
+  ): Promise<PanoramaStaticImageResult> {
+    const width = options.width ?? 640;
+    const height = options.height ?? 480;
+    const url = buildThumbnailUrl({
+      panoId: options.panoId,
+      width,
+      height,
+      pitch: options.pitch,
+      yaw: options.yaw,
+    });
+
+    const { bytes, contentType } = await this.http.getBytes(url, {
+      referer: 'https://www.google.com/maps/',
+      includeOrigin: true,
+      minBytes: 100,
+    });
+
+    return {
+      bytes,
+      contentType,
+      width,
+      height,
+      panoId: options.panoId,
+      url,
+    };
+  }
+
+  /** Resolve the nearest panorama, then fetch its static thumbnail JPEG. */
+  async fetchStaticImageByLocation(
+    lat: number,
+    lng: number,
+    options?: PanoramaStaticImageLocationOptions,
+  ): Promise<PanoramaStaticImageResult | null> {
+    const nearby = await this.findNearby({
+      lat,
+      lng,
+      radiusMeters: options?.radiusMeters,
+      hl: options?.hl,
+      gl: options?.gl,
+    });
+    const ref = nearby.find((entry) => isLikelyStreetViewPanoId(entry.panoId));
+    if (!ref) return null;
+
+    return this.fetchStaticImage({
+      panoId: ref.panoId,
+      width: options?.width,
+      height: options?.height,
+      pitch: options?.pitch ?? ref.pitch,
+      yaw: options?.yaw ?? ref.heading,
     });
   }
 }

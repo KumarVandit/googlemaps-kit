@@ -62,6 +62,7 @@ export { extractBoqReviews } from '../parsers/boq-reviews.js';
 export { applyReviewClientFilters } from '../parsers/reviews.js';
 export {
   placeAggregatesToRatingDistribution,
+  ratingDistributionWeightedMean,
   sumRatingDistribution,
 } from '../parsers/reviews.js';
 export { extractLocalPosts } from '../parsers/local-posts.js';

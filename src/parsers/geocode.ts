@@ -11,6 +11,25 @@ function isCoordinateLine(value: string): boolean {
   return COORD_LINE_RE.test(value.trim());
 }
 
+function abbreviateComponent(longName: string): string {
+  const usState = /^([A-Za-z .]+),\s*([A-Z]{2})\s*(\d{5})?/.exec(longName);
+  if (usState?.[2]) return usState[2];
+  if (longName.length <= 3) return longName;
+  return longName;
+}
+
+function inferGeocodeTypes(longName: string, index: number, total: number): string[] {
+  if (index === total - 1) return ['country', 'political'];
+  if (/^\d{4,6}\b/.test(longName) || /^\d{5}(-\d{4})?$/.test(longName)) {
+    return ['postal_code'];
+  }
+  if (index === 0 && /\d/.test(longName)) return ['street_address'];
+  if (index === 0) return ['route'];
+  if (index === 1 && total > 2) return ['locality', 'political'];
+  if (index === total - 2) return ['administrative_area_level_1', 'political'];
+  return ['political'];
+}
+
 function parseAddressComponents(raw: unknown): AddressComponent[] | undefined {
   if (!Array.isArray(raw)) return undefined;
 
@@ -18,7 +37,12 @@ function parseAddressComponents(raw: unknown): AddressComponent[] | undefined {
   if (parts.length === 0) return undefined;
   if (parts.every(isCoordinateLine)) return undefined;
 
-  return parts.map((longName, index) => ({ longName, raw: raw[index] }));
+  return parts.map((longName, index) => ({
+    longName,
+    shortName: abbreviateComponent(longName),
+    types: inferGeocodeTypes(longName, index, parts.length),
+    raw: raw[index],
+  }));
 }
 
 function parseSingleGeocodeResult(placeRow: PlaceDataNode): GeocodeResult | null {

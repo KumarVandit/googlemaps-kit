@@ -2,6 +2,7 @@ import { HttpClient } from '../client/http-client.js';
 import { extractDirectionsElevation } from '../parsers/directions.js';
 import { buildDirectionsUrls } from '../rpc/pb-builders.js';
 import { DirectionsService } from './directions.js';
+import { PanoramaService } from './panorama.js';
 import type { Coordinates, GMapsConfig } from '../types/common.js';
 import type {
   ElevationPathOptions,
@@ -17,25 +18,34 @@ const MICRO_ROUTE_OFFSET = 0.002;
 export class ElevationService {
   private http: HttpClient;
   private directions: DirectionsService;
+  private panorama: PanoramaService;
   private hl: string;
   private gl: string;
 
-  constructor(http: HttpClient, directions: DirectionsService, config: GMapsConfig) {
+  constructor(
+    http: HttpClient,
+    directions: DirectionsService,
+    panorama: PanoramaService,
+    config: GMapsConfig,
+  ) {
     this.http = http;
     this.directions = directions;
+    this.panorama = panorama;
     this.hl = config.hl ?? 'en';
     this.gl = config.gl ?? 'us';
   }
 
   /**
-   * Point elevation via a short bicycling directions lookup.
-   * No dedicated elevation RPC on consumer Maps — Google embeds stats in bicycling
-   * directions at route `[0][16][2]`. One preview hit (no scrape / no retry sleeps).
+   * Point elevation — panorama photometa first, then bicycling directions fallback.
+   * Consumer Maps has no dedicated elevation RPC; directions embed stats at `[0][16][2]`.
    */
   async getAtPoint(options: ElevationPointOptions): Promise<ElevationPointResult> {
     const hl = options.hl ?? this.hl;
     const gl = options.gl ?? this.gl;
     const start = performance.now();
+
+    const fromPanorama = await this.tryPanoramaElevation(options.lat, options.lng, hl, gl, start);
+    if (fromPanorama) return fromPanorama;
 
     try {
       const dest = {
@@ -183,5 +193,44 @@ export class ElevationService {
     if (fallback.raw) return fallback.raw as PbNode;
 
     throw new Error('Directions request returned no elevation-bearing payload');
+  }
+
+  private async tryPanoramaElevation(
+    lat: number,
+    lng: number,
+    hl: string,
+    gl: string,
+    startedAt: number,
+  ): Promise<ElevationPointResult | null> {
+    try {
+      const meta = await this.panorama.getByLocation(lat, lng, { hl, gl });
+      if (!meta) return null;
+
+      if (meta.elevationMeters != null) {
+        return {
+          lat,
+          lng,
+          status: 'OK',
+          elevationMeters: meta.elevationMeters,
+          source: 'panorama-sea-level',
+          timingMs: performance.now() - startedAt,
+        };
+      }
+
+      if (meta.ellipsoidalHeightMeters != null) {
+        return {
+          lat,
+          lng,
+          status: 'OK',
+          elevationMeters: meta.ellipsoidalHeightMeters,
+          source: 'panorama-ellipsoidal',
+          timingMs: performance.now() - startedAt,
+        };
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   }
 }

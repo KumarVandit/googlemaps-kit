@@ -2,13 +2,15 @@
  * PlaceRef + route endpoint normalization (shared by Intent API and services).
  */
 
-import type { Coordinates } from '../types/common.js';
+import type { Coordinates, LocationRef } from '../types/common.js';
 import { GMapsError } from '../types/common.js';
 import type { NormalizedPlaceRef, PlaceRef } from '../types/dx.js';
 import { placeIdToFeatureId } from './ids.js';
 
 const HEX_ID_RE = /^0x[0-9a-f]+:0x[0-9a-f]+$/i;
 const PLACE_ID_RE = /^ChIJ[\w-]+$/;
+/** Exact `lat,lng` text — not "Indiranagar, Bengaluru". */
+const LAT_LNG_STRING_RE = /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/;
 
 function tryPlaceIdToHex(placeId: string): string | undefined {
   try {
@@ -118,13 +120,66 @@ type CoordLoose = {
 };
 
 /**
+ * Parse `"12.98,77.64"` into coords. Place names return undefined.
+ */
+export function parseLatLngString(value: string): Coordinates | undefined {
+  const trimmed = value.trim();
+  if (!LAT_LNG_STRING_RE.test(trimmed)) return undefined;
+  const [lat, lng] = trimmed.split(',').map((s) => Number(s.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return { lat: lat!, lng: lng! };
+}
+
+/**
+ * Resolve a bias center. Coords and `"lat,lng"` strings are sync;
+ * place names call `geocode` and use the first hit.
+ */
+export async function resolveBiasCenter(
+  value: LocationRef | CoordLoose | null | undefined,
+  geocode: (query: string) => Promise<Coordinates | null>,
+): Promise<Coordinates> {
+  if (value == null || value === '') {
+    throw new GMapsError(
+      'Search requires a bias center — pass near: { lat, lng } or a place name',
+    );
+  }
+  if (typeof value === 'string') {
+    const parsed = parseLatLngString(value);
+    if (parsed) return parsed;
+    const hit = await geocode(value.trim());
+    if (!hit) {
+      throw new GMapsError(
+        `Could not geocode near "${value.trim()}" — pass lat,lng or a more specific place name`,
+      );
+    }
+    return hit;
+  }
+  const coords = toCoordinates(value);
+  if (!coords) {
+    throw new GMapsError(
+      'Search requires a bias center — pass near: { lat, lng } or a place name',
+    );
+  }
+  return coords;
+}
+
+/**
  * Resolve search bias center from Intent (`near`) or service (`location`) spelling.
+ * Sync — coords or `"lat,lng"` only. Place names need `resolveBiasCenter`.
  */
 export function resolveSearchCenter(options: {
-  near?: Coordinates | CoordLoose;
-  location?: Coordinates | CoordLoose;
+  near?: LocationRef | CoordLoose;
+  location?: LocationRef | CoordLoose;
 }): Coordinates {
-  const coords = toCoordinates(options.near) ?? toCoordinates(options.location);
+  const raw = options.near ?? options.location;
+  if (typeof raw === 'string') {
+    const parsed = parseLatLngString(raw);
+    if (parsed) return parsed;
+    throw new GMapsError(
+      'Place names as near/location must be geocoded (resolveBiasCenter). Pass { lat, lng } into resolveSearchCenter.',
+    );
+  }
+  const coords = toCoordinates(raw);
   if (!coords) {
     throw new GMapsError(
       'Search requires a bias center — pass near: { lat, lng } (Intent) or location: { lat, lng } (search service)',
@@ -199,8 +254,9 @@ export function applyCoordAliases<T extends CoordFields>(obj: T): T {
  * Accepts `lat`/`lng` or `latitude`/`longitude`.
  */
 export function toCoordinates(
-  value: CoordFields | { lat: number; lng: number } | null | undefined,
+  value: CoordFields | { lat: number; lng: number } | string | null | undefined,
 ): CoordinatesLike | undefined {
+  if (typeof value === 'string') return parseLatLngString(value);
   if (!value || typeof value !== 'object') return undefined;
   const lat =
     'lat' in value && typeof (value as { lat?: unknown }).lat === 'number'

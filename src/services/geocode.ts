@@ -1,8 +1,9 @@
 import { HttpClient } from '../client/http-client.js';
 import { extractGeocodeResults, toGeocodeResponse } from '../parsers/geocode.js';
 import { buildSearchUrl } from '../rpc/pb-builders.js';
-import type { GMapsConfig } from '../types/common.js';
+import type { Coordinates, GMapsConfig, LocationRef } from '../types/common.js';
 import type { GeocodeOptions, GeocodeResponse, ReverseGeocodeOptions } from '../types/geocode.js';
+import { resolveBiasCenter } from '../utils/place-ref.js';
 import type { PbNode } from '../types/protobuf.js';
 import { find as findTimezones } from 'geo-tz';
 import type { TimezoneOptions, TimezoneResult } from '../types/geocode.js';
@@ -43,6 +44,19 @@ export class GeocodeService {
     return this.fetch(trimmed, lat, lng, {
       ...options,
       zoom: options?.zoom ?? DEFAULT_FORWARD_ZOOM,
+    });
+  }
+
+  /**
+   * Coords, `"lat,lng"` text, or a place/address geocoded to a pin (first hit).
+   */
+  async resolveBias(near: LocationRef): Promise<Coordinates> {
+    return resolveBiasCenter(near, async (query) => {
+      const { result } = await this.geocode(query);
+      if (result == null || !Number.isFinite(result.lat) || !Number.isFinite(result.lng)) {
+        return null;
+      }
+      return { lat: result.lat, lng: result.lng };
     });
   }
 

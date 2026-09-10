@@ -33,18 +33,18 @@ Interactive:
   googlemaps-kit tui             launch TUI
 
 Commands:
-  googlemaps-kit discover <query> --near <lat,lng> [--mode fast|full] [--limit N]
-  googlemaps-kit grid <query> (--bounds <N,S,E,W> | --near <lat,lng> [--span km]) [options]
-  googlemaps-kit resolve (--query <text> | --url <maps-url>) [--near <lat,lng>]
-  googlemaps-kit profile (<hexId> | --query <text> --near <lat,lng>) [--name <text>] [--depth card|full|complete]
+  googlemaps-kit discover <query> --near <lat,lng|place> [--mode fast|full] [--limit N]
+  googlemaps-kit grid <query> (--bounds <N,S,E,W> | --near <lat,lng|place> [--span km]) [options]
+  googlemaps-kit resolve (--query <text> | --url <maps-url>) [--near <lat,lng|place>]
+  googlemaps-kit profile (<hexId> | --query <text> --near <lat,lng|place>) [--name <text>] [--depth card|full|complete]
   googlemaps-kit route --from <address|lat,lng> --to <address|lat,lng> [--mode driving|walking|bicycling|transit]
-  googlemaps-kit opinions (<hexId> | --query <text> --near <lat,lng>) [--pages N] [--limit N] [--aggregates]
-  googlemaps-kit media (<hexId> | --query <text> [--near <lat,lng>]) [--limit N]
+  googlemaps-kit opinions (<hexId> | --query <text> --near <lat,lng|place>) [--pages N] [--limit N] [--aggregates]
+  googlemaps-kit media (<hexId> | --query <text> [--near <lat,lng|place>]) [--limit N]
   googlemaps-kit geocode <address> | geocode --reverse <lat,lng>
-  googlemaps-kit streetview (--at <lat,lng> | "<place name>") [--radius-meters M]
+  googlemaps-kit streetview (--at <lat,lng|place> | "<place name>") [--radius-meters M]
   googlemaps-kit terrain|map3d --bounds <N,S,E,W> [--planet earth|mars|moon] [--resolution low|medium|high] [--detail low|medium|high|max] [--out file.obj]
   googlemaps-kit surfaces [--status working|auth-required|blocked|…]
-  googlemaps-kit pipeline <query> --near <lat,lng> [--max N] [--profile card|full|complete|false] [--opinions]
+  googlemaps-kit pipeline <query> --near <lat,lng|place> [--max N] [--profile card|full|complete|false] [--opinions]
   googlemaps-kit capabilities
   googlemaps-kit version                 print the installed version
 
@@ -61,6 +61,9 @@ Global:
   --hl <lang>  --gl <region>              locale (or GMAPS_HL / GMAPS_GL)
   -h, --help                              show this help
   -v, --version                           print the installed version
+
+--near accepts coordinates (12.98,77.64) or a place/address (Indiranagar, Bengaluru).
+Place names geocode to a pin; grid --span is still a square around that pin.
 
 Piping sends JSON by default — safe to feed straight into jq or an agent.
 TUI built with Bubble Tea (charmbracelet) via @oakoliver/bubbletea.
@@ -103,7 +106,7 @@ async function main(): Promise<void> {
     if (!query) usage();
     const near = flag(rest, '--near');
     if (!near) {
-      console.error('discover requires --near lat,lng');
+      console.error('discover requires --near <lat,lng|place>');
       usage();
     }
     const format = resolveFormat(rest, 'rows', tty);
@@ -203,7 +206,7 @@ async function main(): Promise<void> {
     if (!query) usage();
     const near = flag(rest, '--near');
     if (!near) {
-      console.error('pipeline requires --near lat,lng');
+      console.error('pipeline requires --near <lat,lng|place>');
       usage();
     }
     const profileFlag = flag(rest, '--profile') ?? 'card';
@@ -234,7 +237,7 @@ async function main(): Promise<void> {
     const near = flag(rest, '--near');
     const boundsRaw = flag(rest, '--bounds');
     if (!near && !boundsRaw) {
-      console.error('grid requires --bounds "N,S,E,W" or --near lat,lng');
+      console.error('grid requires --bounds "N,S,E,W" or --near <lat,lng|place>');
       usage();
     }
     const format = resolveFormat(rest, 'rows', tty);

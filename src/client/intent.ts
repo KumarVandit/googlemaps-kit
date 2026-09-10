@@ -35,7 +35,6 @@ import type { GMapsHooks, HookActionType } from '../types/hooks.js';
 import {
   normalizePlaceRef,
   resolveDirectionsEndpoints,
-  resolveSearchCenter,
 } from '../utils/place-ref.js';
 import { isShortMapsLink, parseMapsUrl } from '../parsers/maps-url.js';
 import { throwIfAborted } from '../utils/async.js';
@@ -43,22 +42,13 @@ import { withActionHook } from '../utils/hooks.js';
 import { pooledMap } from '../utils/async.js';
 import { runWithRequestContext } from '../utils/async.js';
 import type { TtlCache } from '../utils/async.js';
+import { fetchPlaceComplete } from './place-workflows.js';
 
 export class IntentApi {
   constructor(
     private readonly services: ServiceBundle,
     private readonly config: GMapsConfig,
     private readonly isSignedIn: () => boolean,
-    private readonly getPlaceComplete: (options: {
-      hexId: string;
-      name?: string;
-      lat?: number;
-      lng?: number;
-      ftid?: string;
-      maxReviewPages?: number;
-      includeLocalPosts?: boolean;
-      skipIncompleteRetry?: boolean;
-    }) => Promise<import('../types/common.js').PlaceCompleteResult>,
     private readonly cache?: TtlCache<unknown>,
   ) {}
 
@@ -86,7 +76,9 @@ export class IntentApi {
    */
   async discover(options: DiscoverOptions): Promise<DiscoverResult> {
     return this.runIntent('discover', options.signal, async () => {
-      const near = resolveSearchCenter(options);
+      const near = await this.services.geocode.resolveBias(
+        options.near ?? options.location ?? '',
+      );
       const mode = options.mode ?? this.config.performance?.mode ?? 'fast';
       const cacheKey =
         this.cache &&
@@ -134,7 +126,9 @@ export class IntentApi {
    * Stream discover pages as an async iterable (deduped across pages).
    */
   async *discoverPages(options: DiscoverPagesOptions): AsyncGenerator<DiscoverResult> {
-    const near = resolveSearchCenter(options);
+    const near = await this.services.geocode.resolveBias(
+      options.near ?? options.location ?? '',
+    );
     const mode = options.mode ?? this.config.performance?.mode ?? 'fast';
     const maxPages = options.maxPages ?? 5;
     let offset = options.offset ?? 0;
@@ -204,7 +198,12 @@ export class IntentApi {
         throw new GMapsError('resolve() requires url and/or query');
       }
 
-      const near = options.near ?? options.location;
+      let near =
+        options.near != null && options.near !== ''
+          ? await this.services.geocode.resolveBias(options.near)
+          : options.location != null && options.location !== ''
+            ? await this.services.geocode.resolveBias(options.location)
+            : undefined;
       let working = options;
 
       if (working.url) {
@@ -235,16 +234,14 @@ export class IntentApi {
           working = {
             ...working,
             query: working.query ?? parsed.query,
-            near:
-              near ??
-              (parsed.lat != null && parsed.lng != null
-                ? { lat: parsed.lat, lng: parsed.lng }
-                : undefined),
           };
+          if (!near && parsed.lat != null && parsed.lng != null) {
+            near = { lat: parsed.lat, lng: parsed.lng };
+          }
         }
       }
 
-      const bias = working.near ?? working.location ?? near;
+      const bias = near;
 
       if (working.query) {
         if (bias) {
@@ -345,6 +342,7 @@ export class IntentApi {
             ...base,
             maxReviewPages: options.maxReviewPages ?? 1,
             includeLocalPosts: options.includeLocalPosts ?? false,
+            includeAggregates: options.includeAggregates === true,
           },
           this.services.reviews,
         );
@@ -356,10 +354,11 @@ export class IntentApi {
           meta: full.meta,
         };
       } else {
-        const complete = await this.getPlaceComplete({
+        const complete = await fetchPlaceComplete(this.services, {
           ...base,
           maxReviewPages: options.maxReviewPages ?? 3,
           includeLocalPosts: options.includeLocalPosts ?? false,
+          includeAggregates: options.includeAggregates === true,
         });
         out = {
           place: complete.details,

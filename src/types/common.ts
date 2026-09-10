@@ -42,6 +42,15 @@ export interface GMapsConfig {
   buildLabel?: string;
   /** batchexecute session id (`f.sid` query param) */
   sessionId?: string;
+  /** Aerial View API key (aerialview.googleapis.com) — optional default for map.aerialView */
+  aerialViewApiKey?: string;
+  roadsApiKey?: string;
+  solarApiKey?: string;
+  pollenApiKey?: string;
+  airQualityApiKey?: string;
+  weatherApiKey?: string;
+  addressValidationApiKey?: string;
+  geolocationApiKey?: string;
   /** Enable request/response debug logging */
   debug?: boolean;
   /** Max automatic retries on transient failures */
@@ -171,6 +180,12 @@ export interface Coordinates {
 }
 
 /**
+ * Bias center: `{ lat, lng }`, a `"lat,lng"` string, or a place/address
+ * geocoded to a pin (first hit). Grid `spanKm` is still a square around that pin.
+ */
+export type LocationRef = Coordinates | string;
+
+/**
  * `fast` — 5 results, lite parse, 50 km radius (~400–500 ms warm).
  * `full` — up to 20 results with hours, phone, and attributes.
  */
@@ -181,10 +196,11 @@ export interface SearchOptions {
   /**
    * Bias center (search service spelling).
    * Intent `discover` uses `near` — both are accepted via normalization.
+   * Place names are geocoded to a pin before search.
    */
-  location?: Coordinates;
+  location?: LocationRef;
   /** Alias for `location` (Intent spelling). */
-  near?: Coordinates;
+  near?: LocationRef;
   /** Results per page (default 20) */
   limit?: number;
   /** Search radius in meters (default 150000) */
@@ -644,6 +660,15 @@ export interface EnrichedSearchResult extends SearchResult {
   localPosts?: LocalPost[];
 }
 
+export interface EnrichSearchOptions extends SearchOptions {
+  /** Skip place-preview round-trips unless includeReviews is also set. */
+  fromSearchOnly?: boolean;
+  includeDetails?: boolean;
+  includeReviews?: boolean;
+  maxReviewPages?: number;
+  concurrency?: number;
+}
+
 /**
  * Post type from the local posts / owner updates surface.
  * `event` = event announcement, `offer` = coupon/promo, `update` = generic update.
@@ -709,6 +734,11 @@ export interface GetPlaceFullOptions {
    * row already supplied reviewCount).
    */
   skipIncompleteRetry?: boolean;
+  /**
+   * Attach place-wide rating histogram via GetPlaceUgcPostAggregates (extra batchexecute).
+   * Populates `reviews.ratingDistribution`, `reviews.aggregateRating`, and `reviews.totalReviews`.
+   */
+  includeAggregates?: boolean;
 }
 
 /** Complete place profile from all working GET surfaces. */

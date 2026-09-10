@@ -216,14 +216,25 @@ export class EvChargingService {
 
     const enriched = await pooledMap(candidates, ENRICH_CONCURRENCY, async (station) => {
       try {
-        const { data } = await this.places.fetchPreview({
+        const preview = await this.places.fetchPreview({
           hexId: station.id,
           name: station.name,
           lat: station.lat,
           lng: station.lng,
           mode: 'live',
         });
-        return { ...station, chargers: extractEvChargers(data, station.id) };
+        let chargers = extractEvChargers(preview.data, station.id);
+        if (chargers.length === 0) {
+          const rich = await this.places.fetchPreview({
+            hexId: station.id,
+            name: station.name,
+            lat: station.lat,
+            lng: station.lng,
+            mode: 'rich',
+          });
+          chargers = extractEvChargers(rich.data, station.id);
+        }
+        return { ...station, chargers };
       } catch {
         // A preview failure costs connector detail, not the station itself.
         return station;

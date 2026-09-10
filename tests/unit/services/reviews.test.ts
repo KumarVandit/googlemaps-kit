@@ -3,6 +3,7 @@ import { extractBoqReviews } from '../../../src/parsers/boq-reviews.js';
 import { applyReviewClientFilters } from '../../../src/parsers/reviews.js';
 import {
   placeAggregatesToRatingDistribution,
+  ratingDistributionWeightedMean,
   sumRatingDistribution,
 } from '../../../src/parsers/reviews.js';
 import type { PbNode } from '../../../src/types/protobuf.js';
@@ -85,19 +86,50 @@ describe('review client filters', () => {
 });
 
 describe('place aggregate histogram helper', () => {
-  it('maps batchexecute buckets to named distribution', () => {
+  it('maps wire-order buckets [1★…5★] to named distribution', () => {
     const dist = placeAggregatesToRatingDistribution({
       rating: 4.4,
-      ratingDistribution: [551, 81, 31, 10, 70],
+      ratingDistribution: [70, 10, 31, 81, 551],
       totalCount: 743,
     });
     expect(dist).toEqual({
-      fiveStar: 551,
-      fourStar: 81,
-      threeStar: 31,
-      twoStar: 10,
       oneStar: 70,
+      twoStar: 10,
+      threeStar: 31,
+      fourStar: 81,
+      fiveStar: 551,
     });
     expect(sumRatingDistribution(dist!)).toBe(743);
+    expect(ratingDistributionWeightedMean(dist!)).toBeCloseTo(4.4, 1);
+  });
+
+  it('uses wire order [1★…5★] when aggregate rating is absent', () => {
+    const dist = placeAggregatesToRatingDistribution({
+      ratingDistribution: [56, 13, 11, 27, 147],
+      totalCount: 254,
+    });
+    expect(dist).toEqual({
+      oneStar: 56,
+      twoStar: 13,
+      threeStar: 11,
+      fourStar: 27,
+      fiveStar: 147,
+    });
+    expect(ratingDistributionWeightedMean(dist!)).toBeCloseTo(3.8, 1);
+  });
+
+  it('relabels a reversed histogram so the weighted mean matches rating', () => {
+    const dist = placeAggregatesToRatingDistribution({
+      rating: 3.8,
+      ratingDistribution: [147, 27, 11, 13, 56],
+      totalCount: 254,
+    });
+    expect(dist).toEqual({
+      fiveStar: 147,
+      fourStar: 27,
+      threeStar: 11,
+      twoStar: 13,
+      oneStar: 56,
+    });
   });
 });

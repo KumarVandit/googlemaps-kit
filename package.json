@@ -1,6 +1,6 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TypeScript SDK + Bubble Tea TUI for Google Maps consumer surfaces",
   "type": "module",
   "main": "./dist/index.js",

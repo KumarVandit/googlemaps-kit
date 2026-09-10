@@ -1,12 +1,14 @@
+import type { LocationRef } from './common.js';
+
 /** Omnibox autocomplete request options. */
 export interface SuggestOptions {
   /** Partial query text typed by the user. */
   query: string;
   /**
-   * Bias point for suggestions — the same `{ lat, lng }` shape the other
-   * services take. Wins over the flat `lat` / `lng` fields when both are given.
+   * Bias point for suggestions. Wins over the flat `lat` / `lng` fields when
+   * both are given. Place names are geocoded to a pin.
    */
-  location?: { lat: number; lng: number };
+  location?: LocationRef;
   /** Camera latitude — biases suggestions toward this viewport (default Bangalore). */
   lat?: number;
   /** Camera longitude — biases suggestions toward this viewport (default Bangalore). */

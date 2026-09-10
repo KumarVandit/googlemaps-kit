@@ -66,8 +66,14 @@ export class PhotosService {
         return this.listViaPlacePreview(options);
       case 'listentityphotos':
         return this.listViaEntityPhotos(options);
-      case 'batchexecute':
-        return this.listViaBatchEntityPhotos(options);
+      case 'batchexecute': {
+        const gallery = await this.listViaBatchEntityPhotos(options);
+        if (gallery.photos.length > 0) return gallery;
+        if (options.lat != null && options.lng != null) {
+          return this.listViaCombined(options, false);
+        }
+        return gallery;
+      }
       case 'combined':
         return this.listViaCombined(options, false);
       default: {

@@ -9,7 +9,7 @@
  */
 
 import type { GMapsClient } from './gmaps-client.js';
-import type { TravelMode } from '../types/common.js';
+import type { LocationRef, TravelMode } from '../types/common.js';
 import type { ProfileDepth } from '../types/dx.js';
 
 export interface MapsToolDefinition<TArgs extends Record<string, unknown>, TResult> {
@@ -29,13 +29,14 @@ export interface CreateMapsToolsOptions {
    */
   requireApproval?: Partial<
     Record<
-      'discover' | 'resolve' | 'profile' | 'route' | 'opinions' | 'media' | 'pipeline' | 'gridSearch',
+      'discover' | 'resolve' | 'profile' | 'route' | 'opinions' | 'media' | 'pipeline' | 'grid',
       boolean
     >
   >;
 }
 
-function nearFromArgs(args: { nearLat?: number; nearLng?: number }) {
+function nearFromArgs(args: { near?: string; nearLat?: number; nearLng?: number }): LocationRef | undefined {
+  if (args.near != null && args.near.trim()) return args.near.trim();
   if (args.nearLat != null && args.nearLng != null) {
     return { lat: args.nearLat, lng: args.nearLng };
   }
@@ -60,6 +61,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
   const discover: MapsToolDefinition<
     {
       query: string;
+      near?: string;
       nearLat?: number;
       nearLng?: number;
       mode?: 'fast' | 'full';
@@ -73,17 +75,18 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query, e.g. cafes in indiranagar' },
+        near: { type: 'string', description: 'Bias: "lat,lng" or a place/address name' },
         nearLat: { type: 'number' },
         nearLng: { type: 'number' },
         mode: { type: 'string', enum: ['fast', 'full'] },
         limit: { type: 'number' },
       },
-      required: ['query', 'nearLat', 'nearLng'],
+      required: ['query'],
     },
     execute: async (args) => {
       assertApproval(requireApproval, 'discover');
       const near = nearFromArgs(args);
-      if (!near) throw new Error('discover requires nearLat and nearLng');
+      if (!near) throw new Error('discover requires near (place name) or nearLat and nearLng');
       return maps.discover({
         query: args.query,
         near,
@@ -94,7 +97,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
   };
 
   const resolve: MapsToolDefinition<
-    { query?: string; url?: string; nearLat?: number; nearLng?: number },
+    { query?: string; url?: string; near?: string; nearLat?: number; nearLng?: number },
     unknown
   > = {
     description: 'Resolve a Maps URL or query to place identity (hexId/name/coords). Not a full card.',
@@ -103,6 +106,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
       properties: {
         query: { type: 'string' },
         url: { type: 'string' },
+        near: { type: 'string', description: 'Bias: "lat,lng" or a place/address name' },
         nearLat: { type: 'number' },
         nearLng: { type: 'number' },
       },
@@ -230,8 +234,9 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
   const pipeline: MapsToolDefinition<
     {
       query: string;
-      nearLat: number;
-      nearLng: number;
+      near?: string;
+      nearLat?: number;
+      nearLng?: number;
       maxPlaces?: number;
       depth?: ProfileDepth;
       includeOpinions?: boolean;
@@ -243,20 +248,23 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
       type: 'object',
       properties: {
         query: { type: 'string' },
+        near: { type: 'string', description: 'Bias: "lat,lng" or a place/address name' },
         nearLat: { type: 'number' },
         nearLng: { type: 'number' },
         maxPlaces: { type: 'number' },
         depth: { type: 'string', enum: ['card', 'full', 'complete'] },
         includeOpinions: { type: 'boolean' },
       },
-      required: ['query', 'nearLat', 'nearLng'],
+      required: ['query'],
     },
     execute: async (args) => {
       assertApproval(requireApproval, 'pipeline');
+      const near = nearFromArgs(args);
+      if (!near) throw new Error('pipeline requires near (place name) or nearLat and nearLng');
       return maps.pipeline({
         discover: {
           query: args.query,
-          near: { lat: args.nearLat, lng: args.nearLng },
+          near,
         },
         maxPlaces: args.maxPlaces ?? 5,
         profile: { depth: args.depth ?? 'card' },
@@ -265,7 +273,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
     },
   };
 
-  const gridSearch: MapsToolDefinition<
+  const grid: MapsToolDefinition<
     {
       query: string;
       north?: number;
@@ -274,6 +282,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
       west?: number;
       nearLat?: number;
       nearLng?: number;
+      near?: string;
       spanKm?: number;
       cellZoom?: number;
       maxResults?: number;
@@ -283,7 +292,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
     description:
       'Exhaustively search an area: splits the bounding box into ~2 km cells and merges ' +
       'deduped results. Use instead of discover when coverage matters (lead lists, market ' +
-      'mapping). Pass bounds (north/south/east/west) OR nearLat/nearLng + spanKm.',
+      'mapping). Pass bounds (north/south/east/west) OR near / nearLat+nearLng + spanKm.',
     parameters: {
       type: 'object',
       properties: {
@@ -292,6 +301,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
         south: { type: 'number' },
         east: { type: 'number' },
         west: { type: 'number' },
+        near: { type: 'string', description: 'Center: "lat,lng" or a place/address name' },
         nearLat: { type: 'number' },
         nearLng: { type: 'number' },
         spanKm: { type: 'number', description: 'Square box width in km when using nearLat/nearLng (default 3)' },
@@ -301,11 +311,11 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
       required: ['query'],
     },
     execute: async (args) => {
-      assertApproval(requireApproval, 'gridSearch');
+      assertApproval(requireApproval, 'grid');
       const hasBounds =
         args.north != null && args.south != null && args.east != null && args.west != null;
-      if (!hasBounds && (args.nearLat == null || args.nearLng == null)) {
-        throw new Error('gridSearch requires bounds (north/south/east/west) or nearLat/nearLng');
+      if (!hasBounds && !nearFromArgs(args)) {
+        throw new Error('grid requires bounds (north/south/east/west) or near / nearLat+nearLng');
       }
       return maps.grid({
         query: args.query,
@@ -318,7 +328,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
                 west: args.west!,
               },
             }
-          : { near: { lat: args.nearLat!, lng: args.nearLng! }, spanKm: args.spanKm }),
+          : { near: nearFromArgs(args), spanKm: args.spanKm }),
         cellZoom: args.cellZoom,
         maxResults: args.maxResults,
       });
@@ -333,7 +343,7 @@ export function createMapsTools(maps: GMapsClient, options: CreateMapsToolsOptio
     opinions,
     media,
     pipeline,
-    gridSearch,
+    grid,
   } as const;
 }
 

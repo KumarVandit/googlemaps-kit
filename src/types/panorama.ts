@@ -118,6 +118,32 @@ export interface PanoramaImageOptions {
   zoom?: number;
 }
 
+/** Static Street View thumbnail fetch — maps to streetviewpixels /thumbnail. */
+export interface PanoramaStaticImageOptions {
+  panoId: string;
+  width?: number;
+  height?: number;
+  pitch?: number;
+  yaw?: number;
+  hl?: string;
+  gl?: string;
+}
+
+export interface PanoramaStaticImageResult {
+  bytes: Uint8Array;
+  contentType: string;
+  width: number;
+  height: number;
+  panoId: string;
+  url: string;
+}
+
+export type PanoramaStaticImageLocationOptions = Omit<
+  PanoramaStaticImageOptions,
+  'panoId'
+> &
+  Omit<PanoramaSearchOptions, 'lat' | 'lng'>;
+
 /** Options for fetching full panorama metadata. */
 export interface PanoramaGetOptions {
   hl?: string;

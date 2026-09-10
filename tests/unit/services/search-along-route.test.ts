@@ -33,7 +33,11 @@ function makeServices(
   let call = 0;
   const calls: Array<{ lat?: number; lng?: number; query: string }> = [];
   vi.spyOn(search, 'searchText').mockImplementation(async (options) => {
-    calls.push({ lat: options.location?.lat, lng: options.location?.lng, query: options.query });
+    calls.push({
+      lat: typeof options.location === 'object' ? options.location.lat : undefined,
+      lng: typeof options.location === 'object' ? options.location.lng : undefined,
+      query: options.query,
+    });
     const batch = searchBatches[Math.min(call, searchBatches.length - 1)] ?? [];
     call++;
     return {

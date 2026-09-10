@@ -105,20 +105,20 @@ describe('hooks + tools surface', () => {
     const maps = sdk({ warmOnCreate: false });
     const tools = maps.tools();
     expect(Object.keys(tools)).toEqual(
-      expect.arrayContaining(['discover', 'profile', 'route', 'opinions', 'media', 'pipeline', 'gridSearch']),
+      expect.arrayContaining(['discover', 'profile', 'route', 'opinions', 'media', 'pipeline', 'grid']),
     );
   });
 
-  it('gridSearch tool requires bounds or near and honours the approval gate', async () => {
+  it('grid tool requires bounds or near and honours the approval gate', async () => {
     const maps = sdk({ warmOnCreate: false });
     const tools = maps.tools();
     await expect(
-      (tools.gridSearch.execute as (a: unknown) => Promise<unknown>)({ query: 'cafes' }),
+      (tools.grid.execute as (a: unknown) => Promise<unknown>)({ query: 'cafes' }),
     ).rejects.toThrow(/bounds/);
 
-    const gated = createMapsTools(maps, { requireApproval: { gridSearch: true } });
+    const gated = createMapsTools(maps, { requireApproval: { grid: true } });
     await expect(
-      gated.gridSearch.execute({
+      gated.grid.execute({
         query: 'cafes',
         north: 1,
         south: 0,

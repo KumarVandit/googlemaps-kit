@@ -281,6 +281,7 @@ export class PlacesService {
       ftid: options.ftid,
       limit: options.reviewLimit ?? 10,
       sort: options.reviewSort,
+      includeAggregates: options.includeAggregates === true,
     };
 
     if (maxPages <= 1) {

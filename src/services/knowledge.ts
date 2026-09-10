@@ -1,14 +1,19 @@
 import { HttpClient } from '../client/http-client.js';
+import { extractPlaceDetails } from '../parsers/place.js';
 import {
   extractKnowledgeEntity,
   extractKnowledgeFromPlaceDetails,
 } from '../parsers/knowledge.js';
-import { buildKnowledgeUrl } from '../rpc/pb-builders.js';
+import { buildKnowledgeUrl, buildPlaceUrl } from '../rpc/pb-builders.js';
 import type { GMapsConfig, KnowledgeEntity, PlaceDetails } from '../types/common.js';
 import type { PbNode } from '../types/protobuf.js';
+import { buildPlaceReferer } from '../utils/place-ref.js';
 
 export interface GetKnowledgeOptions {
   hexId: string;
+  name?: string;
+  lat?: number;
+  lng?: number;
   ftid?: string;
   placeId?: string;
   /** Use place preview fields when the RPC surface is unavailable. */
@@ -30,8 +35,8 @@ export class KnowledgeService {
 
   /**
    * Fetch knowledge entity data for a place.
-   * By default uses place-preview fallback — getknowledgeentity returns HTTP 400 for every
-   * pb variant and the path is absent from captured JS (no client-side pb builder to imitate).
+   * When `fallbackDetails` is omitted, fetches a live place preview and derives facts from
+   * categories and amenities — getknowledgeentity returns HTTP 400 for every pb variant.
    */
   async get(options: GetKnowledgeOptions): Promise<KnowledgeEntity | null> {
     if (options.fallbackDetails && options.tryRpc !== true) {
@@ -63,10 +68,36 @@ export class KnowledgeService {
       }
     }
 
-    if (options.fallbackDetails) {
-      return this.fromPlaceDetails(options.fallbackDetails);
+    const fallback =
+      options.fallbackDetails ?? (await this.fetchPreviewDetails(options));
+    if (fallback) {
+      return this.fromPlaceDetails(fallback);
     }
     return null;
+  }
+
+  private async fetchPreviewDetails(
+    options: Pick<GetKnowledgeOptions, 'hexId' | 'ftid' | 'name' | 'lat' | 'lng'>,
+  ): Promise<PlaceDetails | null> {
+    try {
+      const url = buildPlaceUrl({
+        hexId: options.hexId,
+        ftid: options.ftid,
+        name: options.name,
+        lat: options.lat,
+        lng: options.lng,
+        hl: this.hl,
+        gl: this.gl,
+        mode: 'live',
+      });
+      const data = await this.http.get(url, {
+        referer: buildPlaceReferer(options.name),
+        includeOrigin: true,
+      });
+      return extractPlaceDetails(data as PbNode);
+    } catch {
+      return null;
+    }
   }
 
   private fromPlaceDetails(details: PlaceDetails): KnowledgeEntity | null {

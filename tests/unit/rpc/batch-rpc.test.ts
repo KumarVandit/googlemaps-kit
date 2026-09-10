@@ -8,7 +8,11 @@ import {
   extractSignedPlaceUrl,
 } from '../../../src/parsers/categories.js';
 import { extractAreaTraffic } from '../../../src/parsers/traffic.js';
-import { extractPlaceUgcAggregates } from '../../../src/parsers/reviews.js';
+import {
+  extractPlaceUgcAggregates,
+  placeAggregatesToRatingDistribution,
+  ratingDistributionWeightedMean,
+} from '../../../src/parsers/reviews.js';
 import { loadNestedJsonFixture } from '../../helpers/fixtures.js';
 
 function loadBatchData(name: string): unknown {
@@ -66,6 +70,29 @@ describe('batch RPC parsers — ugc aggregates', () => {
     expect(agg.rating).toBeCloseTo(4.4, 1);
     expect(agg.totalCount).toBe(743);
     expect(agg.ratingDistribution).toEqual([70, 10, 31, 81, 551]);
+    expect(placeAggregatesToRatingDistribution(agg)).toEqual({
+      oneStar: 70,
+      twoStar: 10,
+      threeStar: 31,
+      fourStar: 81,
+      fiveStar: 551,
+    });
+  });
+
+  it('extracts Sparq on Rio rating distribution (wire order 1★→5★)', () => {
+    const agg = extractPlaceUgcAggregates(loadBatchData('ugc-aggregates-sparq.json'));
+    expect(agg.rating).toBeCloseTo(3.8, 1);
+    expect(agg.totalCount).toBe(254);
+    expect(agg.ratingDistribution).toEqual([56, 13, 11, 27, 147]);
+    const dist = placeAggregatesToRatingDistribution(agg);
+    expect(dist).toEqual({
+      oneStar: 56,
+      twoStar: 13,
+      threeStar: 11,
+      fourStar: 27,
+      fiveStar: 147,
+    });
+    expect(ratingDistributionWeightedMean(dist!)).toBeCloseTo(3.8, 1);
   });
 });
 

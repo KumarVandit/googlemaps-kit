@@ -39,8 +39,8 @@ function makeService(pages: Array<string[]> | ((cell: number, page: number) => s
     }
     calls.push({
       query: opts.query,
-      lat: opts.location?.lat ?? NaN,
-      lng: opts.location?.lng ?? NaN,
+      lat: typeof opts.location === 'object' ? opts.location.lat : NaN,
+      lng: typeof opts.location === 'object' ? opts.location.lng : NaN,
       offset: opts.offset,
     });
     const rows =
@@ -52,10 +52,10 @@ function makeService(pages: Array<string[]> | ((cell: number, page: number) => s
   return { service, calls, cellsSeen: () => cell };
 }
 
-describe('SearchService.gridSearch', () => {
+describe('SearchService.grid', () => {
   it('searches every cell covered by the bounds and dedupes across cells', async () => {
     const { service, calls } = makeService((cell) => [`place-${cell}`, 'shared']);
-    const result = await service.gridSearch({ query: 'cafes', bounds: BOUNDS, cellZoom: 15 });
+    const result = await service.grid({ query: 'cafes', bounds: BOUNDS, cellZoom: 15 });
 
     expect(result.cellsTotal).toBe(cellCount(BOUNDS, 15));
     expect(result.cellsSearched).toBe(result.cellsTotal);
@@ -70,7 +70,7 @@ describe('SearchService.gridSearch', () => {
 
   it('stops early once maxResults is reached', async () => {
     const { service } = makeService((cell) => [`a-${cell}`, `b-${cell}`, `c-${cell}`]);
-    const result = await service.gridSearch({ query: 'cafes', bounds: BOUNDS, maxResults: 4 });
+    const result = await service.grid({ query: 'cafes', bounds: BOUNDS, maxResults: 4 });
 
     expect(result.results).toHaveLength(4);
     expect(result.cellsSearched).toBeLessThan(result.cellsTotal);
@@ -78,7 +78,7 @@ describe('SearchService.gridSearch', () => {
 
   it('honours maxCells as a safety cap', async () => {
     const { service } = makeService(() => ['x']);
-    const result = await service.gridSearch({ query: 'cafes', bounds: BOUNDS, maxCells: 2 });
+    const result = await service.grid({ query: 'cafes', bounds: BOUNDS, maxCells: 2 });
 
     expect(result.cellsSearched).toBe(2);
     expect(result.requestsMade).toBe(2);
@@ -108,7 +108,7 @@ describe('SearchService.gridSearch', () => {
       },
     );
 
-    const result = await service.gridSearch({
+    const result = await service.grid({
       query: 'cafes',
       bounds: BOUNDS,
       cellZoom: 15,
@@ -123,7 +123,7 @@ describe('SearchService.gridSearch', () => {
   it('fires onProgress after each cell with running uniques', async () => {
     const { service } = makeService(() => ['only', 'dup']);
     const progress: Array<{ cell: number; totalCells: number; uniqueResults: number }> = [];
-    await service.gridSearch({
+    await service.grid({
       query: 'cafes',
       bounds: BOUNDS,
       maxCells: 3,
@@ -141,19 +141,19 @@ describe('SearchService.gridSearch', () => {
     const { service, cellsSeen } = makeService(() => ['x']);
 
     await expect(
-      service.gridSearch({ query: 'q', bounds: BOUNDS, cellZoom: 9 }),
+      service.grid({ query: 'q', bounds: BOUNDS, cellZoom: 9 }),
     ).rejects.toThrow(/cellZoom/);
     await expect(
-      service.gridSearch({ query: 'q', bounds: BOUNDS, cellZoom: 19 }),
+      service.grid({ query: 'q', bounds: BOUNDS, cellZoom: 19 }),
     ).rejects.toThrow(/cellZoom/);
     await expect(
-      service.gridSearch({
+      service.grid({
         query: 'q',
         bounds: { ...BOUNDS, south: 13, north: 12 },
       }),
     ).rejects.toThrow(/bounds/);
     await expect(
-      service.gridSearch({ query: 'q', bounds: { ...BOUNDS, west: 78, east: 77 } }),
+      service.grid({ query: 'q', bounds: { ...BOUNDS, west: 78, east: 77 } }),
     ).rejects.toThrow(/bounds/);
     expect(cellsSeen()).toBe(0);
   });

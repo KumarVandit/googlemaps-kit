@@ -101,20 +101,64 @@ export function applyReviewClientFilters(
   };
 }
 
-/** Convert batchexecute histogram (index 0 = 5-star) to named buckets. */
+function namedBucketsFromWire(
+  buckets: readonly number[],
+  descending: boolean,
+): PlaceReviewRatingDistribution {
+  return descending
+    ? {
+        fiveStar: buckets[0] ?? 0,
+        fourStar: buckets[1] ?? 0,
+        threeStar: buckets[2] ?? 0,
+        twoStar: buckets[3] ?? 0,
+        oneStar: buckets[4] ?? 0,
+      }
+    : {
+        oneStar: buckets[0] ?? 0,
+        twoStar: buckets[1] ?? 0,
+        threeStar: buckets[2] ?? 0,
+        fourStar: buckets[3] ?? 0,
+        fiveStar: buckets[4] ?? 0,
+      };
+}
+
+/** Weighted mean star rating from a named histogram (1–5 scale). */
+export function ratingDistributionWeightedMean(dist: PlaceReviewRatingDistribution): number {
+  const total = sumRatingDistribution(dist);
+  if (total === 0) return 0;
+  return (
+    (dist.oneStar +
+      2 * dist.twoStar +
+      3 * dist.threeStar +
+      4 * dist.fourStar +
+      5 * dist.fiveStar) /
+    total
+  );
+}
+
+/**
+ * Convert GetPlaceUgcPostAggregates histogram to named buckets.
+ * Wire order is `[1★, 2★, 3★, 4★, 5★]` (Kake Di Hatti fixture + Sparq on Rio).
+ * When `rating` is present, pick the orientation whose weighted mean is closer
+ * so a reversed payload still labels buckets correctly.
+ */
 export function placeAggregatesToRatingDistribution(
   aggregates: PlaceUgcAggregates,
 ): PlaceReviewRatingDistribution | undefined {
   const buckets = aggregates.ratingDistribution;
   if (!Array.isArray(buckets) || buckets.length < 5) return undefined;
 
-  return {
-    fiveStar: buckets[0] ?? 0,
-    fourStar: buckets[1] ?? 0,
-    threeStar: buckets[2] ?? 0,
-    twoStar: buckets[3] ?? 0,
-    oneStar: buckets[4] ?? 0,
-  };
+  const ascending = namedBucketsFromWire(buckets, false);
+  const rating = aggregates.rating;
+  if (typeof rating !== 'number') {
+    return ascending;
+  }
+
+  const descending = namedBucketsFromWire(buckets, true);
+  return Math.abs(ratingDistributionWeightedMean(ascending) - rating) <=
+    Math.abs(ratingDistributionWeightedMean(descending) - rating)
+    ? ascending
+    : descending;
 }
 
 /** Sum histogram buckets — should match totalCount when Google sends a complete aggregate. */
@@ -137,7 +181,7 @@ export function extractPlaceUgcAggregates(data: unknown, options?: { raw?: boole
   const distribution = safeGet<number[]>(block, 1);
   const totalCount = safeGet<number>(block, 2);
 
-  // The wire format sends 5 elements [5★,4★,3★,2★,1★]; nulls appear when a
+  // Wire format is 5 elements [1★, 2★, 3★, 4★, 5★]; nulls appear when a
   // star bucket has no data. Only expose the tuple when all five are numeric.
   const ratingDistribution =
     Array.isArray(distribution) &&

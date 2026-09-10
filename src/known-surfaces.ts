@@ -197,11 +197,11 @@ export const KNOWN_SURFACES = {
       'No batch matrix RPC. Fans out N×M directions requests with dedupe and bounded concurrency.',
   },
   elevation: {
-    status: 'fallback',
+    status: 'working',
     method: 'GET',
-    path: '/maps/preview/directions',
+    path: '/maps/photometa/v1 (primary) + /maps/preview/directions (fallback)',
     notes:
-      'No dedicated elevation RPC. Parsed from bicycling/walking route elevation blocks where present.',
+      'Panorama photometa reports sea-level and WGS84 ellipsoidal heights per pano; travel.elevation.getAtPoint tries the nearest pano first, then bicycling directions at route [0][16][2].',
   },
   timezone: {
     status: 'working',
@@ -216,6 +216,34 @@ export const KNOWN_SURFACES = {
     path: '/maps/vt/proto (local tile stitch)',
     notes:
       'Keyless static map via local tile stitching. /maps/api/staticmap requires a billed API key.',
+  },
+  staticStreetView: {
+    status: 'working',
+    method: 'GET',
+    path: 'streetviewpixels-pa.googleapis.com/v1/thumbnail',
+    notes:
+      'Static JPEG thumbnail for a pano id or lat/lng via panorama.fetchStaticImage — not /maps/api/streetview.',
+  },
+  mapsEmbed: {
+    status: 'working',
+    method: 'N/A',
+    path: 'google.com/maps/embed?pb= (keyless) or /maps/embed/v1/* (api key)',
+    notes:
+      'map.buildEmbedUrl / buildEmbedLink — keyless pb when place geometry is known.',
+  },
+  dynamicMaps: {
+    status: 'working',
+    method: 'GET',
+    path: '/maps/vt/proto + viewport share URLs',
+    notes:
+      'Composable tile sessions (map.tiles) and buildViewportLink — not the billed Maps JavaScript API.',
+  },
+  aerialView: {
+    status: 'auth-required',
+    method: 'GET',
+    path: 'aerialview.googleapis.com/v1/videos:*',
+    notes:
+      'Aerial View API only — consumer place preview does not expose cinematic video URIs. map.aerialView with GMAPS_AERIAL_VIEW_API_KEY.',
   },
   mapsUrlBuilders: {
     status: 'working',
@@ -435,7 +463,7 @@ export const KNOWN_SURFACES = {
   searchGrid: {
     status: 'working',
     method: 'GET',
-    path: '/search?tbm=map (per-cell via search.gridSearch)',
+    path: '/search?tbm=map (per-cell via places.search.grid)',
     notes:
       'Area-coverage orchestration over the ordinary search RPC: the bounding box is subdivided into Web Mercator cells at cellZoom and each cell runs one paginated search, deduped by hexId. Beats single-query pagination caps in dense cities — the same grid strategy commercial scrapers charge for.',
   },
@@ -458,7 +486,21 @@ export const KNOWN_SURFACES = {
     method: 'POST',
     path: '/maps/_/MapsWizUi/data/batchexecute (GivvBd air quality, FQvEwd heatmap)',
     notes:
-      'Legacy rpcids, not service paths — they require an XSNRF/XSRF token from WIZ_global_data.SNlM0e, which signed-out sessions never issue. Callable with signed-in cookies via sdk().features().airQuality(); response layout unparsed until reachable anonymously.',
+      'Legacy rpcids — require signed-in XSRF. environment.airQuality.parseBatchexecuteResponse() parses GivvBd when cookies are present; heatmap tiles are keyless via map.tiles.getOverlay(airQualityHeatmap).',
+  },
+  nearbySearch: {
+    status: 'working',
+    method: 'GET',
+    path: '/search?tbm=map (categorical queries per includedType)',
+    notes:
+      'No type-only RPC — places.nearbySearch maps includedTypes to categorical text searches and filters by radius.',
+  },
+  weatherPassiveAssist: {
+    status: 'working',
+    method: 'GET',
+    path: '/maps/preview/passiveassist (viewport psi required)',
+    notes:
+      'Current conditions chip at entry[5] — temp, label, icon URL via environment.weather.',
   },
 } as const satisfies Record<string, SurfaceInfo>;
 

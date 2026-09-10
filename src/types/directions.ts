@@ -296,7 +296,11 @@ export interface ElevationPointResult {
   /** Meters above WGS84 ellipsoid when available. */
   elevationMeters?: number;
   /** How elevation was obtained. */
-  source?: 'directions-bicycling-start' | 'directions-profile';
+  source?:
+    | 'panorama-ellipsoidal'
+    | 'panorama-sea-level'
+    | 'directions-bicycling-start'
+    | 'directions-profile';
   error?: string;
   timingMs?: number;
 }

@@ -1,5 +1,5 @@
 /**
- * Combined place preview + paginated reviews via getPlaceFull().
+ * Combined place preview + paginated reviews via places.getFull().
  *
  * Run: npm run example:place-full
  */
@@ -8,7 +8,7 @@ import { run, assertDefined, CEVI, createExampleClient } from './shared.js';
 async function main() {
   const maps = createExampleClient();
 
-  const full = await maps.getPlaceFull({
+  const full = await maps.places.getFull({
     ...CEVI,
     reviewLimit: 10,
     maxReviewPages: 2,

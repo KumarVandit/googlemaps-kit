@@ -6,8 +6,25 @@
  */
 
 export { GMapsClient, sdk, GMaps } from './client/gmaps-client.js';
-export type { EnrichSearchOptions } from './client/gmaps-client.js';
-export type { AuthNamespace, SurfacesNamespace } from './client/namespaces.js';
+export type { EnrichSearchOptions } from './types/common.js';
+export type {
+  AuthNamespace,
+  EnvironmentNamespace,
+  SurfacesNamespace,
+} from './client/namespaces.js';
+export {
+  PLATFORM_CATALOG,
+  getPlatformProduct,
+  listPlatformProducts,
+} from './platform/catalog.js';
+export { summarizePlatformCoverage } from './platform/parity.js';
+export type { PlatformCoverageSummary } from './platform/parity.js';
+export type {
+  PlatformCategory,
+  PlatformKitStatus,
+  PlatformProduct,
+  PlatformProductId,
+} from './platform/catalog.js';
 export type { AuthStatusOptions } from './auth/auth-status.js';
 export type {
   KnownSurfaceName,
@@ -132,6 +149,9 @@ export type {
   PanoramaGetOptions,
   PanoramaLocationOptions,
   PanoramaImageOptions,
+  PanoramaStaticImageOptions,
+  PanoramaStaticImageLocationOptions,
+  PanoramaStaticImageResult,
   PanoramaRef,
   PanoramaLink,
   PanoramaMetadata,
@@ -139,6 +159,16 @@ export type {
   PanoramaTileLevel,
   PanoramaTileGrid,
 } from './types/panorama.js';
+export type {
+  AerialViewCaptureDate,
+  AerialViewFormat,
+  AerialViewLookupOptions,
+  AerialViewLookupResult,
+  AerialViewMetadata,
+  AerialViewOrientationUris,
+  AerialViewRenderOptions,
+  AerialViewState,
+} from './types/aerial-view.js';
 export type {
   TileCoordinates,
   MapTileLayer,
@@ -172,6 +202,7 @@ export { PHOTOS_SOURCE_METADATA } from './types/photos.js';
 export type {
   GMapsConfig,
   Coordinates,
+  LocationRef,
   AuthStatus,
   AuthCapabilities,
   SearchOptions,
@@ -286,6 +317,8 @@ export type { ExportablePlace, GeoJsonFeatureCollection } from './utils/export-r
 
 export {
   normalizePlaceRef,
+  parseLatLngString,
+  resolveBiasCenter,
   resolveRouteEndpoint,
   resolveSearchCenter,
   resolveDirectionsEndpoints,

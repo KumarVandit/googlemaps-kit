@@ -89,7 +89,6 @@ export interface ReviewClientFilters {
 
 /** Place-wide star histogram from GetPlaceUgcPostAggregates (batchexecute). */
 export interface PlaceReviewRatingDistribution {
-  /** Count of 5-star reviews (index 0 in RPC array). */
   fiveStar: number;
   fourStar: number;
   threeStar: number;
@@ -101,9 +100,9 @@ export interface PlaceReviewRatingDistribution {
 export interface PlaceUgcAggregates {
   rating?: number;
   /**
-   * Star count histogram as a fixed 5-element tuple:
-   * `[fiveStar, fourStar, threeStar, twoStar, oneStar]` — index 0 = 5-star, index 4 = 1-star.
-   * Verified against Kake Di Hatti + duplicates fixtures.
+   * Star count histogram as a fixed 5-element tuple in wire order:
+   * `[oneStar, twoStar, threeStar, fourStar, fiveStar]` — index 0 = 1-star, index 4 = 5-star.
+   * Verified against Kake Di Hatti (4.4 from `[70,10,31,81,551]`) and Sparq on Rio.
    */
   ratingDistribution?: [number, number, number, number, number];
   totalCount?: number;
