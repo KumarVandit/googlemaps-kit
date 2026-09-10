@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>googlemaps-kit</title>
+  <meta name="description" content="TypeScript SDK for programmatic access to Google Maps consumer surfaces. Search, places, reviews, directions, photos, geocoding. No Maps Platform API key." />
+  <meta name="keywords" content="google maps api, google maps scraper, google places api alternative, google maps without api key, unofficial google maps api, free google maps api, reverse engineering google maps, google maps reviews api, local business scraper, places api without key, node google maps, typescript sdk" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="canonical" href="https://googlemapskit.vaandeetttt.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="googlemaps-kit" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:url" content="https://googlemapskit.vaandeetttt.com/" />
+  <meta property="og:title" content="googlemaps-kit" />
+  <meta property="og:description" content="TypeScript SDK for programmatic access to Google Maps consumer surfaces. Search, places, reviews, directions. No Maps Platform API key." />
+  <meta property="og:image" content="https://googlemapskit.vaandeetttt.com/og-image.png" />
+  <meta property="og:image:secure_url" content="https://googlemapskit.vaandeetttt.com/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="googlemaps-kit - TypeScript SDK for Google Maps consumer surfaces" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="googlemaps-kit" />
+  <meta name="twitter:description" content="TypeScript SDK for programmatic access to Google Maps consumer surfaces. No Maps Platform API key." />
+  <meta name="twitter:image" content="https://googlemapskit.vaandeetttt.com/og-image.png" />
+  <meta name="twitter:image:alt" content="googlemaps-kit - TypeScript SDK for Google Maps consumer surfaces" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "googlemaps-kit",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Node.js >= 18",
+    "url": "https://googlemapskit.vaandeetttt.com/",
+    "downloadUrl": "https://www.npmjs.com/package/googlemaps-kit",
+    "description": "TypeScript SDK for programmatic access to Google Maps consumer surfaces.",
+    "image": "https://googlemapskit.vaandeetttt.com/og-image.png",
+    "screenshot": "https://googlemapskit.vaandeetttt.com/og-image.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/KumarVandit/googlemaps-kit"
+  }
+  </script>
+  <link rel="preload" as="image" href="/media/googlemaps.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Vercel Web Analytics + Speed Insights -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
+  <style>
+    :root {
+      --paper: #0a0a0a;
+      --ink: #f4f1ea;
+      --ink-soft: #b8b3a8;
+      --ink-mute: #6e695f;
+      --surface: #131312;
+      --chip: #1c1c1b;
+      --rule: #1f1f1d;
+      --message: #2c2c2e;
+      --message-ink: #f5f5f7;
+      --social: #f4f1ea;
+      --social-ink: #0a0a0a;
+      --link: #0a84ff;
+      --focus: #f4f1ea;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      /* Match gandan.dev bubble geometry (40px body, 93×121 caps, -mr-6 overlap) */
+      --imsg-h: 40px;
+      --imsg-cap-w: 30.744px;
+      --imsg-tail-h: 46.942px;
+      --imsg-overlap: -1.5rem;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: dark; scroll-behavior: smooth; }
+    body {
+      font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100dvh;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .page {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+      min-height: 100dvh;
+    }
+    .hero {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1.5rem 2rem;
+    }
+    @media (min-width: 768px) {
+      .hero { padding: 2rem 2.5rem 2.5rem; }
+    }
+
+    .wrap {
+      position: relative;
+      margin-top: 1.75rem;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (min-width: 768px) {
+      .wrap { margin-top: 2.75rem; }
+    }
+
+    .hero,
+    .media-rail {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(244, 241, 234, 0.2) transparent;
+    }
+    .hero::-webkit-scrollbar,
+    .media-rail::-webkit-scrollbar { width: 8px; }
+    .hero::-webkit-scrollbar-thumb,
+    .media-rail::-webkit-scrollbar-thumb {
+      background: rgba(244, 241, 234, 0.18);
+      border-radius: 999px;
+    }
+
+    .media-rail {
+      position: relative;
+      z-index: 1;
+      padding: 1.25rem 1.5rem 2rem;
+      opacity: 0;
+      filter: blur(6px);
+      transform: translateY(16px);
+      animation: media-in 0.85s var(--ease) 0.18s forwards;
+    }
+    @media (min-width: 768px) {
+      .media-rail { padding: 1.25rem 2.5rem 2.5rem; }
+    }
+
+    .media-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      padding-bottom: 2rem;
+    }
+
+    .preview-media {
+      margin: 0;
+      width: 100%;
+    }
+
+    .video-player {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 8px;
+      outline: 1px solid oklch(1 0 0 / 0.1);
+      outline-offset: -1px;
+      background: #111;
+    }
+
+    .video-el {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: inherit;
+      cursor: zoom-in;
+    }
+
+    .video-hud {
+      position: absolute;
+      right: 0.75rem;
+      bottom: 0.75rem;
+      width: 2rem;
+      height: 2rem;
+      z-index: 2;
+    }
+
+    .video-toggle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      padding: 0;
+      border: none;
+      border-radius: 9999px;
+      color: var(--ink);
+      background: rgba(18, 18, 16, 0.48);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      transition: transform 0.18s var(--ease), background 0.15s ease;
+    }
+    .video-toggle:hover { background: rgba(18, 18, 16, 0.68); }
+    .video-toggle:active { transform: translate(-50%, -50%) scale(0.96); }
+    .video-toggle:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .video-toggle svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      fill: currentColor;
+      position: absolute;
+      opacity: 0;
+      filter: blur(4px);
+      transform: scale(0.25);
+      transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1),
+                  filter 0.2s cubic-bezier(0.2, 0, 0, 1),
+                  transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .video-toggle[data-state="playing"] .ico-pause,
+    .video-toggle[data-state="paused"] .ico-play {
+      opacity: 1;
+      filter: blur(0);
+      transform: scale(1);
+    }
+    .video-toggle[data-state="paused"] .ico-play {
+      transform: scale(1) translateX(0.5px);
+    }
+
+    .video-ring {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: rotate(-90deg);
+    }
+    .video-ring-track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0);
+      stroke-width: 0.75;
+    }
+    .video-ring-prog {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.5);
+      stroke-width: 0.75;
+    }
+
+    @keyframes media-in {
+      to { opacity: 1; filter: blur(0); transform: translateY(0); }
+    }
+
+    @media (min-width: 1024px) {
+      .page {
+        flex-direction: row;
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+        --intro-top: 2rem;
+        --intro-gap: 1.5rem;
+      }
+      .hero {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        height: 100dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        padding-top: var(--intro-top);
+        padding-left: clamp(2.5rem, calc((100vw - 760px) / 4 + 1.25rem), 11rem);
+        padding-right: 1rem;
+      }
+      .wrap {
+        margin-top: var(--intro-gap);
+        width: 32rem;
+        max-width: 100%;
+      }
+      .media-rail {
+        flex: 1 1 auto;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        height: 100dvh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: calc(var(--intro-top) + var(--intro-gap)) 1.5rem 1.5rem 0.5rem;
+      }
+      .media-stack { padding-bottom: 3rem; }
+    }
+
+    .examine {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      border: 0;
+      padding: 1.5rem;
+      background: var(--paper);
+    }
+    .examine[hidden] { display: none; }
+    @media (min-width: 1024px) {
+      .examine { padding: 4rem; }
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .examine { cursor: none; }
+    }
+
+    .examine-stage {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+    }
+    .examine-frame {
+      --examine-cap: 94vw;
+      position: relative;
+      overflow: hidden;
+      border-radius: 6px;
+      outline: 1px solid oklch(1 0 0 / 0.1);
+      outline-offset: -1px;
+      background: #111;
+      transform-origin: center center;
+    }
+    @media (min-width: 1024px) {
+      .examine-frame { --examine-cap: 78vw; }
+    }
+    .examine-video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: inherit;
+    }
+
+    .examine-close,
+    .examine-nav {
+      position: fixed;
+      z-index: 105;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      color: var(--ink);
+      background: rgba(18, 18, 16, 0.48);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      cursor: pointer;
+    }
+    .examine-close:hover,
+    .examine-nav:hover { background: rgba(18, 18, 16, 0.72); }
+    .examine-close:focus-visible,
+    .examine-nav:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+    .examine-close {
+      top: 1rem;
+      right: 1rem;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 3px;
+    }
+    @media (min-width: 1024px) {
+      .examine-close { top: 1.5rem; right: 1.5rem; }
+    }
+    .examine-close svg,
+    .examine-nav svg {
+      width: 1rem;
+      height: 1rem;
+      display: block;
+    }
+    .examine-nav {
+      top: 50%;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 9999px;
+      transform: translateY(-50%);
+    }
+    .examine-prev { left: 1rem; }
+    .examine-next { right: 1rem; }
+    @media (min-width: 1024px) {
+      .examine-prev { left: 1.5rem; }
+      .examine-next { right: 1.5rem; }
+    }
+    .examine-nav[hidden] { display: none; }
+
+    .examine-hint {
+      position: fixed;
+      z-index: 110;
+      display: none;
+      align-items: center;
+      padding: 0.25rem 0.625rem;
+      border-radius: 3px;
+      background: rgba(18, 18, 16, 0.48);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: var(--ink);
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: -0.01em;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .examine-hint:not([hidden]) { display: flex; }
+    }
+
+    .examine-dots {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      z-index: 105;
+      display: flex;
+      align-items: center;
+      transform: translateX(-50%);
+    }
+    @media (min-width: 1024px) {
+      .examine-dots { bottom: 4rem; }
+    }
+    .examine-dots[hidden] { display: none; }
+    .examine-dot {
+      width: 1.75rem;
+      height: 1.75rem;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    .examine-dot::after {
+      content: "";
+      display: block;
+      width: 0.5rem;
+      height: 0.5rem;
+      margin: 0 auto;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.25);
+      transition: background 0.15s ease;
+    }
+    .examine-dot:hover::after { background: rgba(255, 255, 255, 0.5); }
+    .examine-dot[aria-current="true"]::after { background: var(--ink); }
+    .examine-dot:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .prose {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      max-width: 26rem;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .prose p { text-wrap: pretty; }
+    .prose p,
+    .chat {
+      opacity: 0;
+      transform: translateY(14px);
+      animation: rise 0.75s var(--ease) forwards;
+    }
+    .prose p:nth-child(1) { animation-delay: 0.04s; }
+    .prose p:nth-child(2) { animation-delay: 0.12s; }
+    .prose p:nth-child(3) { animation-delay: 0.2s; }
+    .prose p:nth-child(4) { animation-delay: 0.28s; }
+    .chat { animation-delay: 0.42s; }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ctas {
+      margin-top: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem;
+      opacity: 0;
+      transform: translateY(14px);
+      animation: rise 0.75s var(--ease) 0.3s forwards;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      height: 2.75rem;
+      padding: 0 1.15rem;
+      border-radius: 9999px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      color: inherit;
+      background: transparent;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.18s var(--ease), filter 0.18s ease, background 0.15s ease, border-color 0.15s ease;
+      transform: translateZ(0);
+    }
+    .pill:hover { transform: translateY(-1px); }
+    .pill:active { transform: translateY(0) scale(0.985); }
+    .pill:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .pill-start {
+      background: #f4f1ea;
+      color: #0a0a0a;
+    }
+    .pill-start:hover { filter: brightness(1.05); }
+
+    .pill-ghost {
+      background: transparent;
+      color: #f4f1ea;
+      border: 1.5px solid rgba(244, 241, 234, 0.55);
+      padding-inline: 1rem;
+    }
+    .pill-ghost:hover {
+      border-color: rgba(244, 241, 234, 0.9);
+      background: rgba(244, 241, 234, 0.04);
+    }
+    .pill-ghost.copied {
+      border-color: rgba(244, 241, 234, 0.35);
+      color: var(--ink-soft);
+    }
+
+    /* Keep copy button width stable so iPhone flex wrap doesn't jump */
+    .copy-label {
+      display: inline-grid;
+      justify-items: center;
+      white-space: nowrap;
+    }
+    .copy-label > span {
+      grid-area: 1 / 1;
+    }
+    .copy-label .copy-idle {
+      visibility: visible;
+    }
+    .copy-label .copy-done {
+      visibility: hidden;
+    }
+    #copy-agent.copied .copy-label .copy-idle {
+      visibility: hidden;
+    }
+    #copy-agent.copied .copy-label .copy-done {
+      visibility: visible;
+    }
+
+    .pill-ico {
+      display: flex;
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+    .pill-ico svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .pill-ico.fill svg {
+      fill: currentColor;
+    }
+
+    .chat {
+      margin-top: auto;
+      padding-top: 2.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem; /* gandan space-y-5 between groups */
+      max-width: 26rem;
+    }
+
+    .imessage {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem; /* gandan gap-1 within a group */
+    }
+
+    /* Whole bubble moves together - never transform body alone */
+    .imsg {
+      display: flex;
+      align-items: flex-start;
+      width: fit-content;
+      max-width: 100%;
+      transform: translateZ(0);
+      transition: transform 0.18s var(--ease), filter 0.18s ease;
+      will-change: transform;
+    }
+    .imsg.is-interactive:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.06);
+    }
+    .imsg.is-interactive:active {
+      transform: translateY(0) scale(0.985);
+    }
+    .chat .imsg {
+      opacity: 0;
+      animation: bubble-in 0.55s var(--ease) forwards;
+    }
+    .chat .imessage:nth-child(1) .imsg:nth-child(1) { animation-delay: 0.48s; }
+    .chat .imessage:nth-child(1) .imsg:nth-child(2) { animation-delay: 0.54s; }
+    .chat .imessage:nth-child(1) .imsg:nth-child(3) { animation-delay: 0.6s; }
+    .chat .imessage:nth-child(2) .imsg:nth-child(1) { animation-delay: 0.68s; }
+    .chat .imessage:nth-child(2) .imsg:nth-child(2) { animation-delay: 0.74s; }
+    .imsg.settled {
+      animation: none;
+      opacity: 1;
+    }
+
+    @keyframes bubble-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .imsg-cap {
+      flex-shrink: 0;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+      width: var(--imsg-cap-w);
+      height: var(--imsg-h);
+    }
+    .imsg-cap.tail {
+      height: var(--imsg-tail-h);
+    }
+    .imsg-cap-l { margin-right: var(--imsg-overlap); }
+    .imsg-cap-r { margin-left: var(--imsg-overlap); }
+    .imsg-cap path.fill-message { fill: var(--message); }
+    .imsg-cap path.fill-social { fill: var(--social); }
+
+    .imsg-body {
+      position: relative;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      height: var(--imsg-h);
+      padding: 0 0.5rem;
+      border-radius: 1rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.015rem;
+      line-height: 1;
+      white-space: nowrap;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s ease;
+    }
+    .imsg-body.label {
+      background: var(--message);
+      color: var(--message-ink);
+      cursor: default;
+    }
+    .imsg-body.social {
+      background: var(--social);
+      color: var(--social-ink);
+    }
+    .imsg-body.message {
+      background: var(--message);
+      color: var(--message-ink);
+    }
+    .imsg-body.mail {
+      background: var(--message);
+      color: var(--link);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    a.imsg-body:focus-visible,
+    button.imsg-body:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .imsg-body .icon {
+      display: flex;
+      width: 0.9rem;
+      height: 0.9rem;
+      flex-shrink: 0;
+    }
+    .imsg-body .icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      fill: currentColor;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pill:hover,
+      .pill:active,
+      .imsg.is-interactive:hover,
+      .imsg.is-interactive:active { transform: none; filter: none; }
+      .media-rail { opacity: 1; filter: none; transform: none; animation: none; }
+      .video-toggle:active { transform: translate(-50%, -50%); }
+      .examine { cursor: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="wrap">
+        <div class="prose">
+          <p>googlemaps-kit.</p>
+          <p>typescript sdk for maps consumer surfaces - search, places, reviews, directions.</p>
+          <p>no platform api key.</p>
+          <p>built for developers and agents.</p>
+        </div>
+
+        <div class="ctas" role="group" aria-label="get started">
+          <a
+            class="pill pill-start"
+            href="https://www.npmjs.com/package/googlemaps-kit"
+            data-track="cta"
+            data-track-id="npm"
+            data-cuelume-hover="tick"
+            data-cuelume-press
+            data-cuelume-release
+          >
+            <span class="pill-ico fill" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.02-.01 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z"/></svg>
+            </span>
+            npm
+          </a>
+
+          <a
+            class="pill pill-ghost"
+            href="https://github.com/KumarVandit/googlemaps-kit"
+            data-track="cta"
+            data-track-id="github_repo"
+            data-cuelume-hover="tick"
+            data-cuelume-press
+            data-cuelume-release
+          >
+            <span class="pill-ico fill" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            </span>
+            GitHub
+          </a>
+
+          <button
+            type="button"
+            class="pill pill-ghost"
+            id="copy-agent"
+            data-track="cta"
+            data-track-id="copy_agent"
+            data-cuelume-hover="tick"
+            data-cuelume-press
+            data-cuelume-release
+          >
+            <span class="copy-label">
+              <span class="copy-idle">Copy Agent Instruction</span>
+              <span class="copy-done" aria-hidden="true">Copied</span>
+            </span>
+            <span class="pill-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="11" height="11" rx="2" />
+                <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+              </svg>
+            </span>
+          </button>
+        </div>
+
+        <section class="chat" aria-label="follow me">
+          <div class="imessage">
+            <div class="imsg">
+              <svg class="imsg-cap imsg-cap-l" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M38.2285 4.53223C52.5705 0.000102997 65.8942 0 92.541 0V121C65.8942 121 52.5705 121 38.2285 116.468C22.5696 110.772 10.2347 98.4442 4.53516 82.7949C0.000221252 71.3903 0 62.92 0 60.5C0 58.08 0.000221252 49.6097 4.53516 38.2051C10.2347 22.5559 22.5696 10.2282 38.2285 4.53223Z"/>
+              </svg>
+              <div class="imsg-body label">follow me:</div>
+              <svg class="imsg-cap imsg-cap-r" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M54.3125 4.53223C39.9705 0.000102997 26.6468 0 0 0V121C26.6468 121 39.9705 121 54.3125 116.468C69.9714 110.772 82.3064 98.4442 88.0059 82.7949C92.5408 71.3903 92.541 62.92 92.541 60.5C92.541 58.08 92.5408 49.6097 88.0059 38.2051C82.3064 22.5559 69.9714 10.2282 54.3125 4.53223Z"/>
+              </svg>
+            </div>
+
+            <div class="imsg is-interactive">
+              <svg class="imsg-cap imsg-cap-l" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-social" d="M38.2285 4.53223C52.5705 0.000102997 65.8942 0 92.541 0V121C65.8942 121 52.5705 121 38.2285 116.468C22.5696 110.772 10.2347 98.4442 4.53516 82.7949C0.000221252 71.3903 0 62.92 0 60.5C0 58.08 0.000221252 49.6097 4.53516 38.2051C10.2347 22.5559 22.5696 10.2282 38.2285 4.53223Z"/>
+              </svg>
+              <a
+                class="imsg-body social"
+                href="https://x.com/vaandeetttt"
+                rel="me noopener"
+                target="_blank"
+                data-track="social"
+                data-track-id="x"
+                data-cuelume-hover="chime"
+                data-cuelume-press="pulse"
+                data-cuelume-release
+              >
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.743l7.727-8.836L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </span>
+                <span>@vaandeetttt</span>
+              </a>
+              <svg class="imsg-cap imsg-cap-r" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-social" d="M54.3125 4.53223C39.9705 0.000102997 26.6468 0 0 0V121C26.6468 121 39.9705 121 54.3125 116.468C69.9714 110.772 82.3064 98.4442 88.0059 82.7949C92.5408 71.3903 92.541 62.92 92.541 60.5C92.541 58.08 92.5408 49.6097 88.0059 38.2051C82.3064 22.5559 69.9714 10.2282 54.3125 4.53223Z"/>
+              </svg>
+            </div>
+
+            <div class="imsg is-interactive">
+              <svg class="imsg-cap imsg-cap-l tail" viewBox="0 0 93 142" fill="none" aria-hidden="true">
+                <path class="fill-social" d="M66 121H92.541V0C65.8942 0 52.5705 0.000102997 38.2285 4.53223C22.5696 10.2282 10.2347 22.5559 4.53516 38.2051C0.000221252 49.6097 0 58.08 0 60.5C0 62.92 0.000219822 71.3903 4.53516 82.7949C9.02507 95.1229 18.2797 104.404 28.7402 111.976C31.7741 114.171 32.5953 118.94 32 124C31 132.5 23 137 27 141C30.7375 144.737 52.8316 121 66 121Z"/>
+              </svg>
+              <a
+                class="imsg-body social"
+                href="https://github.com/KumarVandit"
+                rel="me noopener"
+                target="_blank"
+                data-track="social"
+                data-track-id="github_profile"
+                data-cuelume-hover="chime"
+                data-cuelume-press="pulse"
+                data-cuelume-release
+              >
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                </span>
+                <span>@KumarVandit</span>
+              </a>
+              <svg class="imsg-cap imsg-cap-r" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-social" d="M54.3125 4.53223C39.9705 0.000102997 26.6468 0 0 0V121C26.6468 121 39.9705 121 54.3125 116.468C69.9714 110.772 82.3064 98.4442 88.0059 82.7949C92.5408 71.3903 92.541 62.92 92.541 60.5C92.541 58.08 92.5408 49.6097 88.0059 38.2051C82.3064 22.5559 69.9714 10.2282 54.3125 4.53223Z"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="imessage">
+            <div class="imsg">
+              <svg class="imsg-cap imsg-cap-l" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M38.2285 4.53223C52.5705 0.000102997 65.8942 0 92.541 0V121C65.8942 121 52.5705 121 38.2285 116.468C22.5696 110.772 10.2347 98.4442 4.53516 82.7949C0.000221252 71.3903 0 62.92 0 60.5C0 58.08 0.000221252 49.6097 4.53516 38.2051C10.2347 22.5559 22.5696 10.2282 38.2285 4.53223Z"/>
+              </svg>
+              <div class="imsg-body label">mail me at:</div>
+              <svg class="imsg-cap imsg-cap-r" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M54.3125 4.53223C39.9705 0.000102997 26.6468 0 0 0V121C26.6468 121 39.9705 121 54.3125 116.468C69.9714 110.772 82.3064 98.4442 88.0059 82.7949C92.5408 71.3903 92.541 62.92 92.541 60.5C92.541 58.08 92.5408 49.6097 88.0059 38.2051C82.3064 22.5559 69.9714 10.2282 54.3125 4.53223Z"/>
+              </svg>
+            </div>
+
+            <div class="imsg is-interactive">
+              <svg class="imsg-cap imsg-cap-l tail" viewBox="0 0 93 142" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M66 121H92.541V0C65.8942 0 52.5705 0.000102997 38.2285 4.53223C22.5696 10.2282 10.2347 22.5559 4.53516 38.2051C0.000221252 49.6097 0 58.08 0 60.5C0 62.92 0.000219822 71.3903 4.53516 82.7949C9.02507 95.1229 18.2797 104.404 28.7402 111.976C31.7741 114.171 32.5953 118.94 32 124C31 132.5 23 137 27 141C30.7375 144.737 52.8316 121 66 121Z"/>
+              </svg>
+              <a
+                class="imsg-body mail"
+                href="mailto:vanditkumarofficial@gmail.com"
+                data-track="contact"
+                data-track-id="email"
+                data-cuelume-hover="whisper"
+                data-cuelume-press
+                data-cuelume-release
+              >vanditkumarofficial@gmail.com</a>
+              <svg class="imsg-cap imsg-cap-r" viewBox="0 0 93 121" fill="none" aria-hidden="true">
+                <path class="fill-message" d="M54.3125 4.53223C39.9705 0.000102997 26.6468 0 0 0V121C26.6468 121 39.9705 121 54.3125 116.468C69.9714 110.772 82.3064 98.4442 88.0059 82.7949C92.5408 71.3903 92.541 62.92 92.541 60.5C92.541 58.08 92.5408 49.6097 88.0059 38.2051C82.3064 22.5559 69.9714 10.2282 54.3125 4.53223Z"/>
+              </svg>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <aside class="media-rail" aria-label="Product demos">
+      <div class="media-stack" data-examinable>
+        <figure class="preview-media">
+          <div class="video-player" data-video-player>
+            <video
+              class="video-el"
+              src="/media/googlemaps.mp4"
+              poster="/media/googlemaps.jpg"
+              width="1440"
+              height="904"
+              muted
+              loop
+              playsinline
+              autoplay
+              preload="auto"
+              disablepictureinpicture
+            ></video>
+            <div class="video-hud">
+              <button type="button" class="video-toggle" data-state="playing" aria-label="Pause video">
+                <svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+                <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.29-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+                </svg>
+              </button>
+              <svg class="video-ring" viewBox="0 0 32 32" aria-hidden="true">
+                <circle class="video-ring-track" cx="16" cy="16" r="14" />
+                <circle class="video-ring-prog" cx="16" cy="16" r="14" />
+              </svg>
+            </div>
+          </div>
+        </figure>
+
+        <figure class="preview-media">
+          <div class="video-player" data-video-player>
+            <video
+              class="video-el"
+              src="/media/reviews.mp4"
+              poster="/media/reviews.jpg"
+              width="1440"
+              height="902"
+              muted
+              loop
+              playsinline
+              autoplay
+              preload="metadata"
+              disablepictureinpicture
+            ></video>
+            <div class="video-hud">
+              <button type="button" class="video-toggle" data-state="playing" aria-label="Pause video">
+                <svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+                <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.29-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+                </svg>
+              </button>
+              <svg class="video-ring" viewBox="0 0 32 32" aria-hidden="true">
+                <circle class="video-ring-track" cx="16" cy="16" r="14" />
+                <circle class="video-ring-prog" cx="16" cy="16" r="14" />
+              </svg>
+            </div>
+          </div>
+        </figure>
+
+        <figure class="preview-media">
+          <div class="video-player" data-video-player>
+            <video
+              class="video-el"
+              src="/media/copyinstructions.mp4"
+              poster="/media/copyinstructions.jpg"
+              width="1440"
+              height="928"
+              muted
+              loop
+              playsinline
+              autoplay
+              preload="metadata"
+              disablepictureinpicture
+            ></video>
+            <div class="video-hud">
+              <button type="button" class="video-toggle" data-state="playing" aria-label="Pause video">
+                <svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+                <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.29-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+                </svg>
+              </button>
+              <svg class="video-ring" viewBox="0 0 32 32" aria-hidden="true">
+                <circle class="video-ring-track" cx="16" cy="16" r="14" />
+                <circle class="video-ring-prog" cx="16" cy="16" r="14" />
+              </svg>
+            </div>
+          </div>
+        </figure>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module">
+    import { bind, play, setVolume } from 'https://esm.sh/cuelume@0.2.2';
+    import { bindMediaRail } from '/js/media-rail.js';
+    import { bindExamine } from '/js/examine.js';
+    import { armCues } from '/js/cues.js';
+
+    /** @param {string} name @param {Record<string, string | number | boolean>} [data] */
+    function track(name, data) {
+      try {
+        window.va?.('event', data ? { name, data } : { name });
+      } catch {
+        /* analytics must never break UX */
+      }
+    }
+
+    setVolume(0.65);
+    bind();
+    bindMediaRail();
+    bindExamine();
+
+    // Settle entrance animations so hover transforms aren't overridden
+    document.querySelectorAll('.imsg').forEach((el) => {
+      const done = () => el.classList.add('settled');
+      el.addEventListener('animationend', done, { once: true });
+      // fallback if animation already finished / reduced motion
+      setTimeout(done, 1200);
+    });
+
+    // Delegated click tracking for data-track elements (≤2 custom keys for Vercel Pro)
+    document.addEventListener('click', (event) => {
+      const el = event.target instanceof Element
+        ? event.target.closest('[data-track]')
+        : null;
+      if (!el) return;
+      const name = el.getAttribute('data-track');
+      const id = el.getAttribute('data-track-id');
+      if (!name) return;
+      // copy_agent fires a richer outcome event from the handler below
+      if (id === 'copy_agent') return;
+      track(name, id ? { id } : undefined);
+    }, { capture: true });
+
+    const btn = document.getElementById('copy-agent');
+    let instruction = '';
+
+    async function loadInstruction() {
+      const res = await fetch('/agent-instruction.md', { cache: 'no-cache' });
+      if (!res.ok) throw new Error('load failed');
+      instruction = await res.text();
+    }
+
+    async function copy() {
+      try {
+        if (!instruction) await loadInstruction();
+        await navigator.clipboard.writeText(instruction);
+        play('success');
+        track('copy_agent', { result: 'ok' });
+        btn?.classList.add('copied');
+        setTimeout(() => {
+          btn?.classList.remove('copied');
+        }, 2000);
+      } catch {
+        play('error');
+        track('copy_agent', { result: 'error' });
+      }
+    }
+
+    btn?.addEventListener('click', () => { void copy(); });
+    void loadInstruction().catch(() => {});
+
+    // First interaction cue + engage signal
+    const unlock = () => {
+      play('ready', { volume: 0.35 });
+      armCues();
+      track('engage', { type: 'pointer' });
+      window.removeEventListener('pointerdown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+
+    // Visibility / dwell breadcrumbs
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        track('session', { state: 'hidden' });
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# googlemaps-kit
+
+> TypeScript SDK for programmatic access to Google Maps consumer surfaces. No Maps Platform API key.
+
+- Site: https://googlemapskit.vaandeetttt.com
+- npm: https://www.npmjs.com/package/googlemaps-kit
+- GitHub: https://github.com/KumarVandit/googlemaps-kit
+- Agent skill: https://github.com/KumarVandit/googlemaps-kit/tree/main/skills/googlemaps-kit
+- Agent bootstrap prompt: https://googlemapskit.vaandeetttt.com/agent-instruction.md
+
+## Install
+
+```bash
+npm install googlemaps-kit
+npx skills add KumarVandit/googlemaps-kit --skill googlemaps-kit --agent '*'
+```
+
+## Quick start
+
+```ts
+import { sdk, createMapsTools, toGeoJSON } from 'googlemaps-kit';
+const maps = sdk({ locale: { hl: 'en', gl: 'in' }, hooks: { onAction: console.log } });
+const { places } = await maps.discover({ query: 'coffee', near: { lat: 12.98, lng: 77.64 } });
+const { place } = await maps.profile(places[0]!, { depth: 'card' });
+const tools = maps.tools(); // discover, gridSearch (area crawl), profile, route, opinions, media, pipeline
+```
+
+CLI: `npx googlemaps-kit` (TUI) or scripted — discover / grid (area lead crawl) / geocode / streetview / terrain (--planet mars) / surfaces / route / opinions / media / pipeline. Piped output is JSON by default.
+
+Also: `discoverPages`, `profileMany`, `pipeline`, `signal` / `onProgress`, `cache`, `toCsv` / `toGeoJSON`.
+
+## Entries
+
+- `googlemaps-kit` - apps & agents (`sdk`, Intent, namespaces, tools)
+- `googlemaps-kit/advanced` - HTTP, protobuf, RPC, parsers
