@@ -6,7 +6,7 @@ describe('PLATFORM_CATALOG', () => {
   it('lists all four product categories', () => {
     const categories = new Set(PLATFORM_CATALOG.map((p) => p.category));
     expect(categories).toEqual(new Set(['maps', 'routes', 'places', 'environment']));
-    expect(PLATFORM_CATALOG.length).toBe(35);
+    expect(PLATFORM_CATALOG.length).toBe(34);
   });
 
   it('points kitPath at client namespaces', () => {
@@ -24,7 +24,7 @@ describe('PLATFORM_CATALOG', () => {
 describe('platform coverage', () => {
   it('summarizes product status counts', () => {
     const summary = summarizePlatformCoverage();
-    expect(summary.total).toBe(35);
+    expect(summary.total).toBe(34);
     expect(summary.byStatus.working).toBeGreaterThan(0);
     expect(summary.keyless.length).toBeGreaterThan(15);
   });

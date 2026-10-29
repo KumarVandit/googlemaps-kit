@@ -41,8 +41,8 @@ not bulk scraping.
    typed results.
 3. **Intent + namespaces** — call `discover` / `profile` / `route` for common flows, or
    use domain namespaces (`places`, `travel`, `map`, …) for full control.
-4. **No headless browser** — except `passiveAssist`, which needs a viewport token you
-   supply externally.
+4. **Maps over HTTP** — `passiveAssist` needs a viewport token supplied externally.
+   The separate optional `gemini-web` client uses a caller-owned browser Page.
 
 ## Quick start
 
@@ -75,6 +75,58 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 |--------|---------|
 | `googlemaps-kit` | Apps & agents — `sdk()`, Intent API, namespaces, result types |
 | `googlemaps-kit/advanced` | Under the hood — HTTP client, protobuf builders, RPC, parsers |
+| `googlemaps-kit/pagespeed` | Keyless PageSpeed web analyses, Lighthouse reports, URL/origin CrUX, and the v5 API |
+| `googlemaps-kit/translate` | Public text translation, detected language, suggestions, language lists, and MP3 speech |
+| `googlemaps-kit/news` | Public Google News headline and search feeds |
+| `googlemaps-kit/finance` | Public Finance quotes, instrument search, and historical chart data |
+| `googlemaps-kit/trends` | Verified topic suggestions and trending RSS; Explore/embed links |
+| `googlemaps-kit/google-search` | Verified autocomplete; experimental Search parsing with explicit blocked/unverified states |
+| `googlemaps-kit/flights` | Public one-way flight offers with schedules and available prices |
+| `googlemaps-kit/hotels` | Public hotel search, displayed prices, and page tokens |
+| `googlemaps-kit/youtube` | Public video metadata, search and continuation, oEmbed, and available caption-track metadata |
+| `googlemaps-kit/lens` | Image upload session and public image-URL search links; OCR/match extraction remains blocked |
+| `googlemaps-kit/books` | Public book bibliographic metadata; no book text or account access |
+| `googlemaps-kit/gemini-web` | Consumer text generation through a caller-owned browser Page; HTTP bootstrap inspection |
+
+The additional clients use public consumer interfaces with their own data and
+access limits. They do not provide full paid Cloud API parity or guaranteed
+throughput. See the [Google services inventory](docs/google-services-research.md)
+for 25 product families, official pricing/access links, and investigation status.
+
+Guides: [Translate](docs/translate.md), [News](docs/news.md),
+[Finance](docs/finance.md), [Trends](docs/trends.md),
+[Flights and Hotels](docs/google-travel-research.md),
+[YouTube](docs/youtube.md), [Lens](docs/lens.md),
+[Books](docs/books.md), [Gemini browser client](docs/gemini-web.md),
+[Search and AI Overview limitations](docs/google-search.md),
+[Reviews validation](docs/reviews-research.md),
+[Weather and Air Quality boundaries](docs/environment-research.md).
+
+Run their opt-in network checks with `npm run test:google-public:live`.
+Search checks report challenges explicitly; passing a blocked-state check does
+not establish working organic-result or AI Overview extraction.
+
+### PageSpeed Insights
+
+The separate PageSpeed client uses the web app's HTTP protocol. It starts mobile
+and desktop analyses together, polls pending jobs, and returns complete Lighthouse
+reports alongside URL and origin field data. No API key or browser is required for
+this flow.
+
+```typescript
+import { pageSpeed } from 'googlemaps-kit/pagespeed';
+
+const speed = pageSpeed();
+const analysis = await speed.analyze('https://example.com/');
+const mobile = analysis.results.find(r => r.type === 'lighthouse' && r.strategy === 'mobile');
+console.log(mobile?.lighthouse?.categories.performance?.score);
+console.log(analysis.reportUrl);
+```
+
+Use `createAnalysis`, `pollAnalysis`, and `getAnalysis` to manage jobs explicitly.
+`runPagespeed` provides the documented v5 API, with an optional user-supplied key.
+See [PageSpeed usage](docs/pagespeed.md) and the
+[protocol investigation](docs/pagespeed-research.md) for contracts and coverage.
 
 ## Intent API
 

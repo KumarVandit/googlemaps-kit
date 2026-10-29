@@ -45,16 +45,12 @@ export class AirQualityService {
       );
     }
 
-    const params = new URLSearchParams();
-    params.set('location.latitude', String(options.lat));
-    params.set('location.longitude', String(options.lng));
-    const url = `https://airquality.googleapis.com/v1/currentConditions:lookup?${params.toString()}`;
-    const body = await this.http.get<string>(url, {
+    const data = await this.http.postJson<Record<string, unknown>>('https://airquality.googleapis.com/v1/currentConditions:lookup', {
+      location: { latitude: options.lat, longitude: options.lng },
+    }, {
       extraHeaders: { 'X-Goog-Api-Key': apiKey },
-      raw: true,
       noRetry: true,
     });
-    const data = JSON.parse(body) as Record<string, unknown>;
     return parseAirQualityApiResponse(data);
   }
 

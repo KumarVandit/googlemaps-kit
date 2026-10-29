@@ -238,13 +238,6 @@ export const KNOWN_SURFACES = {
     notes:
       'Composable tile sessions (map.tiles) and buildViewportLink — not the billed Maps JavaScript API.',
   },
-  aerialView: {
-    status: 'auth-required',
-    method: 'GET',
-    path: 'aerialview.googleapis.com/v1/videos:*',
-    notes:
-      'Aerial View API only — consumer place preview does not expose cinematic video URIs. map.aerialView with GMAPS_AERIAL_VIEW_API_KEY.',
-  },
   mapsUrlBuilders: {
     status: 'working',
     method: 'N/A',

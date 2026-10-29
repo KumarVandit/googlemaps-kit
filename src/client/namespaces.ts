@@ -39,7 +39,6 @@ import { UgcAggregatesService } from '../services/meta.js';
 import { UserPrefsService } from '../services/meta.js';
 import { WaypointOptimizerService } from '../services/waypoint-optimizer.js';
 import { fetchPlaceComplete, enrichSearchResults } from './place-workflows.js';
-import { AerialViewService } from '../services/aerial-view.js';
 import { buildEmbedUrl } from '../rpc/maps-url-builders.js';
 import { AirQualityService } from '../services/environment/air-quality.js';
 import { WeatherService } from '../services/environment/weather.js';
@@ -190,7 +189,6 @@ export interface ServiceBundle {
   userPrefs: UserPrefsService;
   askMaps: AskMapsService;
   nearbySearch: NearbySearchService;
-  aerialView: AerialViewService;
   roads: RoadsService;
   addressValidation: AddressValidationService;
   geolocation: GeolocationService;
@@ -311,7 +309,7 @@ export class TravelNamespace {
 
 }
 
-/** Tiles, static map, Street View, embed URLs, aerial view. */
+/** Tiles, static map, Street View, and embed URLs. */
 export class MapNamespace {
   readonly tiles: TilesService;
   readonly staticMap: StaticMapService;
@@ -319,7 +317,6 @@ export class MapNamespace {
   readonly layers: MapLayersService;
   readonly map3d: Map3dService;
   readonly earth: MapEarthService;
-  readonly aerialView: AerialViewService;
 
   constructor(s: ServiceBundle) {
     this.tiles = s.tiles;
@@ -328,7 +325,6 @@ export class MapNamespace {
     this.layers = s.layers;
     this.map3d = s.map3d;
     this.earth = s.earth;
-    this.aerialView = s.aerialView;
   }
 
   /** Build a Maps Embed iframe URL (no network I/O). */
@@ -451,7 +447,6 @@ export function createServiceBundle(http: HttpClient, config: GMapsConfig): Serv
     userPrefs: new UserPrefsService(http, config),
     askMaps: new AskMapsService(http, config),
     nearbySearch: new NearbySearchService(http, config),
-    aerialView: new AerialViewService(http, config),
     roads: new RoadsService(http, config),
     addressValidation: new AddressValidationService(http, config),
     geolocation: new GeolocationService(http, config),

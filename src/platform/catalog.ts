@@ -31,15 +31,6 @@ export const PLATFORM_CATALOG: readonly PlatformProduct[] = [
     notes: 'Rocktree mesh decode from kh.google.com/rt/earth.',
   },
   {
-    id: 'aerialView',
-    category: 'maps',
-    name: 'Aerial View',
-    auth: 'api-key-required',
-    kitStatus: 'api-key-required',
-    kitPath: 'map.aerialView',
-    notes: 'Cinematic video via aerialview.googleapis.com when apiKey is set.',
-  },
-  {
     id: 'dynamicMaps',
     category: 'maps',
     name: 'Dynamic Maps',

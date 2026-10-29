@@ -1,7 +1,7 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.6.0",
-  "description": "TypeScript SDK + Bubble Tea TUI for Google Maps consumer surfaces",
+  "version": "0.7.0",
+  "description": "TypeScript SDK + Bubble Tea TUI for Google Maps and public Google consumer services",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,6 +10,78 @@
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      }
+    },
+    "./pagespeed": {
+      "import": {
+        "types": "./dist/pagespeed.d.ts",
+        "default": "./dist/pagespeed.js"
+      }
+    },
+    "./translate": {
+      "import": {
+        "types": "./dist/translate.d.ts",
+        "default": "./dist/translate.js"
+      }
+    },
+    "./news": {
+      "import": {
+        "types": "./dist/news.d.ts",
+        "default": "./dist/news.js"
+      }
+    },
+    "./google-search": {
+      "import": {
+        "types": "./dist/google-search.d.ts",
+        "default": "./dist/google-search.js"
+      }
+    },
+    "./trends": {
+      "import": {
+        "types": "./dist/trends.d.ts",
+        "default": "./dist/trends.js"
+      }
+    },
+    "./finance": {
+      "import": {
+        "types": "./dist/finance.d.ts",
+        "default": "./dist/finance.js"
+      }
+    },
+    "./flights": {
+      "import": {
+        "types": "./dist/flights.d.ts",
+        "default": "./dist/flights.js"
+      }
+    },
+    "./hotels": {
+      "import": {
+        "types": "./dist/hotels.d.ts",
+        "default": "./dist/hotels.js"
+      }
+    },
+    "./youtube": {
+      "import": {
+        "types": "./dist/youtube.d.ts",
+        "default": "./dist/youtube.js"
+      }
+    },
+    "./lens": {
+      "import": {
+        "types": "./dist/lens.d.ts",
+        "default": "./dist/lens.js"
+      }
+    },
+    "./books": {
+      "import": {
+        "types": "./dist/books.d.ts",
+        "default": "./dist/books.js"
+      }
+    },
+    "./gemini-web": {
+      "import": {
+        "types": "./dist/gemini-web.d.ts",
+        "default": "./dist/gemini-web.js"
       }
     },
     "./advanced": {
@@ -24,6 +96,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "LICENSE",
     "README.md",
     ".github/assets/banner.png"
@@ -41,6 +114,8 @@
     "test": "vitest run tests/unit",
     "test:watch": "vitest",
     "test:live": "GMAPS_LIVE=1 vitest run tests/live",
+    "test:pagespeed:live": "GMAPS_LIVE=1 PAGESPEED_LIVE=1 vitest run tests/live/pagespeed.test.ts",
+    "test:google-public:live": "GMAPS_LIVE=1 FINANCE_LIVE=1 GOOGLE_TRAVEL_LIVE=1 vitest run tests/live/google-translate.test.ts tests/live/google-news.test.ts tests/live/trends.test.ts tests/live/google-search.test.ts tests/live/finance.test.ts tests/live/google-travel.test.ts tests/live/google-media.test.ts tests/live/google-ai-books.test.ts",
     "preexample": "npm run build",
     "example:quick-start": "tsx examples/quick-start.ts",
     "example:search": "tsx examples/search-text.ts",

@@ -163,9 +163,11 @@ export class ReviewsService {
 
     token = options.paginationToken;
     pages = 0;
+    lastNextPageToken = undefined;
 
     while (pages < maxPages) {
-      const page = await this.listRpc({ ...options, includeAggregates: false });
+      const page = await this.listRpc({ ...options, paginationToken: token, includeAggregates: false });
+      lastNextPageToken = page.nextPageToken;
       if (page.reviews.length === 0) break;
 
       for (const review of page.reviews) {
@@ -193,6 +195,7 @@ export class ReviewsService {
         totalReviews: totalReviews ?? embedded.totalReviews,
         ratingDistribution,
         aggregateRating,
+        nextPageToken: lastNextPageToken,
       },
       options.filters,
     );

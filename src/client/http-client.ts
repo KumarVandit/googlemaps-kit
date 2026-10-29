@@ -77,7 +77,7 @@ export interface HttpClientOptions {
 }
 
 export interface HttpClientStats {
-  /** Completed data requests (get / getBytes). */
+  /** Completed data requests (get / postJson / getBytes). */
   requestCount: number;
   /** Session bootstrap calls (anonymous warming only). */
   sessionWarmCount: number;
@@ -122,7 +122,19 @@ export class HttpClient {
     return this.scheduler.run(() => this.getInternal<T>(url, options));
   }
 
-  private async getInternal<T = unknown>(url: string, options?: HttpGetOptions): Promise<T> {
+  /** Sends JSON and parses the JSON response; retries are disabled unless explicitly requested. */
+  async postJson<T = unknown>(url: string, body: Record<string, unknown>, options?: HttpGetOptions): Promise<T> {
+    const text = await this.scheduler.run(() => this.getInternal<string>(url, {
+      ...options,
+      noRetry: options?.noRetry ?? true,
+      raw: true,
+      allowShortBody: true,
+      extraHeaders: { 'Content-Type': 'application/json', ...options?.extraHeaders },
+    }, { method: 'POST', body: JSON.stringify(body) }));
+    return JSON.parse(text) as T;
+  }
+
+  private async getInternal<T = unknown>(url: string, options?: HttpGetOptions, request?: { method: 'POST'; body: string }): Promise<T> {
     const maxRetries = options?.noRetry ? 0 : (this.config.maxRetries ?? 2);
     const retryDelay = this.config.retryDelay ?? 500;
     const retryMaxDelay = this.config.retryMaxDelay ?? 30_000;
@@ -170,11 +182,11 @@ export class HttpClient {
         }
 
         if (this.config.debug) {
-          console.debug(`[googlemaps-kit] GET ${url.slice(0, 120)}...`);
+          console.debug(`[googlemaps-kit] ${request?.method ?? 'GET'} ${url.slice(0, 120)}...`);
         }
 
         const start = performance.now();
-        const response = await fetch(url, { headers, redirect: 'follow', signal });
+        const response = await fetch(url, { headers, redirect: 'follow', signal, ...request });
         const elapsed = performance.now() - start;
 
         this.mergeResponseCookies(response.headers);

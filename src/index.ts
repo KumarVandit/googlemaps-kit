@@ -160,16 +160,6 @@ export type {
   PanoramaTileGrid,
 } from './types/panorama.js';
 export type {
-  AerialViewCaptureDate,
-  AerialViewFormat,
-  AerialViewLookupOptions,
-  AerialViewLookupResult,
-  AerialViewMetadata,
-  AerialViewOrientationUris,
-  AerialViewRenderOptions,
-  AerialViewState,
-} from './types/aerial-view.js';
-export type {
   TileCoordinates,
   MapTileLayer,
   MapTileEndpoint,

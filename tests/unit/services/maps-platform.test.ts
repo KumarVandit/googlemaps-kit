@@ -6,7 +6,6 @@ describe('consolidated namespaces', () => {
   it('exposes one path per capability', () => {
     const maps = sdk();
 
-    expect(maps.map.aerialView).toBeDefined();
     expect(maps.map.buildEmbedUrl).toBeTypeOf('function');
     expect(maps.travel.roads).toBeDefined();
     expect(maps.travel.bikeShare.getAvailability).toBeTypeOf('function');
@@ -21,8 +20,8 @@ describe('consolidated namespaces', () => {
 
   it('indexes platform products on surfaces', () => {
     const maps = sdk();
-    expect(maps.surfaces.products()).toHaveLength(35);
-    expect(maps.surfaces.coverage().total).toBe(35);
+    expect(maps.surfaces.products()).toHaveLength(34);
+    expect(maps.surfaces.coverage().total).toBe(34);
     expect(maps.surfaces.product('textSearch').kitPath).toBe('places.search');
   });
 });

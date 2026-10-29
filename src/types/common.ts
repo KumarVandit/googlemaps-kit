@@ -42,8 +42,6 @@ export interface GMapsConfig {
   buildLabel?: string;
   /** batchexecute session id (`f.sid` query param) */
   sessionId?: string;
-  /** Aerial View API key (aerialview.googleapis.com) — optional default for map.aerialView */
-  aerialViewApiKey?: string;
   roadsApiKey?: string;
   solarApiKey?: string;
   pollenApiKey?: string;
