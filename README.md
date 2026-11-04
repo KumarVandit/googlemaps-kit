@@ -75,7 +75,6 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 |--------|---------|
 | `googlemaps-kit` | Apps & agents — `sdk()`, Intent API, namespaces, result types |
 | `googlemaps-kit/advanced` | Under the hood — HTTP client, protobuf builders, RPC, parsers |
-| `googlemaps-kit/pagespeed` | Keyless PageSpeed web analyses, Lighthouse reports, URL/origin CrUX, and the v5 API |
 | `googlemaps-kit/translate` | Public text translation, detected language, suggestions, language lists, and MP3 speech |
 | `googlemaps-kit/news` | Public Google News headline and search feeds |
 | `googlemaps-kit/finance` | Public Finance quotes, instrument search, and historical chart data |
@@ -106,27 +105,13 @@ Run their opt-in network checks with `npm run test:google-public:live`.
 Search checks report challenges explicitly; passing a blocked-state check does
 not establish working organic-result or AI Overview extraction.
 
-### PageSpeed Insights
+### PageSpeed is a separate product
 
-The separate PageSpeed client uses the web app's HTTP protocol. It starts mobile
-and desktop analyses together, polls pending jobs, and returns complete Lighthouse
-reports alongside URL and origin field data. No API key or browser is required for
-this flow.
-
-```typescript
-import { pageSpeed } from 'googlemaps-kit/pagespeed';
-
-const speed = pageSpeed();
-const analysis = await speed.analyze('https://example.com/');
-const mobile = analysis.results.find(r => r.type === 'lighthouse' && r.strategy === 'mobile');
-console.log(mobile?.lighthouse?.categories.performance?.score);
-console.log(analysis.reportUrl);
-```
-
-Use `createAnalysis`, `pollAnalysis`, and `getAnalysis` to manage jobs explicitly.
-`runPagespeed` provides the documented v5 API, with an optional user-supplied key.
-See [PageSpeed usage](docs/pagespeed.md) and the
-[protocol investigation](docs/pagespeed-research.md) for contracts and coverage.
+PageSpeed Insights and its CrUX/Lighthouse workflow now live in
+[`pagespeed-kit`](https://www.npmjs.com/package/pagespeed-kit), with their own
+[repository](https://github.com/KumarVandit/pagespeed-kit).
+The `googlemaps-kit/pagespeed` export was removed in 0.8.0.
+See the [migration guide](docs/pagespeed-migration.md) to update existing imports.
 
 ## Intent API
 
@@ -409,15 +394,18 @@ clients: `npm run api:serve` (dev, tsx) or `npm run api:build` (compiled).
 - Signed-in features need cookies you supply — the kit does not perform Google login.
 - `passiveAssist` needs a viewport `psi` you supply externally.
 
-Surfaces Google does not publish anonymously throw a typed error naming the
-alternative rather than returning an empty result:
+Unsupported or unverified operations throw typed errors instead of returning
+invented data. Current evidence and remaining work are recorded in the
+[Maps investigation notes](docs/maps-unresolved-research.md):
 
 | Call | Why |
 |------|-----|
 | `location.context.getNearby()` / `getAreas()` | Neighbourhood polygons are vector-tile only. Use `getRegions()` for the administrative hierarchy, or `map.map3d` for the photorealistic mesh. |
-| `travel.ev.getStatus()` / `getPricing()` | Live plug availability and tariffs are not published. `findCharging()` returns connector type, power and plug count. |
-| `travel.parking.getAvailability()` / `getPricing()` | Space counts and posted rates are not in place data. |
-| `agent.askMaps.ask()` / `meta.userPrefs.get()` | Signed-in only — Google answers error stubs to anonymous batchexecute. Supply `GMAPS_COOKIES`. |
+| `travel.ev.getStatus()` / `getPricing()` | Live state mapping and tariffs remain unverified. `findCharging()` returns the validated connector data. |
+| `travel.parking.getAvailability()` / `getPricing()` | Live counts and tariff layouts remain unverified. |
+| `agent.ask()` / `agent.listHistoryThreads()` | Successful authenticated execution remains unverified. Anonymous probes returned HTTP 500 and `[3]`; these results do not prove that cookies alone enable access. |
+| `meta.userPrefs.get()` | Anonymous calls return stubs; authenticated preference fields remain unverified. |
+| `meta.lists.list()` | Public list discovery has no verified transport. Use `meta.lists.get()` with a shared-list URL or id. |
 
 3D buildings and terrain work anonymously through Google Earth's rocktree
 octree (`kh.google.com/rt/earth`) — the same photorealistic mesh the web
@@ -436,7 +424,8 @@ the tiles; `panorama.getTileGrid(id)` returns the full equirectangular tile
 pyramid the web client renders from. `map.layers.getViewportCapabilities()`
 reports which capability ids Google publishes for a viewport.
 
-`maps.surfaces.catalog()` lists all 66 known surfaces with their status.
+`maps.surfaces.catalog()` lists the known surfaces with their individual status;
+registration is separate from successful live verification.
 
 ## Development
 
