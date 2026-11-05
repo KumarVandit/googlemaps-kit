@@ -1,6 +1,6 @@
 {
   "name": "googlemaps-kit",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "TypeScript SDK + Bubble Tea TUI for Google Maps and public Google consumer services",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,12 +22,6 @@
       "import": {
         "types": "./dist/news.d.ts",
         "default": "./dist/news.js"
-      }
-    },
-    "./google-search": {
-      "import": {
-        "types": "./dist/google-search.d.ts",
-        "default": "./dist/google-search.js"
       }
     },
     "./trends": {
@@ -108,7 +102,7 @@
     "test": "vitest run tests/unit",
     "test:watch": "vitest",
     "test:live": "GMAPS_LIVE=1 vitest run tests/live",
-    "test:google-public:live": "GMAPS_LIVE=1 FINANCE_LIVE=1 GOOGLE_TRAVEL_LIVE=1 vitest run tests/live/google-translate.test.ts tests/live/google-news.test.ts tests/live/trends.test.ts tests/live/google-search.test.ts tests/live/finance.test.ts tests/live/google-travel.test.ts tests/live/google-media.test.ts tests/live/google-ai-books.test.ts",
+    "test:google-public:live": "GMAPS_LIVE=1 FINANCE_LIVE=1 GOOGLE_TRAVEL_LIVE=1 vitest run tests/live/google-translate.test.ts tests/live/google-news.test.ts tests/live/trends.test.ts tests/live/finance.test.ts tests/live/google-travel.test.ts tests/live/google-media.test.ts tests/live/google-ai-books.test.ts",
     "preexample": "npm run build",
     "example:quick-start": "tsx examples/quick-start.ts",
     "example:search": "tsx examples/search-text.ts",

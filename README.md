@@ -79,7 +79,6 @@ console.log(place.name, place.rating, reviews.reviews.length, 'reviews');
 | `googlemaps-kit/news` | Public Google News headline and search feeds |
 | `googlemaps-kit/finance` | Public Finance quotes, instrument search, and historical chart data |
 | `googlemaps-kit/trends` | Verified topic suggestions and trending RSS; Explore/embed links |
-| `googlemaps-kit/google-search` | Verified autocomplete; experimental Search parsing with explicit blocked/unverified states |
 | `googlemaps-kit/flights` | Public one-way flight offers with schedules and available prices |
 | `googlemaps-kit/hotels` | Public hotel search, displayed prices, and page tokens |
 | `googlemaps-kit/youtube` | Public video metadata, search and continuation, oEmbed, and available caption-track metadata |
@@ -97,13 +96,19 @@ Guides: [Translate](docs/translate.md), [News](docs/news.md),
 [Flights and Hotels](docs/google-travel-research.md),
 [YouTube](docs/youtube.md), [Lens](docs/lens.md),
 [Books](docs/books.md), [Gemini browser client](docs/gemini-web.md),
-[Search and AI Overview limitations](docs/google-search.md),
 [Reviews validation](docs/reviews-research.md),
 [Weather and Air Quality boundaries](docs/environment-research.md).
 
 Run their opt-in network checks with `npm run test:google-public:live`.
 Search checks report challenges explicitly; passing a blocked-state check does
 not establish working organic-result or AI Overview extraction.
+
+### AI Search Overview is a separate product
+
+Google Search/Overview clients, parsers and autocomplete now live in
+[`aisearchoverview-kit`](https://github.com/KumarVandit/aisearchoverview-kit).
+The `googlemaps-kit/google-search` export was removed in 0.9.0.
+Use `sdk().overview.get()` in the standalone package for Overview retrieval.
 
 ### PageSpeed is a separate product
 
