@@ -1,4 +1,4 @@
-import { descendants, parseHtml, visibleText } from './google-search/html.js';
+import { descendants, parseHtml, visibleText } from './utils/html.js';
 import { googleWebText, GoogleWebError, positiveTimeout, type GoogleWebConfig, type GoogleWebRequestOptions } from './utils/google-web.js';
 
 export { GoogleWebError } from './utils/google-web.js';

@@ -1,4 +1,4 @@
-import { decodeEntities, descendants, parseHtml, visibleText, type HtmlNode } from '../google-search/html.js';
+import { decodeEntities, descendants, parseHtml, visibleText, type HtmlNode } from '../utils/html.js';
 import { googleBootstrap, GoogleWebError } from '../utils/google-web.js';
 import type { GeminiWebBootstrap, GeminiWebMessage } from './types.js';
 
